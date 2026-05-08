@@ -21,7 +21,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, onSelect, compact }
     >
       <div className={`${compact ? 'w-32 h-full' : 'h-40 w-full'} overflow-hidden relative`}>
         <img
-          src={venue.imageUrl}
+          src={venue.imageUrls && venue.imageUrls.length > 0 ? venue.imageUrls[0] : 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=800&q=80'}
           alt={venue.name}
           className="w-full h-full object-cover transition-transform group-hover:scale-105"
         />

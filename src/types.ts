@@ -7,13 +7,16 @@ export interface Event {
   category: EventCategory;
   price: number;
   minParticipants: number;
-  currentParticipants: number;
+  participantsCount: number;
   deadline: string; // ISO date string
   startTime: string; // ISO date string
   status: 'Pending' | 'Confirmed' | 'Cancelled';
   organizerId: string;
   venueId?: string;
-  imageUrl: string;
+  imageUrls: string[];
+  mapsLink?: string;
+  impressions?: number;
+  clicks?: number;
 }
 
 export interface Venue {
@@ -23,7 +26,17 @@ export interface Venue {
   location: string;
   hourlyRate: number;
   capacity: number;
-  imageUrl: string;
+  imageUrls: string[];
+  ownerId: string;
+}
+
+export interface Comment {
+  id: string;
+  eventId: string;
+  userId: string;
+  userName: string;
+  text: string;
+  createdAt: string;
 }
 
 export interface User {
