@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Schemas ---
+    function isValidEvent(data) {
+      return data.keys().hasAll(['title', 'description', 'category', 'organizerId', 'status', 'createdAt']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.category is string &&
+             data.organizerId == request.auth.uid &&
+             data.status in ['Pending', 'Confirmed', 'Cancelled'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidVenue(data) {
+      return data.keys().hasAll(['name', 'location', 'ownerId']) &&
+             data.name is string && data.name.size() <= 200 &&
+             data.location is string && data.location.size() <= 1000 &&
+             data.ownerId == request.auth.uid;
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['userId', 'userName', 'text', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.text is string && data.text.size() <= 1000 &&
+             data.createdAt == request.time;
+    }
+
+    // --- Rules ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    match /events/{eventId} {
+      allow read: if true; // Everyone can see events
+      allow create: if isSignedIn() && isValidEvent(incoming());
+      allow update: if isSignedIn() && (
+        // Owner can update everything
+        (isOwner(existing().organizerId) && incoming().organizerId == existing().organizerId) ||
+        // Anyone can join (increment participantsCount) - client side state update
+        (incoming().diff(existing()).affectedKeys().hasOnly(['participantsCount', 'updatedAt'])) ||
+        // Analytics tracking
+        (incoming().diff(existing()).affectedKeys().hasAny(['impressions', 'clicks']) && 
+         incoming().diff(existing()).affectedKeys().size() <= 2)
+      );
+      allow delete: if isOwner(existing().organizerId);
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && isValidComment(incoming());
+        allow delete: if isOwner(existing().userId);
+      }
+
+      match /participants/{userId} {
+        allow read: if true;
+        allow write: if isOwner(userId);
+      }
+    }
+
+    match /venues/{venueId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidVenue(incoming());
+      allow update: if isOwner(existing().ownerId) && incoming().ownerId == existing().ownerId;
+      allow delete: if isOwner(existing().ownerId);
+    }
+  }
+}

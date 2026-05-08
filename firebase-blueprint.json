@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "Event": {
+      "title": "Event",
+      "description": "An event organized by a user",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "minParticipants": { "type": "number" },
+        "participantsCount": { "type": "number" },
+        "deadline": { "type": "string", "format": "date-time" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Pending", "Confirmed", "Cancelled"] },
+        "organizerId": { "type": "string" },
+        "venueId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "mapsLink": { "type": "string" },
+        "impressions": { "type": "number" },
+        "clicks": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "category", "organizerId", "status"]
+    },
+    "Venue": {
+      "title": "Venue",
+      "description": "A physical space that can be booked for events",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "hourlyRate": { "type": "number" },
+        "capacity": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["name", "location", "ownerId"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on an event",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "text", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Public profile information for users",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["Organiser", "VenueOwner", "Audience"] },
+        "avatarUrl": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "events": {
+      "schema": "Event",
+      "description": "Collection of all events"
+    },
+    "events/{eventId}/comments": {
+      "schema": "Comment",
+      "description": "Comments for a specific event"
+    },
+    "events/{eventId}/participants": {
+      "schema": { "type": "object", "properties": { "joinedAt": { "type": "string", "format": "date-time" } } },
+      "description": "Users who joined the event"
+    },
+    "venues": {
+      "schema": "Venue",
+      "description": "Collection of available venues"
+    },
+    "users": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    }
+  }
+}
