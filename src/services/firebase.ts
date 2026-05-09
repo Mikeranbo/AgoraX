@@ -1,15 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
-  GoogleAuthProvider, 
-  signInWithRedirect, 
-  getRedirectResult,
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
   signOut 
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Your web app's Firebase configuration
-// (These environment variables are automatically read by Vercel)
+// Конфигурация Firebase (считывается из Vercel автоматически)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -19,53 +17,47 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase services
+// Инициализируем приложение
 const app = initializeApp(firebaseConfig);
+
+// Экспортируем auth и db — БЕЗ них база данных и весь остальной проект сломаются!
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Configure Google Auth Provider
-const provider = new GoogleAuthProvider();
-// Forces Google to ask which account you want to use every time you log in
-provider.setCustomParameters({
-  prompt: 'select_account'
-});
-
 /**
- * Initiates the Google Sign-In process using Redirect.
- * This completely avoids browser popup blockers!
+ * Функция регистрации нового пользователя по почте и паролю
  */
-export const signInWithGoogle = async () => {
+export const registerWithEmail = async (email: string, pass: string) => {
   try {
-    await signInWithRedirect(auth, provider);
+    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    return result.user;
   } catch (error) {
-    console.error("Error initiating redirect sign-in:", error);
+    console.error("Ошибка при регистрации:", error);
     throw error;
   }
 };
 
 /**
- * Automatically checks if the user just returned from a Google redirect
- * and logs them in.
+ * Функция входа существующего пользователя по почте и паролю
  */
-getRedirectResult(auth)
-  .then((result) => {
-    if (result?.user) {
-      console.log("Successfully logged in via redirect:", result.user.displayName);
-    }
-  })
-  .catch((error) => {
-    console.error("Error processing redirect result:", error);
-  });
+export const loginWithEmail = async (email: string, pass: string) => {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, pass);
+    return result.user;
+  } catch (error) {
+    console.error("Ошибка при входе:", error);
+    throw error;
+  }
+};
 
 /**
- * Signs the current user out.
+ * Функция выхода из аккаунта
  */
 export const logout = async () => {
   try {
     await signOut(auth);
   } catch (error) {
-    console.error("Error signing out:", error);
+    console.error("Ошибка при выходе:", error);
     throw error;
   }
 };
