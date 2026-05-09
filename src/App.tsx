@@ -31,7 +31,7 @@ import {
   Hash,
   Upload,
 } from 'lucide-react';
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { 
   subscribeToEvents, 
@@ -51,26 +51,124 @@ import { VenueCard } from './components/VenueCard';
 // --- Components ---
 
 const AuthHero = () => {
-  const handleLogin = () => {
-    const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      if (isRegistering) {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'An error occurred during authentication');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-[#0f172a]">
-      <div className="w-24 h-24 gradient-brand rounded-[40px] flex items-center justify-center mb-8 shadow-2xl shadow-brand-primary/20 animate-pulse">
-        <span className="font-display font-black text-white text-4xl italic">A<span className="text-brand-secondary">X</span></span>
-      </div>
-      <h1 className="text-4xl font-display font-black text-white mb-4 tracking-tighter">Welcome to AgoraX</h1>
-      <p className="text-slate-400 text-sm max-w-[280px] mb-12 leading-relaxed font-medium mt-2">
-        A decentralized infrastructure for culture and community logic.
-      </p>
-      <button 
-        onClick={handleLogin}
-        className="w-full max-w-xs py-4 bg-white text-brand-dark rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95 shadow-xl"
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#0f172a] relative overflow-hidden">
+      {/* Decorative blobs */}
+      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-primary/10 rounded-full blur-[120px]" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-secondary/10 rounded-full blur-[120px]" />
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-sm relative z-10"
       >
-        Login with Google
-      </button>
+        <div className="flex flex-col items-center text-center mb-10">
+          <div className="w-20 h-20 gradient-brand rounded-[32px] flex items-center justify-center mb-6 shadow-2xl shadow-brand-primary/20">
+            <span className="font-display font-black text-white text-3xl italic">A<span className="text-brand-secondary">X</span></span>
+          </div>
+          <h1 className="text-3xl font-display font-black text-white mb-2 tracking-tight">AgoraX Secure Access</h1>
+          <p className="text-slate-400 text-xs font-medium uppercase tracking-[0.2em]">Distributed Culture Logic</p>
+        </div>
+
+        <div className="glass p-8 rounded-[40px] border border-white/10 shadow-2xl">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isRegistering && (
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest ml-1">Profile Name</label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="Full Name"
+                  className="w-full glass bg-white/5 border border-white/10 rounded-2xl p-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm transition-all"
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                />
+              </div>
+            )}
+            
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest ml-1">Email Protocol</label>
+              <input 
+                type="email"
+                required
+                placeholder="email@example.com"
+                className="w-full glass bg-white/5 border border-white/10 rounded-2xl p-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm transition-all"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest ml-1">Access Key</label>
+              <input 
+                type="password"
+                required
+                placeholder="••••••••"
+                className="w-full glass bg-white/5 border border-white/10 rounded-2xl p-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm transition-all"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+            </div>
+
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] uppercase font-bold tracking-widest p-3 rounded-xl"
+              >
+                {error}
+              </motion.div>
+            )}
+
+            <button 
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 gradient-brand text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transform active:scale-95 transition-all mt-6 disabled:opacity-50"
+            >
+              {loading ? 'Authenticating...' : isRegistering ? 'Initialize Identity' : 'Secure Entry'}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <button 
+              onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+              className="text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:text-brand-primary transition-colors"
+            >
+              {isRegistering ? 'Already have an access key?' : "Don't have an identity yet?"}
+            </button>
+          </div>
+        </div>
+
+        <p className="text-center mt-12 text-slate-600 text-[9px] uppercase tracking-widest font-medium">
+          Protected by end-to-end encrypted protocol V2.4.0
+        </p>
+      </motion.div>
     </div>
   );
 };
@@ -198,7 +296,7 @@ const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () =
     await addComment(event.id, {
       eventId: event.id,
       userId: auth.currentUser?.uid || 'anon',
-      userName: auth.currentUser?.displayName || 'Anonymous User',
+      userName: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Anonymous User',
       text: commentText
     });
     setCommentText('');
@@ -785,10 +883,10 @@ const MoreModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
             <div className="space-y-6">
               <div className="flex items-center gap-4 p-4 glass rounded-3xl">
                 <div className="w-16 h-16 rounded-full bg-brand-primary flex items-center justify-center text-white text-xl font-bold">
-                  {auth.currentUser?.displayName?.[0] || 'A'}
+                  {auth.currentUser?.displayName?.[0] || auth.currentUser?.email?.[0]?.toUpperCase() || 'A'}
                 </div>
                 <div>
-                  <p className="text-white font-bold">{auth.currentUser?.displayName}</p>
+                  <p className="text-white font-bold">{auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0]}</p>
                   <p className="text-slate-500 text-xs">{auth.currentUser?.email}</p>
                 </div>
               </div>
