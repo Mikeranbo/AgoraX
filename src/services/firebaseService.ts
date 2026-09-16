@@ -158,14 +158,3 @@ export const addComment = async (eventId: string, comment: Omit<Comment, 'id' | 
     handleFirestoreError(error, OperationType.CREATE, `events/${eventId}/comments`);
   }
 };
-
-// --- User Profiles ---
-
-export const syncUserProfile = async (userId: string, profile: { name: string, role: string }) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    await setDoc(userRef, profile, { merge: true });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
-  }
-};

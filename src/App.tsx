@@ -44,7 +44,7 @@ import {
   subscribeToComments,
   addComment
 } from './services/firebaseService';
-import { Event, Venue, User, EventCategory, Comment } from './types';
+import { Event, Venue, EventCategory, Comment } from './types';
 import { EventCard } from './components/EventCard';
 import { VenueCard } from './components/VenueCard';
 
@@ -176,6 +176,8 @@ const AuthHero = () => {
 // --- Views ---
 
 type ActiveModal = 'none' | 'list-venue' | 'more' | 'promote' | 'notifications' | 'search' | 'success';
+
+const HUB_OPTIONS = ['Lansdowne Hub', 'Central District', 'Downtown Tech Park', 'Westside Heights'];
 
 const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => (
   <AnimatePresence>
@@ -745,7 +747,7 @@ const VenueMarketplace = ({ venues, onListVenue, onSelectVenue }: { venues: Venu
   );
 };
 
-const DashboardView = ({ events, onPromote, onSelectEvent }: { events: Event[], onPromote: () => void, onSelectEvent: (e: Event) => void }) => {
+const DashboardView = ({ events, onPromote, onSelectEvent, onCreateEvent }: { events: Event[], onPromote: () => void, onSelectEvent: (e: Event) => void, onCreateEvent: () => void }) => {
   const organiserEvents = events.filter(e => e.organizerId === auth.currentUser?.uid);
   
   const stats = {
@@ -819,8 +821,8 @@ const DashboardView = ({ events, onPromote, onSelectEvent }: { events: Event[], 
         ) : (
           <div className="p-10 glass rounded-[32px] text-center border-dashed border-white/10">
             <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">No events created yet</p>
-            <button 
-              onClick={() => onPromote()} // Using onPromote as a placeholder to trigger something or just show a message
+            <button
+              onClick={onCreateEvent}
               className="mt-4 text-brand-primary text-xs font-black uppercase tracking-widest"
             >
               Start Sourcing
@@ -856,6 +858,7 @@ const DashboardView = ({ events, onPromote, onSelectEvent }: { events: Event[], 
 
 const MoreModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
   const [view, setView] = useState<'root' | 'profile' | 'wallet' | 'metrics' | 'network' | 'security' | 'help'>('root');
+  const [stripeConnected, setStripeConnected] = useState(false);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -909,8 +912,16 @@ const MoreModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
                <p className="text-white/70 text-[10px] uppercase font-black tracking-widest mb-1">Available Funds</p>
                <p className="text-5xl font-display font-black text-white tracking-tighter">€0.00</p>
             </div>
-            <button className="w-full py-4 glass text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/5 transition-all">
-              Connect Stripe
+            <button
+              onClick={() => setStripeConnected(true)}
+              disabled={stripeConnected}
+              className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                stripeConnected
+                  ? 'bg-green-500/10 text-green-400 border border-green-500/30 cursor-default'
+                  : 'glass text-white hover:bg-white/5'
+              }`}
+            >
+              {stripeConnected ? (<><CheckCircle2 size={16} /> Stripe Connected</>) : 'Connect Stripe'}
             </button>
           </div>
         );
@@ -1026,6 +1037,24 @@ export default function App() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [venueImageUrls, setVenueImageUrls] = useState<string[]>(['']);
+  const [targetHub, setTargetHub] = useState('Lansdowne Hub');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return { events: [] as Event[], venues: [] as Venue[] };
+    return {
+      events: events.filter(e =>
+        e.title.toLowerCase().includes(q) ||
+        e.description.toLowerCase().includes(q) ||
+        e.category.toLowerCase().includes(q)
+      ),
+      venues: venues.filter(v =>
+        v.name.toLowerCase().includes(q) ||
+        v.location.toLowerCase().includes(q)
+      ),
+    };
+  }, [events, venues, searchQuery]);
 
   const handleVenueFileUpload = (index: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1139,7 +1168,7 @@ export default function App() {
       );
       case 'create': return <CreateView onAddEvent={handleAddEvent} venues={venues} />;
       case 'venues': return <VenueMarketplace venues={venues} onListVenue={() => setActiveModal('list-venue')} onSelectVenue={handleStartWithVenue} />;
-      case 'dashboard': return <DashboardView events={events} onPromote={() => setActiveModal('promote')} onSelectEvent={handleSelectEvent} />;
+      case 'dashboard': return <DashboardView events={events} onPromote={() => setActiveModal('promote')} onSelectEvent={handleSelectEvent} onCreateEvent={() => setActiveTab('create')} />;
     }
   };
 
@@ -1255,8 +1284,13 @@ export default function App() {
           </div>
           <div className="space-y-3">
              <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
-               <span className="text-white text-sm">Targeting: <span className="font-bold text-brand-primary">Lansdowne Hub</span></span>
-               <button className="text-[10px] text-brand-secondary font-bold underline">Change</button>
+               <span className="text-white text-sm">Targeting: <span className="font-bold text-brand-primary">{targetHub}</span></span>
+               <button
+                 onClick={() => setTargetHub(prev => HUB_OPTIONS[(HUB_OPTIONS.indexOf(prev) + 1) % HUB_OPTIONS.length])}
+                 className="text-[10px] text-brand-secondary font-bold underline"
+               >
+                 Change
+               </button>
              </div>
           </div>
           <button 
@@ -1285,20 +1319,63 @@ export default function App() {
         </div>
       </Modal>
 
-      <Modal isOpen={activeModal === 'search'} onClose={() => setActiveModal('none')} title="Search AgoraX">
+      <Modal isOpen={activeModal === 'search'} onClose={() => { setActiveModal('none'); setSearchQuery(''); }} title="Search AgoraX">
         <div className="space-y-6">
           <div className="relative">
              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-             <input className="w-full glass bg-white/5 border border-white/20 rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 ring-brand-primary outline-none" placeholder="Search events, venues, organizers..." autoFocus />
+             <input
+               value={searchQuery}
+               onChange={e => setSearchQuery(e.target.value)}
+               className="w-full glass bg-white/5 border border-white/20 rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 ring-brand-primary outline-none"
+               placeholder="Search events, venues, organizers..."
+               autoFocus
+             />
           </div>
-          <div>
-            <p className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-3 ml-1">Recent Searches</p>
-            <div className="flex flex-wrap gap-2">
-              {['Yoga', 'Jazz', 'Networking', 'Warehouse'].map(s => (
-                <span key={s} className="px-4 py-2 glass rounded-full text-xs text-slate-300 font-medium cursor-pointer hover:bg-white/10 transition-colors">#{s}</span>
-              ))}
+
+          {searchQuery.trim() === '' ? (
+            <div>
+              <p className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-3 ml-1">Recent Searches</p>
+              <div className="flex flex-wrap gap-2">
+                {['Yoga', 'Jazz', 'Networking', 'Warehouse'].map(s => (
+                  <button key={s} onClick={() => setSearchQuery(s)} className="px-4 py-2 glass rounded-full text-xs text-slate-300 font-medium cursor-pointer hover:bg-white/10 transition-colors">#{s}</button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar">
+              {searchResults.events.map(e => (
+                <div
+                  key={e.id}
+                  onClick={() => { setActiveModal('none'); setSearchQuery(''); handleSelectEvent(e); }}
+                  className="glass p-3 rounded-2xl flex items-center gap-3 cursor-pointer hover:border-brand-primary/50 transition-all"
+                >
+                  <img src={e.imageUrls && e.imageUrls.length > 0 ? e.imageUrls[0] : 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80'} className="w-10 h-10 rounded-xl object-cover shrink-0" alt="" />
+                  <div className="flex-grow min-w-0">
+                    <p className="text-white text-sm font-bold truncate">{e.title}</p>
+                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{e.category} Event</p>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                </div>
+              ))}
+              {searchResults.venues.map(v => (
+                <div
+                  key={v.id}
+                  onClick={() => { setActiveModal('none'); setSearchQuery(''); setActiveTab('venues'); }}
+                  className="glass p-3 rounded-2xl flex items-center gap-3 cursor-pointer hover:border-brand-primary/50 transition-all"
+                >
+                  <img src={v.imageUrls && v.imageUrls.length > 0 ? v.imageUrls[0] : 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=800&q=80'} className="w-10 h-10 rounded-xl object-cover shrink-0" alt="" />
+                  <div className="flex-grow min-w-0">
+                    <p className="text-white text-sm font-bold truncate">{v.name}</p>
+                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{v.location}</p>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                </div>
+              ))}
+              {searchResults.events.length === 0 && searchResults.venues.length === 0 && (
+                <p className="text-center text-slate-600 text-xs font-bold uppercase tracking-widest py-8">No matches found</p>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 

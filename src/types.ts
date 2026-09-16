@@ -38,9 +38,3 @@ export interface Comment {
   text: string;
   createdAt: string;
 }
-
-export interface User {
-  id: string;
-  role: 'Organiser' | 'VenueOwner' | 'Audience';
-  name: string;
-}
