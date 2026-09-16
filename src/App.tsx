@@ -179,6 +179,16 @@ type ActiveModal = 'none' | 'list-venue' | 'more' | 'promote' | 'notifications' 
 
 const HUB_OPTIONS = ['Lansdowne Hub', 'Central District', 'Downtown Tech Park', 'Westside Heights'];
 
+// Firestore serverTimestamp() fields arrive as Timestamp objects (or null
+// briefly, before the write round-trips), not ISO strings — new Date() alone
+// can't parse either.
+const formatCommentTime = (value: any): string => {
+  if (!value) return 'Just now';
+  const date = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
+  if (isNaN(date.getTime())) return 'Just now';
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => (
   <AnimatePresence>
     {isOpen && (
@@ -195,7 +205,7 @@ const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose:
           animate={{ y: 0 }} 
           exit={{ y: "100%" }} 
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass rounded-t-[40px] p-8 z-[70] max-h-[85vh] overflow-y-auto no-scrollbar border-t border-white/20"
+          className="fixed bottom-0 left-0 right-0 max-w-md sm:max-w-lg md:max-w-xl mx-auto glass rounded-t-[40px] p-8 z-[70] max-h-[85vh] overflow-y-auto no-scrollbar border-t border-white/20"
         >
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-display font-black text-white">{title}</h2>
@@ -264,7 +274,7 @@ const FeedView = ({ events, onJoin, onSearch, onNotify, onSelectEvent }: { event
         </div>
       </div>
 
-      <div className="px-6 space-y-6">
+      <div className="px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredEvents.map(event => (
           <EventCard key={event.id} event={event} onJoin={onJoin} onClick={onSelectEvent} />
         ))}
@@ -309,7 +319,7 @@ const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () =
 
   return (
     <div className="pb-32 min-h-screen bg-[#0f172a]">
-      <div className="relative h-80 overflow-hidden">
+      <div className="relative h-80 overflow-hidden md:max-w-2xl md:mx-auto md:mt-8 md:rounded-[32px]">
         <AnimatePresence mode="wait">
           <motion.img 
             key={activeImageIndex}
@@ -344,7 +354,7 @@ const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () =
         </button>
       </div>
 
-      <div className="px-6 -mt-20 relative z-10">
+      <div className="px-6 -mt-20 relative z-10 md:max-w-2xl md:mx-auto">
         <div className="glass p-6 rounded-[32px] border-white/10 shadow-2xl mb-6">
           <div className="flex justify-between items-start mb-4">
             <div>
@@ -438,7 +448,7 @@ const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () =
                   <div className="glass-dark p-3 rounded-2xl rounded-tl-none border border-white/5 flex-grow">
                     <div className="flex justify-between mb-1">
                       <span className="text-white text-[10px] font-bold tracking-tight">{c.userName}</span>
-                      <span className="text-[8px] text-slate-600 font-bold uppercase">{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-[8px] text-slate-600 font-bold uppercase">{formatCommentTime(c.createdAt)}</span>
                     </div>
                     <p className="text-slate-300 text-xs leading-relaxed">{c.text}</p>
                   </div>
@@ -469,7 +479,7 @@ const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () =
           </div>
         </div>
 
-        <div className="fixed bottom-10 left-6 right-6 max-w-md mx-auto z-50">
+        <div className="fixed bottom-10 left-6 right-6 max-w-md md:max-w-2xl mx-auto z-50">
           <button
             onClick={() => onJoin(event.id)}
             className="w-full py-5 gradient-brand text-white rounded-3xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-brand-primary/40 active:scale-95 transition-all flex items-center justify-center gap-3"
@@ -535,7 +545,7 @@ const CreateView = ({ onAddEvent, venues }: { onAddEvent: (e: any) => void, venu
   };
 
   return (
-    <div className="pb-32 px-6 pt-12 overflow-y-auto max-h-[90vh] no-scrollbar">
+    <div className="pb-32 px-6 pt-12 overflow-y-auto max-h-[90vh] no-scrollbar md:max-w-xl md:mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-display font-black text-white tracking-tight mb-2">Create Event</h1>
         <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest flex items-center gap-2">
@@ -738,10 +748,18 @@ const VenueMarketplace = ({ venues, onListVenue, onSelectVenue }: { venues: Venu
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {venues.map(venue => (
           <VenueCard key={venue.id} venue={venue} onSelect={() => onSelectVenue(venue)} />
         ))}
+        {venues.length === 0 && (
+          <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
+            <div className="p-6 glass rounded-full mb-4">
+              <Building2 className="text-slate-600" size={32} />
+            </div>
+            <p className="text-white font-bold opacity-40 uppercase tracking-widest text-xs">No spaces listed yet</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -757,7 +775,7 @@ const DashboardView = ({ events, onPromote, onSelectEvent, onCreateEvent }: { ev
   };
 
   return (
-    <div className="pb-32 px-6 pt-12 overflow-y-auto max-h-[90vh] no-scrollbar">
+    <div className="pb-32 px-6 pt-12 overflow-y-auto max-h-[90vh] no-scrollbar md:max-w-xl md:mx-auto">
       <div className="flex justify-between items-start mb-8">
         <div>
           <h1 className="text-3xl font-display font-black text-white tracking-tight">Your Hub</h1>
@@ -1173,17 +1191,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] max-w-md mx-auto relative shadow-2xl overflow-hidden border-x border-white/5 selection:bg-brand-primary/30">
-      
+    <div className="min-h-screen bg-[#0f172a] max-w-md sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto relative shadow-2xl overflow-hidden border-x border-white/5 selection:bg-brand-primary/30 transition-[max-width] duration-300">
+
       {/* Bento Grid Background Accents */}
       <div className="absolute top-0 left-0 w-full h-[600px] bg-gradient-to-b from-brand-primary/10 to-transparent pointer-events-none"></div>
       <div className="absolute top-1/4 -right-20 w-64 h-64 bg-brand-secondary/5 blur-[100px] rounded-full pointer-events-none"></div>
-
-      {/* Decorative Header (Visible on Desktop Container) */}
-      <div className="hidden sm:block absolute -left-64 top-20 w-48 p-5 glass rounded-3xl shadow-2xl transform rotate-3 z-0">
-        <p className="text-[9px] font-black text-brand-primary uppercase tracking-widest mb-2">The Mission</p>
-        <p className="text-sm font-bold text-white leading-snug">Decentralising culture through community logic.</p>
-      </div>
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -1398,8 +1410,9 @@ export default function App() {
       </Modal>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-brand-dark/40 backdrop-blur-2xl border-t border-white/10 px-8 py-5 flex justify-between items-center z-50">
-        <button 
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto bg-brand-dark/40 backdrop-blur-2xl border-t border-white/10 px-8 py-5 z-50">
+      <div className="max-w-md mx-auto flex justify-between items-center">
+        <button
           onClick={() => setActiveTab('feed')}
           className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'feed' ? 'text-brand-secondary scale-110 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
         >
@@ -1438,6 +1451,7 @@ export default function App() {
           <Menu size={24} />
           <span className="text-[9px] font-black uppercase tracking-widest">More</span>
         </button>
+      </div>
       </nav>
 
       {/* Logo Floating Top Banner (Mobile) */}
