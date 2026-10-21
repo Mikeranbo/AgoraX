@@ -17,7 +17,8 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { ensureAnonymousAuth, getSource, linkContact } from './identity';
-import { Event, EventCategory, Venue, Comment, UserDoc, PriceAnswer, RanBefore } from '../types';
+import { Event, EventCategory, Venue, Comment, UserDoc, PriceAnswer, RanBefore, SpaceType } from '../types';
+import { splitContact } from '../data/forms';
 import { SEED_EVENTS } from '../data/seedEvents';
 
 export const OperationType = {
@@ -314,20 +315,32 @@ export const submitProposal = async (input: ProposalInput) => {
   await linkContact({ name: input.firstName, phone: input.phone, purpose: 'proposal' });
 };
 
-export const submitVenueOffer = async (input: { name: string; spaceType: string; contact: string }) => {
+export interface VenueOfferInput {
+  name: string;
+  spaceType: SpaceType;
+  capacity: number;
+  contact: string;
+}
+
+/**
+ * "I have a space". The offer records only the type and size of the space; the person's name
+ * and WhatsApp/email go to users/{uid} under the 'space' consent, so erasure covers them.
+ */
+export const submitVenueOffer = async (input: VenueOfferInput) => {
   const user = await ensureAnonymousAuth();
   try {
     await addDoc(collection(db, 'venueOffers'), {
       uid: user.uid,
-      name: input.name.trim(),
-      spaceType: input.spaceType.trim(),
-      contact: input.contact.trim(),
+      spaceType: input.spaceType,
+      capacity: input.capacity,
       source: getSource(),
       ts: serverTimestamp(),
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'venueOffers');
   }
+  const { email, phone } = splitContact(input.contact);
+  await linkContact({ name: input.name, email, phone, purpose: 'space', hasSpace: true });
 };
 
 // --- Seeding ---

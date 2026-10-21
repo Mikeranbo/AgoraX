@@ -92,6 +92,18 @@ export type PriceAnswer = 'yes' | 'no' | 'depends';
 
 export type RanBefore = 'yes' | 'no' | 'sort-of';
 
+export type SpaceType = 'room' | 'hall' | 'cafe' | 'other';
+
+/** venueOffers/{id}. The person's name and contact live on users/{uid} (consent 'space'). */
+export interface VenueOffer {
+  id: string;
+  uid: string;
+  spaceType: SpaceType;
+  capacity: number;
+  source?: string;
+  ts?: any;
+}
+
 /** proposals/{id}. Hidden from the feed; an admin approves it into a real event. No contact fields. */
 export interface Proposal {
   id: string;
