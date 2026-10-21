@@ -9,7 +9,6 @@ const inputClass =
 /** "An event you'd join that isn't here?" → suggestions/{autoId}. */
 export const SuggestionBox = () => {
   const [text, setText] = useState('');
-  const [contact, setContact] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
 
   const submit = async (e: React.FormEvent) => {
@@ -17,10 +16,9 @@ export const SuggestionBox = () => {
     if (!text.trim()) return;
     setState('busy');
     try {
-      await submitSuggestion({ text, contact });
-      track('suggestion_submit', { hasContact: contact.trim() !== '' });
+      await submitSuggestion({ text });
+      track('suggestion_submit', { length: text.trim().length });
       setText('');
-      setContact('');
       setState('done');
     } catch (err) {
       console.error(err);
@@ -53,13 +51,6 @@ export const SuggestionBox = () => {
             value={text}
             onChange={(e) => setText(e.target.value)}
             required
-          />
-          <input
-            className={inputClass}
-            placeholder="WhatsApp or email, if you want to hear back (optional)"
-            maxLength={120}
-            value={contact}
-            onChange={(e) => setContact(e.target.value)}
           />
           {state === 'error' && (
             <p role="alert" className="text-xs text-red-300">Couldn't send that — please try again.</p>

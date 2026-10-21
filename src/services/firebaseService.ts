@@ -266,13 +266,13 @@ export const subscribeToMyUser = (userId: string, callback: (user: UserDoc | nul
 
 // --- Suggestions & venue offers (create-only collections) ---
 
-export const submitSuggestion = async (input: { text: string; contact?: string }) => {
+/** Anonymous by design: no contact field, so no consent is needed (anyone who wants a reply uses Propose). */
+export const submitSuggestion = async (input: { text: string }) => {
   const user = await ensureAnonymousAuth();
   try {
     await addDoc(collection(db, 'suggestions'), {
       uid: user.uid,
       text: input.text.trim(),
-      contact: (input.contact ?? '').trim(),
       source: getSource(),
       ts: serverTimestamp(),
     });
