@@ -53,6 +53,8 @@ export interface Event {
   createdAt?: any;
   /** 'seed' = one of the 33; 'proposal' = created by approving a student proposal. */
   origin?: 'seed' | 'proposal';
+  /** proposals/{id} this event was approved from. */
+  proposalId?: string;
   // Fields that come from the seed list / admin editor.
   slug?: string;
   durationHours?: number;
@@ -89,6 +91,21 @@ export interface Comment {
 export type PriceAnswer = 'yes' | 'no' | 'depends';
 
 export type RanBefore = 'yes' | 'no' | 'sort-of';
+
+/** proposals/{id}. Hidden from the feed; an admin approves it into a real event. No contact fields. */
+export interface Proposal {
+  id: string;
+  uid: string;
+  title: string;
+  category: EventCategory;
+  price: number;
+  minPeople: number;
+  needs: string;
+  status: 'new' | 'approved' | 'rejected';
+  eventId?: string;
+  source: string;
+  ts?: any;
+}
 
 /** events/{eventId}/helpers/{uid}. Contact details are not copied here — they live on users/{uid}. */
 export interface HelperDoc {

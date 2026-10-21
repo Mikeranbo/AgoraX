@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { ensureAnonymousAuth, getSource, linkContact } from './identity';
-import { Event, Venue, Comment, UserDoc, PriceAnswer, RanBefore } from '../types';
+import { Event, EventCategory, Venue, Comment, UserDoc, PriceAnswer, RanBefore } from '../types';
 import { SEED_EVENTS } from '../data/seedEvents';
 
 export const OperationType = {
@@ -278,6 +278,40 @@ export const submitSuggestion = async (input: { text: string; contact?: string }
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'suggestions');
   }
+};
+
+export interface ProposalInput {
+  title: string;
+  category: EventCategory;
+  price: number;
+  minPeople: number;
+  needs: string;
+  firstName: string;
+  phone: string;
+}
+
+/**
+ * A student's event idea. Stored without contact details (those go to users/{uid} under the
+ * 'proposal' consent); it stays out of the feed until an admin approves it.
+ */
+export const submitProposal = async (input: ProposalInput) => {
+  const user = await ensureAnonymousAuth();
+  try {
+    await addDoc(collection(db, 'proposals'), {
+      uid: user.uid,
+      title: input.title.trim(),
+      category: input.category,
+      price: input.price,
+      minPeople: input.minPeople,
+      needs: input.needs.trim(),
+      status: 'new',
+      source: getSource(),
+      ts: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, 'proposals');
+  }
+  await linkContact({ name: input.firstName, phone: input.phone, purpose: 'proposal' });
 };
 
 export const submitVenueOffer = async (input: { name: string; spaceType: string; contact: string }) => {

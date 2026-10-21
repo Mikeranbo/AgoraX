@@ -14,8 +14,9 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { AdminDoc, AdminRole, Event, EventStatus, ParticipantDoc } from '../types';
+import { AdminDoc, AdminRole, Event, EventStatus, ParticipantDoc, Proposal } from '../types';
 import { SEED_EVENTS } from '../data/seedEvents';
+import { eventFromProposal } from '../data/proposals';
 import { selectEventsToPurge } from '../data/purge';
 import { chunk } from '../lib/batch';
 
@@ -100,6 +101,29 @@ export async function saveEvent(id: string | null, data: EventFormData): Promise
     organiserInterest: 0,
   });
   return ref.id;
+}
+
+/** Turns a proposal into a pending event and marks the proposal approved, in one batch. */
+export async function approveProposal(p: Proposal): Promise<string> {
+  const eventRef = doc(collection(db, 'events'));
+  const batch = writeBatch(db);
+  batch.set(eventRef, {
+    ...eventFromProposal(p, Date.now()),
+    organizerId: 'agorax',
+    createdAt: serverTimestamp(),
+    participantsCount: 0,
+    impressions: 0,
+    opens: 0,
+    joins: 0,
+    organiserInterest: 0,
+  });
+  batch.update(doc(db, 'proposals', p.id), { status: 'approved', eventId: eventRef.id });
+  await batch.commit();
+  return eventRef.id;
+}
+
+export async function rejectProposal(id: string) {
+  await updateDoc(doc(db, 'proposals', id), { status: 'rejected' });
 }
 
 export async function setEventStatus(id: string, status: EventStatus) {
