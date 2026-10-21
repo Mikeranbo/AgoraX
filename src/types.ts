@@ -94,6 +94,10 @@ export interface UserDoc {
   createdAt?: any;
   lastSeenAt?: any;
   source?: string;
+  /** Code carried by this visitor's share links (first 8 chars of the uid). */
+  shareCode?: string;
+  /** Share code of whoever's link brought this visitor here, if any. */
+  referredBy?: string | null;
   hasContact?: boolean;
   name?: string;
   email?: string;

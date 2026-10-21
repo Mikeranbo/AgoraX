@@ -2,6 +2,7 @@ import { signInAnonymously, linkWithCredential, AuthCredential, User } from 'fir
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { once } from './session';
+import { acceptReferrer, resolveSource, shareCodeFor } from '../data/share';
 
 /**
  * Identity model: nobody signs in. Every visitor is a Firebase *anonymous* user and the
@@ -12,6 +13,7 @@ import { once } from './session';
 
 const UID_KEY = 'agorax_uid';
 const SRC_KEY = 'agorax_src';
+const REF_KEY = 'agorax_ref';
 
 let authPromise: Promise<User> | null = null;
 
@@ -61,20 +63,30 @@ export function getUid(): string | null {
   return auth.currentUser?.uid ?? null;
 }
 
-/** First-touch attribution: ?src= is captured on the first visit and never overwritten. */
+function urlParams(): URLSearchParams {
+  try {
+    return new URLSearchParams(window.location.search);
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+/** First-touch attribution: the poster (or 'share') of the first visit, never overwritten. */
 export function getSource(): string {
   const stored = safeGet(SRC_KEY);
-  if (stored) return stored;
-  let src = 'direct';
-  try {
-    const fromUrl = new URLSearchParams(window.location.search).get('src');
-    const clean = (fromUrl ?? '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40);
-    if (clean) src = clean;
-  } catch {
-    /* ignore */
-  }
-  safeSet(SRC_KEY, src);
+  const src = resolveSource(urlParams(), stored);
+  if (!stored) safeSet(SRC_KEY, src);
   return src;
+}
+
+/** First-touch referrer code from a shared link (?ref=), never the visitor's own. */
+export function getReferrer(uid: string): string | null {
+  const own = shareCodeFor(uid);
+  const stored = safeGet(REF_KEY);
+  if (stored) return acceptReferrer(stored, own);
+  const ref = acceptReferrer(urlParams().get('ref'), own);
+  if (ref) safeSet(REF_KEY, ref);
+  return ref;
 }
 
 /** Secondary check: if the stored uid differs from the one Firebase gave us, flag it for review. */
@@ -116,9 +128,10 @@ export async function touchUser(): Promise<void> {
         createdAt: serverTimestamp(),
         lastSeenAt: serverTimestamp(),
         source: getSource(),
+        shareCode: shareCodeFor(user.uid),
+        referredBy: getReferrer(user.uid),
         hasContact: false,
         joinedEvents: [],
-        organiserEvents: [],
       });
     }
   } catch (err) {
