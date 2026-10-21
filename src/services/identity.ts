@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firest
 import { auth, db } from '../lib/firebase';
 import { once } from './session';
 import { acceptReferrer, resolveSource, shareCodeFor } from '../data/share';
+import { normaliseEmail, normalisePhone } from '../data/contact';
 
 /**
  * Identity model: nobody signs in. Every visitor is a Firebase *anonymous* user and the
@@ -149,17 +150,7 @@ export interface ContactInput {
   hasSpace?: boolean;
 }
 
-export function normaliseEmail(raw?: string): string {
-  return (raw ?? '').trim().toLowerCase();
-}
-
-/** Strips formatting; assumes a Dutch national number (06…) when no country code is given. */
-export function normalisePhone(raw?: string): string {
-  let p = (raw ?? '').replace(/[\s().-]/g, '');
-  if (p.startsWith('00')) p = '+' + p.slice(2);
-  if (!p.startsWith('+') && /^0\d{9}$/.test(p)) p = '+31' + p.slice(1);
-  return p;
-}
+export { normaliseEmail, normalisePhone };
 
 async function sha256Hex(input: string): Promise<string> {
   if (globalThis.crypto?.subtle) {
