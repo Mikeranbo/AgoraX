@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Compass, 
-  PlusCircle, 
-  Building2, 
-  LayoutDashboard, 
-  Plus, 
+import {
+  Compass,
+  PlusCircle,
+  Building2,
+  LayoutDashboard,
+  Plus,
   X,
   TrendingUp,
   Award,
@@ -31,22 +31,36 @@ import {
   Hash,
   Upload,
 } from 'lucide-react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut } from 'firebase/auth';
 import { auth } from './lib/firebase';
-import { 
-  subscribeToEvents, 
-  subscribeToVenues, 
-  createEvent, 
-  createVenue, 
+import {
+  subscribeToEvents,
+  subscribeToMyUser,
   joinEvent,
-  trackImpression,
-  trackClick,
+  leaveEvent,
+  bumpEventCounter,
+  recordOrganiserInterest,
+  recordPriceAnswer,
   subscribeToComments,
-  addComment
+  addComment,
 } from './services/firebaseService';
-import { Event, Venue, EventCategory, Comment } from './types';
+import { ensureAnonymousAuth, touchUser, linkContact, getSource, describeAuthError } from './services/identity';
+import { track, AnalyticsName } from './services/analytics';
+import { once } from './services/session';
+import { nextPriceFor } from './data/priceLadder';
+import { canOfferHosting, formatDuration } from './data/earnings';
+import { hasEnough, progressLabel, progressPercent } from './data/progress';
+import { Event, Venue, EventCategory, Comment, UserDoc, PriceAnswer, PUBLIC_CATEGORIES } from './types';
 import { EventCard } from './components/EventCard';
+import { EventCover } from './components/EventCover';
 import { VenueCard } from './components/VenueCard';
+import { Modal } from './components/Modal';
+import { ContactForm, ContactValues } from './components/ContactForm';
+import { OrganiserPanel } from './components/OrganiserPanel';
+import { PriceLadderSheet, LadderPrompt } from './components/PriceLadderSheet';
+import { BottomBar } from './components/BottomBar';
+import { SuggestionBox } from './components/SuggestionBox';
+import { VenueOfferModal } from './components/VenueOfferModal';
 
 // --- Components ---
 
@@ -175,10 +189,6 @@ const AuthHero = () => {
 
 // --- Views ---
 
-type ActiveModal = 'none' | 'list-venue' | 'more' | 'promote' | 'notifications' | 'search' | 'success';
-
-const HUB_OPTIONS = ['Lansdowne Hub', 'Central District', 'Downtown Tech Park', 'Westside Heights'];
-
 // Firestore serverTimestamp() fields arrive as Timestamp objects (or null
 // briefly, before the write round-trips), not ISO strings — new Date() alone
 // can't parse either.
@@ -189,82 +199,51 @@ const formatCommentTime = (value: any): string => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => (
-  <AnimatePresence>
-    {isOpen && (
-      <>
-        <motion.div 
-          initial={{ opacity: 0 }} 
-          animate={{ opacity: 1 }} 
-          exit={{ opacity: 0 }} 
-          onClick={onClose}
-          className="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-[60]"
-        />
-        <motion.div 
-          initial={{ y: "100%" }} 
-          animate={{ y: 0 }} 
-          exit={{ y: "100%" }} 
-          transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="fixed bottom-0 left-0 right-0 max-w-md sm:max-w-lg md:max-w-xl mx-auto glass rounded-t-[40px] p-8 z-[70] max-h-[85vh] overflow-y-auto no-scrollbar border-t border-white/20"
-        >
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-display font-black text-white">{title}</h2>
-            <button onClick={onClose} className="p-2 glass rounded-full text-slate-400">
-              <X size={20} />
-            </button>
-          </div>
-          {children}
-        </motion.div>
-      </>
-    )}
-  </AnimatePresence>
-);
+interface FeedViewProps {
+  events: Event[];
+  eventsLoaded: boolean;
+  eventsError: boolean;
+  joined: Set<string>;
+  pending: Set<string>;
+  onJoin: (e: Event) => void;
+  onLeave: (e: Event) => void;
+  onOpen: (e: Event) => void;
+  onHelpRun: (e: Event) => void;
+  onOfferSpace: () => void;
+}
 
-const FeedView = ({ events, onJoin, onSearch, onNotify, onSelectEvent }: { events: Event[], onJoin: (id: string) => void, onSearch: () => void, onNotify: () => void, onSelectEvent: (e: Event) => void }) => {
+/** The scan-to-browse page: one question, a rule, and a grid of things people can vote for. */
+const FeedView = ({ events, eventsLoaded, eventsError, joined, pending, onJoin, onLeave, onOpen, onHelpRun, onOfferSpace }: FeedViewProps) => {
   const [filter, setFilter] = useState<EventCategory | 'All'>('All');
-  
-  const filteredEvents = useMemo(() => {
-    return filter === 'All' ? events : events.filter(e => e.category === filter);
-  }, [events, filter]);
 
-  const categories: (EventCategory | 'All')[] = ['All', 'Workshop', 'Concert', 'Cultural', 'Social', 'Fitness', 'Startup'];
+  // Cancelled events are withdrawn from the public page; admins still see them at /admin.
+  const visible = useMemo(() => events.filter((e) => e.status !== 'Cancelled'), [events]);
+  const filtered = useMemo(
+    () => (filter === 'All' ? visible : visible.filter((e) => e.category === filter)),
+    [visible, filter],
+  );
+  const categories: (EventCategory | 'All')[] = ['All', ...PUBLIC_CATEGORIES];
 
   return (
-    <div className="pb-24">
-      <div className="px-6 pt-10 pb-4">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-display font-black text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-brand-primary">Discover</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Trending in your hub</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={onSearch}
-              className="glass p-2.5 rounded-2xl text-slate-300 hover:text-white transition-colors"
-            >
-              <Search size={20} />
-            </button>
-            <button 
-              onClick={onNotify}
-              className="glass p-2.5 rounded-2xl text-slate-300 hover:text-white relative group"
-            >
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-brand-secondary rounded-full border-2 border-brand-dark group-hover:scale-125 transition-transform"></span>
-            </button>
-          </div>
-        </div>
+    <div className="pb-40">
+      <div className="px-6 pt-20 pb-4">
+        <h1 className="text-3xl sm:text-4xl font-display font-black text-white tracking-tight leading-tight max-w-2xl">
+          What would you actually go to in Groningen?
+        </h1>
+        <p className="text-slate-400 text-sm mt-3 max-w-xl leading-relaxed">
+          Every event has a target. When enough people want one, we run it.
+        </p>
 
-        <div className="flex overflow-x-auto gap-3 no-scrollbar pb-4 pr-6">
-          {categories.map(cat => (
+        <div className="flex overflow-x-auto gap-3 no-scrollbar py-5 pr-6" role="tablist" aria-label="Event categories">
+          {categories.map((cat) => (
             <button
               key={cat}
+              role="tab"
+              aria-selected={filter === cat}
               onClick={() => setFilter(cat)}
               className={`px-5 py-2.5 rounded-2xl text-[11px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
-                filter === cat 
-                  ? 'gradient-brand text-white shadow-lg shadow-indigo-500/20' 
+                filter === cat
+                  ? 'gradient-brand text-white shadow-lg shadow-indigo-500/20'
                   : 'glass text-slate-400 hover:text-white hover:border-white/20'
               }`}
             >
@@ -275,151 +254,174 @@ const FeedView = ({ events, onJoin, onSearch, onNotify, onSelectEvent }: { event
       </div>
 
       <div className="px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredEvents.map(event => (
-          <EventCard key={event.id} event={event} onJoin={onJoin} onClick={onSelectEvent} />
+        {filtered.map((event) => (
+          <EventCard
+            key={event.id}
+            event={event}
+            joined={joined.has(event.id)}
+            busy={pending.has(event.id)}
+            onJoin={onJoin}
+            onLeave={onLeave}
+            onOpen={onOpen}
+            onHelpRun={onHelpRun}
+          />
         ))}
-        {filteredEvents.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="p-6 glass rounded-full mb-4">
-              <Filter className="text-slate-600" size={32} />
-            </div>
-            <p className="text-white font-bold opacity-40 uppercase tracking-widest text-xs">No events found in this category</p>
-          </div>
-        )}
       </div>
+
+      {filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+          <div className="p-6 glass rounded-full mb-4">
+            <Filter className="text-slate-600" size={32} />
+          </div>
+          <p className="text-white font-bold opacity-50 uppercase tracking-widest text-xs">
+            {eventsError
+              ? "Couldn't load events — check your connection and refresh"
+              : !eventsLoaded
+                ? 'Loading events…'
+                : visible.length === 0
+                  ? 'Events are being added — check back soon'
+                  : 'No events in this category yet'}
+          </p>
+        </div>
+      )}
+
+      <div className="px-6">
+        <SuggestionBox />
+      </div>
+
+      <footer className="px-6 mt-10 text-center">
+        <button onClick={onOfferSpace} className="text-sm font-bold text-brand-secondary hover:text-white transition-colors underline underline-offset-4">
+          I have a space
+        </button>
+        <p className="text-[11px] text-slate-600 mt-3">No account needed. Nothing is charged until an event runs.</p>
+      </footer>
     </div>
   );
 };
 
-const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () => void, onJoin: (id: string) => void }) => {
+interface EventDetailViewProps {
+  event: Event;
+  joined: boolean;
+  busy: boolean;
+  onBack: () => void;
+  onJoin: (e: Event) => void;
+  onLeave: (e: Event) => void;
+  onHelpRun: (e: Event) => void;
+}
+
+const EventDetailView = ({ event, joined, busy, onBack, onJoin, onLeave, onHelpRun }: EventDetailViewProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  
-  useEffect(() => {
-    trackClick(event.id);
-    return subscribeToComments(event.id, setComments);
-  }, [event.id]);
+
+  useEffect(() => subscribeToComments(event.id, setComments), [event.id]);
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
-    
+
     await addComment(event.id, {
       eventId: event.id,
       userId: auth.currentUser?.uid || 'anon',
-      userName: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Anonymous User',
-      text: commentText
+      userName: auth.currentUser?.displayName || 'Student',
+      text: commentText.trim().slice(0, 500),
     });
     setCommentText('');
   };
 
-  const progress = Math.min((event.participantsCount / event.minParticipants) * 100, 100);
-  const images = event.imageUrls && event.imageUrls.length > 0 ? event.imageUrls : ['https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80'];
+  const images = (event.imageUrls ?? []).filter((u) => u && u.trim() !== '');
+  const cover = { ...event, imageUrls: images.length ? [images[Math.min(activeImageIndex, images.length - 1)]] : [] };
+  const enough = hasEnough(event);
+  const cancelled = event.status === 'Cancelled';
+  const duration = formatDuration(event.durationHours);
 
   return (
-    <div className="pb-32 min-h-screen bg-[#0f172a]">
-      <div className="relative h-80 overflow-hidden md:max-w-2xl md:mx-auto md:mt-8 md:rounded-[32px]">
-        <AnimatePresence mode="wait">
-          <motion.img 
-            key={activeImageIndex}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            src={images[activeImageIndex]} 
-            className="w-full h-full object-cover" 
-            alt="" 
-          />
-        </AnimatePresence>
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/20 to-transparent"></div>
-        
-        {/* Gallery Thumbnails */}
+    <div className="pb-40 min-h-screen bg-[#0f172a]">
+      <EventCover event={cover} size="hero" className="h-72 md:max-w-2xl md:mx-auto md:mt-8 md:rounded-[32px]">
         {images.length > 1 && (
           <div className="absolute bottom-6 left-6 right-6 flex justify-center gap-2 z-20">
             {images.map((_, i) => (
-              <button 
+              <button
                 key={i}
+                aria-label={`Photo ${i + 1}`}
                 onClick={() => setActiveImageIndex(i)}
                 className={`h-1 rounded-full transition-all ${i === activeImageIndex ? 'w-8 bg-brand-secondary' : 'w-2 bg-white/30'}`}
               />
             ))}
           </div>
         )}
-
-        <button 
+        <button
           onClick={onBack}
-          className="absolute top-12 left-6 p-3 glass rounded-2xl text-white active:scale-90 transition-transform z-20"
+          aria-label="Back to events"
+          className="absolute top-14 left-6 p-3 glass rounded-2xl text-white active:scale-90 transition-transform z-20"
         >
           <ChevronRight className="rotate-180" size={20} />
         </button>
-      </div>
+      </EventCover>
 
-      <div className="px-6 -mt-20 relative z-10 md:max-w-2xl md:mx-auto">
+      <div className="px-6 -mt-12 relative z-10 md:max-w-2xl md:mx-auto">
         <div className="glass p-6 rounded-[32px] border-white/10 shadow-2xl mb-6">
-          <div className="flex justify-between items-start mb-4">
+          <div className="flex justify-between items-start gap-4 mb-4">
             <div>
               <span className="text-[10px] font-black uppercase tracking-widest text-brand-secondary mb-1 block">
                 {event.category}
+                {event.season === 'spring' && ' · Spring trip'}
               </span>
-              <h1 className="text-3xl font-display font-black text-white leading-tight">
-                {event.title}
-              </h1>
+              <h1 className="text-3xl font-display font-black text-white leading-tight">{event.title}</h1>
             </div>
-            <div className="bg-white/10 px-3 py-1 rounded-full text-white font-bold text-xs">
-              €{event.price}
+            <div className="bg-white/10 px-3 py-1 rounded-full text-white font-bold text-xs whitespace-nowrap">
+              {event.price === 0 ? 'Free' : `€${event.price}`}
             </div>
           </div>
 
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex -space-x-2">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-[#0f172a] bg-slate-800 overflow-hidden">
-                  <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="" />
-                </div>
-              ))}
-              <div className="w-8 h-8 rounded-full border-2 border-[#0f172a] bg-brand-primary flex items-center justify-center text-[10px] font-bold text-white">
-                +{event.participantsCount}
-              </div>
-            </div>
-            <span className="text-slate-400 text-xs font-medium">Joined the sourcing</span>
-          </div>
-
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
-              <motion.div 
+              <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                className="h-full rounded-full gradient-brand shadow-[0_0_12px_rgba(34,211,238,0.4)]"
+                animate={{ width: `${progressPercent(event)}%` }}
+                className={`h-full rounded-full ${enough ? 'bg-green-400' : 'gradient-brand shadow-[0_0_12px_rgba(34,211,238,0.4)]'}`}
               />
             </div>
-            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-              <span className="text-brand-secondary">{Math.round(progress)}% of Minimum goal</span>
-              <span className="text-slate-500">{event.minParticipants} required</span>
-            </div>
+            <p className="text-xs font-bold text-slate-200">{progressLabel(event)}</p>
           </div>
         </div>
 
         <div className="space-y-8 mb-10">
           <div>
-            <h3 className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-3 ml-1">About this Event</h3>
-            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
-              {event.description}
-            </p>
+            <h3 className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-3 ml-1">About this event</h3>
+            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{event.description}</p>
           </div>
+
+          {(duration || event.venueNote || event.bringYourOwn) && (
+            <ul className="space-y-2 text-sm text-slate-300">
+              {duration && <li>⏱ {duration}</li>}
+              {event.venueNote && <li>📍 {event.venueNote}</li>}
+              {event.bringYourOwn && <li>🎒 Not included: {event.bringYourOwn}</li>}
+            </ul>
+          )}
+
+          {canOfferHosting(event) && !cancelled && (
+            <button
+              onClick={() => onHelpRun(event)}
+              className="w-full py-3 rounded-2xl text-sm font-bold text-brand-secondary glass hover:bg-white/10 transition-colors"
+            >
+              Want to run this one? See what a host keeps
+            </button>
+          )}
 
           {event.mapsLink && (
             <div>
-              <h3 className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-3 ml-1">Location Details</h3>
-              <a 
-                href={event.mapsLink} 
-                target="_blank" 
+              <h3 className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-3 ml-1">Location</h3>
+              <a
+                href={event.mapsLink}
+                target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-3 p-4 glass rounded-2xl group hover:border-brand-primary/50 transition-all"
               >
                 <div className="w-10 h-10 rounded-xl gradient-brand flex items-center justify-center text-white">
                   <ExternalLink size={18} />
                 </div>
-                <div className="flex-grow">
+                <div className="flex-grow min-w-0">
                   <p className="text-white text-sm font-bold truncate">{event.mapsLink}</p>
                   <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mt-0.5">Open in Google Maps</p>
                 </div>
@@ -433,15 +435,10 @@ const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () =
               <h3 className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em]">Community Feed</h3>
               <span className="text-[10px] font-bold py-1 px-2 bg-white/5 rounded-md text-slate-400">{comments.length} Comments</span>
             </div>
-            
+
             <div className="space-y-4 mb-6">
               {comments.map((c, i) => (
-                <motion.div 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  key={c.id || i} 
-                  className="flex gap-3"
-                >
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={c.id || i} className="flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-white/10 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-300">
                     {c.userName.substring(0, 2).toUpperCase()}
                   </div>
@@ -463,14 +460,16 @@ const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () =
             </div>
 
             <form onSubmit={handleAddComment} className="relative">
-              <input 
+              <input
                 value={commentText}
-                onChange={e => setCommentText(e.target.value)}
+                onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Share your thoughts..."
+                maxLength={500}
                 className="w-full glass bg-white/5 border border-white/10 rounded-2xl pl-4 pr-14 py-4 text-white text-xs focus:ring-2 ring-brand-primary outline-none transition-all"
               />
-              <button 
+              <button
                 type="submit"
+                aria-label="Post comment"
                 className="absolute right-2 top-2 bottom-2 aspect-square gradient-brand rounded-xl flex items-center justify-center text-white active:scale-90 transition-transform"
               >
                 <Send size={16} />
@@ -479,13 +478,33 @@ const EventDetailView = ({ event, onBack, onJoin }: { event: Event, onBack: () =
           </div>
         </div>
 
-        <div className="fixed bottom-10 left-6 right-6 max-w-md md:max-w-2xl mx-auto z-50">
-          <button
-            onClick={() => onJoin(event.id)}
-            className="w-full py-5 gradient-brand text-white rounded-3xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-brand-primary/40 active:scale-95 transition-all flex items-center justify-center gap-3"
-          >
-            Join This Event <Users size={18} />
-          </button>
+        <div className="fixed bottom-6 left-6 right-6 max-w-md md:max-w-2xl mx-auto z-50">
+          {cancelled ? (
+            <button disabled className="w-full py-5 rounded-3xl font-black text-sm bg-slate-800 text-slate-500 cursor-not-allowed">
+              Cancelled
+            </button>
+          ) : joined ? (
+            <div className="flex items-center gap-3">
+              <div className="flex-grow py-5 rounded-3xl font-black text-sm tracking-wide bg-green-500/20 text-green-300 border border-green-500/30 backdrop-blur-xl text-center">
+                You're in
+              </div>
+              <button
+                onClick={() => onLeave(event)}
+                disabled={busy}
+                className="px-6 py-5 rounded-3xl text-sm font-bold text-slate-300 glass backdrop-blur-xl disabled:opacity-50"
+              >
+                Leave
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => onJoin(event)}
+              disabled={busy}
+              className="w-full py-5 gradient-brand text-white rounded-3xl font-black text-sm tracking-wide shadow-2xl shadow-brand-primary/40 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-60"
+            >
+              {busy ? 'Saving…' : <>I'd join <Users size={18} /></>}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1046,423 +1065,410 @@ const MoreModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
   );
 };
 
+// --- Landing page (the public app) ---
+
+const BANNER_DISMISSED_KEY = 'agorax_banner_dismissed';
+let pageViewSent = false;
+
+function readSessionFlag(key: string): boolean {
+  try {
+    return sessionStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'feed' | 'create' | 'venues' | 'dashboard'>('feed');
-  const [activeModal, setActiveModal] = useState<ActiveModal>('none');
+  const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [authError, setAuthError] = useState('');
+  const [uid, setUid] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
-  const [venues, setVenues] = useState<Venue[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [venueImageUrls, setVenueImageUrls] = useState<string[]>(['']);
-  const [targetHub, setTargetHub] = useState('Lansdowne Hub');
+  const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [eventsError, setEventsError] = useState(false);
+  const [me, setMe] = useState<UserDoc | null>(null);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [contactOpen, setContactOpen] = useState(false);
+  const [venueOfferOpen, setVenueOfferOpen] = useState(false);
+  const [organiserEvent, setOrganiserEvent] = useState<Event | null>(null);
+  const [ladder, setLadder] = useState<LadderPrompt | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(() => readSessionFlag(BANNER_DISMISSED_KEY));
+  const [pending, setPending] = useState<Set<string>>(() => new Set());
+  const [toast, setToast] = useState('');
 
-  const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return { events: [] as Event[], venues: [] as Venue[] };
-    return {
-      events: events.filter(e =>
-        e.title.toLowerCase().includes(q) ||
-        e.description.toLowerCase().includes(q) ||
-        e.category.toLowerCase().includes(q)
-      ),
-      venues: venues.filter(v =>
-        v.name.toLowerCase().includes(q) ||
-        v.location.toLowerCase().includes(q)
-      ),
-    };
-  }, [events, venues, searchQuery]);
+  const scrollBeforeOpen = useRef(0);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleVenueFileUpload = (index: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        handleVenueImageChange(index, base64String);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleAddVenueImageField = () => setVenueImageUrls([...venueImageUrls, '']);
-  const handleRemoveVenueImageField = (index: number) => {
-    const newImages = [...venueImageUrls];
-    newImages.splice(index, 1);
-    setVenueImageUrls(newImages);
-  };
-  const handleVenueImageChange = (index: number, val: string) => {
-    const newImages = [...venueImageUrls];
-    newImages[index] = val;
-    setVenueImageUrls(newImages);
-  };
-
+  // No sign-in screen, ever: get an anonymous user first, then subscribe.
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
+    let cancelled = false;
+    const unsubscribers: Array<() => void> = [];
+    document.title = 'AgoraX — What would you actually go to in Groningen?';
 
-    const unsubscribeEvents = subscribeToEvents(setEvents);
-    const unsubscribeVenues = subscribeToVenues(setVenues);
+    ensureAnonymousAuth()
+      .then((user) => {
+        if (cancelled) return;
+        setUid(user.uid);
+        setPhase('ready');
+        void touchUser();
+        if (!pageViewSent) {
+          pageViewSent = true;
+          track('page_view', { path: window.location.pathname });
+        }
+        unsubscribers.push(
+          subscribeToEvents(
+            (list) => {
+              setEvents(list);
+              setEventsLoaded(true);
+              setEventsError(false);
+            },
+            () => {
+              setEventsLoaded(true);
+              setEventsError(true);
+            },
+          ),
+        );
+        unsubscribers.push(subscribeToMyUser(user.uid, setMe));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setAuthError(describeAuthError(err));
+        setPhase('error');
+      });
 
     return () => {
-      unsubscribeAuth();
-      unsubscribeEvents();
-      unsubscribeVenues();
+      cancelled = true;
+      unsubscribers.forEach((u) => u());
     };
   }, []);
 
-  if (loading) {
+  // scroll_depth_25/50/75/100 — each fires once per session.
+  useEffect(() => {
+    if (phase !== 'ready' || selectedId) return;
+    const onScroll = () => {
+      const el = document.documentElement;
+      const scrollable = el.scrollHeight - window.innerHeight;
+      if (scrollable <= 0) return;
+      const pct = (window.scrollY / scrollable) * 100;
+      const atBottom = window.scrollY + window.innerHeight >= el.scrollHeight - 4;
+      for (const mark of [25, 50, 75, 100] as const) {
+        const reached = mark === 100 ? atBottom : pct >= mark;
+        if (reached && once(`scroll:${mark}`)) track(`scroll_depth_${mark}` as AnalyticsName);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [phase, selectedId]);
+
+  const joined = useMemo(() => new Set(me?.joinedEvents ?? []), [me]);
+  const picks = useMemo(() => events.filter((e) => joined.has(e.id) && e.status !== 'Cancelled'), [events, joined]);
+  const selected = selectedId ? events.find((e) => e.id === selectedId) ?? null : null;
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return events.filter(
+      (e) =>
+        e.status !== 'Cancelled' &&
+        (e.title.toLowerCase().includes(q) || e.description.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)),
+    );
+  }, [events, searchQuery]);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), 4000);
+  };
+
+  const setBusy = (eventId: string, on: boolean) =>
+    setPending((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(eventId);
+      else next.delete(eventId);
+      return next;
+    });
+
+  const handleJoin = async (event: Event) => {
+    if (!uid || pending.has(event.id) || joined.has(event.id)) return;
+    const joinsBefore = joined.size;
+    track('join_click', { eventId: event.id, price: event.price });
+    setBusy(event.id, true);
+    try {
+      const created = await joinEvent(event.id, uid, { priceSeen: event.price, source: getSource() });
+      // Price ladder: on the first join, then roughly every third. Never blocks the join.
+      if (created && joinsBefore % 3 === 0 && !me?.priceAnswers?.[event.id]) {
+        setLadder({ event, nextPrice: nextPriceFor(event) });
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Couldn't save that — please try again.");
+    } finally {
+      setBusy(event.id, false);
+    }
+  };
+
+  const handleLeave = async (event: Event) => {
+    if (!uid || pending.has(event.id)) return;
+    track('leave_click', { eventId: event.id });
+    setBusy(event.id, true);
+    try {
+      await leaveEvent(event.id, uid);
+    } catch (err) {
+      console.error(err);
+      showToast("Couldn't save that — please try again.");
+    } finally {
+      setBusy(event.id, false);
+    }
+  };
+
+  const handleOpen = (event: Event) => {
+    scrollBeforeOpen.current = window.scrollY;
+    setSelectedId(event.id);
+    window.scrollTo(0, 0);
+    if (once(`open:${event.id}`)) {
+      void bumpEventCounter(event.id, 'opens');
+      track('card_open', { eventId: event.id });
+    }
+  };
+
+  const handleBack = () => {
+    setSelectedId(null);
+    requestAnimationFrame(() => window.scrollTo(0, scrollBeforeOpen.current));
+  };
+
+  const handleJumpTo = (event: Event) => {
+    const el = document.getElementById(`event-${event.id}`);
+    if (!el) return;
+    // window.scrollTo only moves the page vertically; scrollIntoView can also scroll the
+    // shell sideways (it has decorative elements hanging off its right edge).
+    const top = el.getBoundingClientRect().top + window.scrollY - (window.innerHeight - el.offsetHeight) / 2;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  };
+
+  const handleHelpRun = (event: Event) => {
+    setOrganiserEvent(event);
+    track('organiser_panel_open', { eventId: event.id });
+  };
+
+  const handleInterest = async (event: Event) => {
+    if (!uid) return;
+    await recordOrganiserInterest(event.id, uid);
+    track('organiser_interest_click', { eventId: event.id });
+  };
+
+  const submitContact = async (values: ContactValues, via: 'banner' | 'organiser') => {
+    await linkContact({
+      name: values.name,
+      email: values.email,
+      phone: values.phone,
+      wantsToOrganise: via === 'organiser',
+    });
+    track('contact_submit', { via, hasPhone: values.phone !== '', hasEmail: values.email !== '' });
+  };
+
+  const handleLadderAnswer = (prompt: LadderPrompt, answer: PriceAnswer) => {
+    setLadder(null);
+    if (!uid) return;
+    track('price_ladder_answer', {
+      eventId: prompt.event.id,
+      answer,
+      priceAsked: prompt.nextPrice,
+      priceSeen: prompt.event.price,
+    });
+    recordPriceAnswer(uid, prompt.event.id, prompt.event.price, prompt.nextPrice, answer).catch((err) =>
+      console.warn('price answer not saved', err),
+    );
+  };
+
+  const dismissBanner = () => {
+    setBannerDismissed(true);
+    try {
+      sessionStorage.setItem(BANNER_DISMISSED_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery('');
+  };
+
+  if (phase === 'loading') {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center" role="status" aria-label="Loading">
         <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  if (!user) {
-    return <AuthHero />;
+  if (phase === 'error') {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-8">
+        <div className="glass rounded-3xl p-8 max-w-sm text-center">
+          <h1 className="font-display text-2xl font-black text-white mb-3">Something went wrong</h1>
+          <p className="text-slate-400 text-sm mb-6 leading-relaxed">{authError}</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-3 gradient-brand text-white rounded-2xl font-black text-sm">
+            Try again
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  const handleJoinEvent = async (eventId: string) => {
-    if (!user) return;
-    await joinEvent(eventId, user.uid);
-    setActiveModal('success');
-  };
-
-  const handleAddEvent = async (newEvent: any) => {
-    await createEvent(newEvent);
-    setActiveTab('feed');
-    setActiveModal('success');
-  };
-
-  const handleAddVenue = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    await createVenue({
-      name: (form.elements.namedItem('name') as HTMLInputElement).value,
-      description: 'A newly listed creative space ready for your event.',
-      location: (form.elements.namedItem('location') as HTMLInputElement).value,
-      hourlyRate: parseInt((form.elements.namedItem('rate') as HTMLInputElement).value),
-      capacity: parseInt((form.elements.namedItem('capacity') as HTMLInputElement).value),
-      imageUrls: venueImageUrls.filter(url => url.trim() !== ''),
-      ownerId: user.uid
-    });
-    setVenueImageUrls(['']);
-    setActiveModal('none');
-    setActiveModal('success');
-  };
-
-  const handleSelectEvent = (e: Event) => {
-    setSelectedEvent(e);
-  };
-
-  const handleStartWithVenue = (v: Venue) => {
-    setActiveTab('create');
-  };
-
-  const renderContent = () => {
-    if (selectedEvent) {
-      return (
-        <EventDetailView 
-          event={selectedEvent} 
-          onBack={() => setSelectedEvent(null)} 
-          onJoin={handleJoinEvent} 
-        />
-      );
-    }
-
-    switch (activeTab) {
-      case 'feed': return (
-        <FeedView 
-          events={events} 
-          onJoin={handleJoinEvent} 
-          onSearch={() => setActiveModal('search')} 
-          onNotify={() => setActiveModal('notifications')} 
-          onSelectEvent={handleSelectEvent}
-        />
-      );
-      case 'create': return <CreateView onAddEvent={handleAddEvent} venues={venues} />;
-      case 'venues': return <VenueMarketplace venues={venues} onListVenue={() => setActiveModal('list-venue')} onSelectVenue={handleStartWithVenue} />;
-      case 'dashboard': return <DashboardView events={events} onPromote={() => setActiveModal('promote')} onSelectEvent={handleSelectEvent} onCreateEvent={() => setActiveTab('create')} />;
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#0f172a] max-w-md sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto relative shadow-2xl overflow-hidden border-x border-white/5 selection:bg-brand-primary/30 transition-[max-width] duration-300">
-
-      {/* Bento Grid Background Accents */}
+    <div className="min-h-screen bg-[#0f172a] max-w-md sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto relative shadow-2xl overflow-clip border-x border-white/5 selection:bg-brand-primary/30">
+      {/* Background accents */}
       <div className="absolute top-0 left-0 w-full h-[600px] bg-gradient-to-b from-brand-primary/10 to-transparent pointer-events-none"></div>
       <div className="absolute top-1/4 -right-20 w-64 h-64 bg-brand-secondary/5 blur-[100px] rounded-full pointer-events-none"></div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.02 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
-          className="relative z-10"
-        >
-          {renderContent()}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Modals Interface */}
-      <MoreModal isOpen={activeModal === 'more'} onClose={() => setActiveModal('none')} />
-      
-      <Modal isOpen={activeModal === 'list-venue'} onClose={() => { setActiveModal('none'); setVenueImageUrls(['']); }} title="List Your Space">
-        <form onSubmit={handleAddVenue} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold text-slate-500">Venue Name</label>
-            <input name="name" required className="w-full glass bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm" placeholder="e.g. Neon Warehouse" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold text-slate-500">Rate (€/hr)</label>
-              <input name="rate" type="number" required className="w-full glass bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm" placeholder="45" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold text-slate-500">Capacity</label>
-              <input name="capacity" type="number" required className="w-full glass bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm" placeholder="100" />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold text-slate-500">Location</label>
-            <input name="location" required className="w-full glass bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm" placeholder="Art District" />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase font-bold text-slate-500">Space Images</label>
-            <div className="space-y-2">
-              {venueImageUrls.map((url, index) => (
-                <div key={index} className="flex gap-2">
-                  <div className="relative flex-grow">
-                    <input 
-                      className="w-full glass bg-white/5 border border-white/10 rounded-xl p-3 pr-10 text-white text-sm"
-                      placeholder="Paste URL or upload"
-                      value={url}
-                      onChange={e => handleVenueImageChange(index, e.target.value)}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-                      <label className="cursor-pointer text-slate-500 hover:text-white transition-colors">
-                        <Upload size={14} />
-                        <input 
-                          type="file" 
-                          className="hidden" 
-                          accept="image/*"
-                          onChange={handleVenueFileUpload(index)}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                  {venueImageUrls.length > 1 && (
-                    <button 
-                      type="button"
-                      onClick={() => handleRemoveVenueImageField(index)}
-                      className="p-3 glass rounded-xl text-red-400"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button 
-                type="button"
-                onClick={handleAddVenueImageField}
-                className="w-full py-2 border border-dashed border-white/10 rounded-xl text-slate-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
-              >
-                <Plus size={12} /> Add Another Image
-              </button>
-            </div>
-          </div>
-
-          <button type="submit" className="w-full py-4 gradient-brand text-white rounded-2xl font-black text-sm uppercase tracking-widest mt-4">
-            Register Space
-          </button>
-        </form>
-      </Modal>
-
-      <Modal isOpen={activeModal === 'promote'} onClose={() => setActiveModal('none')} title="Boost Visibility">
-        <div className="space-y-4">
-          <div className="p-4 glass rounded-2xl border-brand-secondary/30">
-            <p className="text-xs text-slate-300 mb-2 font-medium">Selected Booster:</p>
-            <div className="flex justify-between items-center">
-              <span className="text-white font-bold">1,000 Local Impressions</span>
-              <span className="text-brand-secondary font-black">€19.99</span>
-            </div>
-          </div>
-          <div className="space-y-3">
-             <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
-               <span className="text-white text-sm">Targeting: <span className="font-bold text-brand-primary">{targetHub}</span></span>
-               <button
-                 onClick={() => setTargetHub(prev => HUB_OPTIONS[(HUB_OPTIONS.indexOf(prev) + 1) % HUB_OPTIONS.length])}
-                 className="text-[10px] text-brand-secondary font-bold underline"
-               >
-                 Change
-               </button>
-             </div>
-          </div>
-          <button 
-            onClick={() => { setActiveModal('success'); }}
-            className="w-full py-4 bg-brand-secondary text-brand-dark rounded-2xl font-black text-sm uppercase tracking-widest mt-6"
-          >
-            Confirm & Pay
-          </button>
-        </div>
-      </Modal>
-
-      <Modal isOpen={activeModal === 'notifications'} onClose={() => setActiveModal('none')} title="Notifications">
-        <div className="space-y-4">
-          {[
-            { t: 'Event Confirmed!', d: 'Botanic Yoga reached its threshold.', age: '2m ago' },
-            { t: 'New Space Near You', d: 'The Glasshouse is now listing afternoons.', age: '1h ago' },
-            { t: 'Payout Successful', d: '€145.00 credited to your wallet.', age: '5h ago' }
-          ].map((n, i) => (
-            <div key={i} className="p-4 glass rounded-2xl relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-1 h-full bg-brand-secondary"></div>
-              <p className="text-white font-bold text-sm mb-1">{n.t}</p>
-              <p className="text-slate-400 text-xs mb-2">{n.d}</p>
-              <span className="text-[9px] text-slate-600 font-black uppercase tracking-widest">{n.age}</span>
-            </div>
-          ))}
-        </div>
-      </Modal>
-
-      <Modal isOpen={activeModal === 'search'} onClose={() => { setActiveModal('none'); setSearchQuery(''); }} title="Search AgoraX">
-        <div className="space-y-6">
-          <div className="relative">
-             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-             <input
-               value={searchQuery}
-               onChange={e => setSearchQuery(e.target.value)}
-               className="w-full glass bg-white/5 border border-white/20 rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 ring-brand-primary outline-none"
-               placeholder="Search events, venues, organizers..."
-               autoFocus
-             />
-          </div>
-
-          {searchQuery.trim() === '' ? (
-            <div>
-              <p className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-3 ml-1">Recent Searches</p>
-              <div className="flex flex-wrap gap-2">
-                {['Yoga', 'Jazz', 'Networking', 'Warehouse'].map(s => (
-                  <button key={s} onClick={() => setSearchQuery(s)} className="px-4 py-2 glass rounded-full text-xs text-slate-300 font-medium cursor-pointer hover:bg-white/10 transition-colors">#{s}</button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar">
-              {searchResults.events.map(e => (
-                <div
-                  key={e.id}
-                  onClick={() => { setActiveModal('none'); setSearchQuery(''); handleSelectEvent(e); }}
-                  className="glass p-3 rounded-2xl flex items-center gap-3 cursor-pointer hover:border-brand-primary/50 transition-all"
-                >
-                  <img src={e.imageUrls && e.imageUrls.length > 0 ? e.imageUrls[0] : 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80'} className="w-10 h-10 rounded-xl object-cover shrink-0" alt="" />
-                  <div className="flex-grow min-w-0">
-                    <p className="text-white text-sm font-bold truncate">{e.title}</p>
-                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{e.category} Event</p>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
-                </div>
-              ))}
-              {searchResults.venues.map(v => (
-                <div
-                  key={v.id}
-                  onClick={() => { setActiveModal('none'); setSearchQuery(''); setActiveTab('venues'); }}
-                  className="glass p-3 rounded-2xl flex items-center gap-3 cursor-pointer hover:border-brand-primary/50 transition-all"
-                >
-                  <img src={v.imageUrls && v.imageUrls.length > 0 ? v.imageUrls[0] : 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=800&q=80'} className="w-10 h-10 rounded-xl object-cover shrink-0" alt="" />
-                  <div className="flex-grow min-w-0">
-                    <p className="text-white text-sm font-bold truncate">{v.name}</p>
-                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{v.location}</p>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
-                </div>
-              ))}
-              {searchResults.events.length === 0 && searchResults.venues.length === 0 && (
-                <p className="text-center text-slate-600 text-xs font-bold uppercase tracking-widest py-8">No matches found</p>
-              )}
-            </div>
-          )}
-        </div>
-      </Modal>
-
-      <Modal isOpen={activeModal === 'success'} onClose={() => setActiveModal('none')} title="">
-        <div className="flex flex-col items-center text-center py-6">
-          <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-6 animate-bounce">
-            <CheckCircle2 size={40} className="text-green-400" />
-          </div>
-          <h2 className="text-3xl font-display font-black text-white mb-2">Success!</h2>
-          <p className="text-slate-400 text-sm max-w-[200px] leading-relaxed">
-            Your action has been recorded in the cultural ledger.
-          </p>
-          <button 
-            onClick={() => setActiveModal('none')}
-            className="mt-10 px-8 py-3 bg-white text-brand-dark rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all"
-          >
-            Continue
-          </button>
-        </div>
-      </Modal>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto bg-brand-dark/40 backdrop-blur-2xl border-t border-white/10 px-8 py-5 z-50">
-      <div className="max-w-md mx-auto flex justify-between items-center">
-        <button
-          onClick={() => setActiveTab('feed')}
-          className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'feed' ? 'text-brand-secondary scale-110 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <Compass size={24} strokeWidth={activeTab === 'feed' ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Feed</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('venues')}
-          className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'venues' ? 'text-brand-secondary scale-110 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <Building2 size={24} strokeWidth={activeTab === 'venues' ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Venues</span>
-        </button>
-        
-        {/* Centered Create Button */}
-        <div className="relative -top-8">
-          <button 
-            onClick={() => setActiveTab('create')}
-            className={`w-16 h-16 rounded-3xl shadow-2xl transition-all duration-300 flex items-center justify-center text-white active:scale-90 group ${activeTab === 'create' ? 'bg-white scale-110' : 'gradient-brand'}`}
-          >
-            <Plus size={36} className={`transition-colors duration-300 ${activeTab === 'create' ? 'text-brand-dark' : 'text-white'}`} />
-          </button>
-        </div>
-
-        <button 
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'dashboard' ? 'text-brand-secondary scale-110 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <LayoutDashboard size={24} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Owner</span>
-        </button>
-        <button 
-          onClick={() => setActiveModal('more')}
-          className={`flex flex-col items-center gap-1.5 transition-all ${activeModal === 'more' ? 'text-brand-secondary scale-110' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <Menu size={24} />
-          <span className="text-[9px] font-black uppercase tracking-widest">More</span>
-        </button>
-      </div>
-      </nav>
-
-      {/* Logo Floating Top Banner (Mobile) */}
+      {/* Logo */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 px-5 py-2 glass-dark rounded-full z-50">
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-brand-secondary shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse"></div>
           <span className="font-display font-black text-white text-xs tracking-[0.2em] italic">AGORA<span className="text-brand-secondary">X</span></span>
         </div>
       </div>
+
+      {!selected && (
+        <button
+          onClick={() => setSearchOpen(true)}
+          aria-label="Search events"
+          className="absolute top-3 right-4 z-50 glass p-2.5 rounded-2xl text-slate-300 hover:text-white transition-colors"
+        >
+          <Search size={20} />
+        </button>
+      )}
+
+      <motion.div
+        key={selected ? `detail-${selected.id}` : 'feed'}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="relative z-10"
+      >
+        {selected ? (
+          <EventDetailView
+            event={selected}
+            joined={joined.has(selected.id)}
+            busy={pending.has(selected.id)}
+            onBack={handleBack}
+            onJoin={handleJoin}
+            onLeave={handleLeave}
+            onHelpRun={handleHelpRun}
+          />
+        ) : (
+          <FeedView
+            events={events}
+            eventsLoaded={eventsLoaded}
+            eventsError={eventsError}
+            joined={joined}
+            pending={pending}
+            onJoin={handleJoin}
+            onLeave={handleLeave}
+            onOpen={handleOpen}
+            onHelpRun={handleHelpRun}
+            onOfferSpace={() => setVenueOfferOpen(true)}
+          />
+        )}
+      </motion.div>
+
+      {!selected && (
+        <BottomBar
+          picks={picks}
+          showContactBanner={picks.length > 0 && !me?.hasContact && !bannerDismissed}
+          onOpenContact={() => setContactOpen(true)}
+          onDismissBanner={dismissBanner}
+          onJumpTo={handleJumpTo}
+        />
+      )}
+
+      {/* Sheets */}
+      <OrganiserPanel
+        event={organiserEvent}
+        hasContact={!!me?.hasContact}
+        onClose={() => setOrganiserEvent(null)}
+        onInterest={handleInterest}
+        onContact={(values) => submitContact(values, 'organiser')}
+      />
+
+      <PriceLadderSheet prompt={ladder} onAnswer={handleLadderAnswer} onSkip={() => setLadder(null)} />
+
+      <Modal isOpen={contactOpen} onClose={() => setContactOpen(false)} title="Hear when it's happening">
+        <p className="text-slate-400 text-sm mb-5">Leave a number and we'll tell you when one of your events is happening.</p>
+        <ContactForm
+          onSubmit={async (values) => {
+            await submitContact(values, 'banner');
+            setContactOpen(false);
+          }}
+        />
+      </Modal>
+
+      <VenueOfferModal isOpen={venueOfferOpen} onClose={() => setVenueOfferOpen(false)} />
+
+      <Modal isOpen={searchOpen} onClose={closeSearch} title="Search events">
+        <div className="space-y-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full glass bg-white/5 border border-white/20 rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 ring-brand-primary outline-none"
+              placeholder="Chess, hiking, pottery…"
+              autoFocus
+            />
+          </div>
+
+          {searchQuery.trim() === '' ? (
+            <div>
+              <p className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-3 ml-1">Browse by type</p>
+              <div className="flex flex-wrap gap-2">
+                {PUBLIC_CATEGORIES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setSearchQuery(c)}
+                    className="px-4 py-2 glass rounded-full text-xs text-slate-300 font-medium hover:bg-white/10 transition-colors"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar">
+              {searchResults.map((e) => (
+                <button
+                  key={e.id}
+                  onClick={() => {
+                    closeSearch();
+                    handleOpen(e);
+                  }}
+                  className="w-full text-left glass p-3 rounded-2xl flex items-center gap-3 hover:border-brand-primary/50 transition-all"
+                >
+                  <EventCover event={e} className="w-12 h-12 rounded-xl shrink-0" size="card" />
+                  <div className="flex-grow min-w-0">
+                    <p className="text-white text-sm font-bold truncate">{e.title}</p>
+                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{e.category}</p>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                </button>
+              ))}
+              {searchResults.length === 0 && (
+                <p className="text-center text-slate-600 text-xs font-bold uppercase tracking-widest py-8">No matches — suggest it at the bottom of the page</p>
+              )}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {toast && (
+        <div role="status" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] glass-dark px-4 py-2 rounded-full text-xs text-white shadow-xl">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
-
-

@@ -1,4 +1,32 @@
-export type EventCategory = 'Workshop' | 'Concert' | 'Cultural' | 'Social' | 'Fitness' | 'Startup';
+export type EventCategory =
+  | 'Sports'
+  | 'Games'
+  | 'Creative'
+  | 'Social'
+  | 'Study'
+  | 'Tech & Ideas'
+  | 'Outdoor'
+  // Legacy categories — kept so older documents keep rendering.
+  | 'Workshop'
+  | 'Concert'
+  | 'Cultural'
+  | 'Fitness'
+  | 'Startup';
+
+/** Categories shown as filter chips and offered when creating events. */
+export const PUBLIC_CATEGORIES: EventCategory[] = [
+  'Sports',
+  'Games',
+  'Creative',
+  'Social',
+  'Study',
+  'Tech & Ideas',
+  'Outdoor',
+];
+
+export const LEGACY_CATEGORIES: EventCategory[] = ['Workshop', 'Concert', 'Cultural', 'Fitness', 'Startup'];
+
+export type EventStatus = 'Pending' | 'Confirmed' | 'Cancelled';
 
 export interface Event {
   id: string;
@@ -10,13 +38,30 @@ export interface Event {
   participantsCount: number;
   deadline: string; // ISO date string
   startTime: string; // ISO date string
-  status: 'Pending' | 'Confirmed' | 'Cancelled';
+  status: EventStatus;
   organizerId: string;
   venueId?: string;
   imageUrls: string[];
   mapsLink?: string;
+  /** Aggregate counters, bumped with increment() so the admin page never scans analytics. */
   impressions?: number;
+  opens?: number;
+  joins?: number;
+  organiserInterest?: number;
   clicks?: number;
+  /** Firestore Timestamp (or null while the write is still pending). Absent on older documents. */
+  createdAt?: any;
+  // Fields that come from the seed list / admin editor.
+  slug?: string;
+  durationHours?: number;
+  hostsNeeded?: number;
+  fixedCost?: number;
+  perPersonCost?: number;
+  bringYourOwn?: string;
+  venueNote?: string;
+  season?: 'any' | 'spring';
+  emoji?: string;
+  accent?: string;
 }
 
 export interface Venue {
@@ -37,4 +82,45 @@ export interface Comment {
   userName: string;
   text: string;
   createdAt: string;
+}
+
+export type PriceAnswer = 'yes' | 'no' | 'depends';
+
+/** Shape of users/{uid}. Everything beyond uid/createdAt/lastSeenAt/source is optional. */
+export interface UserDoc {
+  uid: string;
+  createdAt?: any;
+  lastSeenAt?: any;
+  source?: string;
+  hasContact?: boolean;
+  name?: string;
+  email?: string;
+  phone?: string;
+  wantsToOrganise?: boolean;
+  hasSpace?: boolean;
+  consent?: boolean;
+  consentAt?: any;
+  /** Event ids the person has joined — mirrors events/{id}/participants/{uid}. */
+  joinedEvents?: string[];
+  /** Event ids the person tapped "help run this" on. */
+  organiserEvents?: string[];
+  priceAnswers?: Record<string, { answer: PriceAnswer; priceAsked: number; priceSeen: number; ts: any }>;
+}
+
+export interface ParticipantDoc {
+  eventId: string;
+  uid: string;
+  joinedAt?: any;
+  priceSeen?: number;
+  source?: string;
+}
+
+export type AdminRole = 'owner' | 'editor' | 'viewer';
+
+export interface AdminDoc {
+  uid: string;
+  role: AdminRole;
+  label?: string;
+  grantedBy?: string;
+  grantedAt?: any;
 }

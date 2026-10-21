@@ -1,19 +1,24 @@
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  doc, 
-  onSnapshot, 
-  query, 
-  where, 
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+  query,
   orderBy,
-  getDoc,
+  getDocs,
   serverTimestamp,
   increment,
-  setDoc
+  arrayUnion,
+  arrayRemove,
+  setDoc,
+  runTransaction,
+  writeBatch,
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Event, Venue, Comment } from '../types';
+import { ensureAnonymousAuth, getSource } from './identity';
+import { Event, Venue, Comment, UserDoc, PriceAnswer } from '../types';
+import { SEED_EVENTS } from '../data/seedEvents';
 
 export const OperationType = {
   CREATE: 'create',
@@ -24,7 +29,7 @@ export const OperationType = {
   WRITE: 'write',
 };
 
-function handleFirestoreError(error: any, operationType: string, path: string | null) {
+function handleFirestoreError(error: any, operationType: string, path: string | null): never {
   const errInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -42,16 +47,42 @@ function handleFirestoreError(error: any, operationType: string, path: string | 
 
 // --- Events ---
 
-export const subscribeToEvents = (callback: (events: Event[]) => void) => {
-  const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const events = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+/** Milliseconds for a Firestore Timestamp, a date string, or nothing (older documents). */
+export function timestampMillis(value: any): number {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  const t = new Date(value).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+const SEED_ORDER = new Map(SEED_EVENTS.map((e, i) => [e.slug, i]));
+
+/**
+ * Newest first. Documents without createdAt sort last instead of vanishing (a Firestore
+ * orderBy would silently drop them). The seed batch shares one timestamp, so ties fall
+ * back to the order the seed list is written in — which keeps categories grouped.
+ */
+export function sortEvents(events: Event[]): Event[] {
+  return [...events].sort((a, b) => {
+    const byTime = timestampMillis(b.createdAt) - timestampMillis(a.createdAt);
+    if (byTime !== 0) return byTime;
+    const ai = SEED_ORDER.get(a.slug ?? a.id) ?? Number.MAX_SAFE_INTEGER;
+    const bi = SEED_ORDER.get(b.slug ?? b.id) ?? Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+export const subscribeToEvents = (callback: (events: Event[]) => void, onError?: (error: Error) => void) => {
+  return onSnapshot(collection(db, 'events'), (snapshot) => {
+    const events = snapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data({ serverTimestamps: 'estimate' })
     })) as Event[];
-    callback(events);
+    callback(sortEvents(events));
   }, (error) => {
-    handleFirestoreError(error, OperationType.LIST, 'events');
+    console.error('Events listener failed', error);
+    onError?.(error);
   });
 };
 
@@ -70,47 +101,233 @@ export const createEvent = async (event: Omit<Event, 'id' | 'createdAt'>) => {
   }
 };
 
-export const joinEvent = async (eventId: string, userId: string) => {
+export interface JoinMeta {
+  priceSeen: number;
+  source: string;
+}
+
+/**
+ * Idempotent: the counters only move when the participant document did not already exist,
+ * so joining twice (double tap, two tabs, retry) can never inflate the count. The read and
+ * the writes share one transaction, so two racing joins can't both see "not joined yet".
+ * Returns true if this call created the join.
+ */
+export const joinEvent = async (eventId: string, userId: string, meta: JoinMeta): Promise<boolean> => {
+  const eventRef = doc(db, 'events', eventId);
+  const participantRef = doc(db, 'events', eventId, 'participants', userId);
+  const userRef = doc(db, 'users', userId);
   try {
-    const eventRef = doc(db, 'events', eventId);
-    const participantRef = doc(db, 'events', eventId, 'participants', userId);
-    
-    // Using setDoc for the subcollection join
-    await setDoc(participantRef, { joinedAt: serverTimestamp() });
-    
-    // Increment count on main doc
-    await updateDoc(eventRef, {
-      participantsCount: increment(1)
+    return await runTransaction(db, async (tx) => {
+      const existing = await tx.get(participantRef);
+      if (existing.exists()) {
+        // Heal the mirror on users/{uid} if it ever fell out of step, but count nothing.
+        tx.set(userRef, { uid: userId, joinedEvents: arrayUnion(eventId) }, { merge: true });
+        return false;
+      }
+      tx.set(participantRef, {
+        joinedAt: serverTimestamp(),
+        priceSeen: meta.priceSeen,
+        source: meta.source,
+      });
+      tx.update(eventRef, { participantsCount: increment(1), joins: increment(1) });
+      tx.set(
+        userRef,
+        { uid: userId, lastSeenAt: serverTimestamp(), joinedEvents: arrayUnion(eventId) },
+        { merge: true },
+      );
+      return true;
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `events/${eventId}/participants/${userId}`);
   }
 };
 
-export const trackImpression = async (eventId: string) => {
+/** Mirror of joinEvent: only decrements if the participant document existed. */
+export const leaveEvent = async (eventId: string, userId: string): Promise<boolean> => {
+  const eventRef = doc(db, 'events', eventId);
+  const participantRef = doc(db, 'events', eventId, 'participants', userId);
+  const userRef = doc(db, 'users', userId);
   try {
-    const eventRef = doc(db, 'events', eventId);
-    await updateDoc(eventRef, {
-      impressions: increment(1)
+    return await runTransaction(db, async (tx) => {
+      const existing = await tx.get(participantRef);
+      if (!existing.exists()) {
+        tx.set(userRef, { uid: userId, joinedEvents: arrayRemove(eventId) }, { merge: true });
+        return false;
+      }
+      tx.delete(participantRef);
+      tx.update(eventRef, { participantsCount: increment(-1), joins: increment(-1) });
+      tx.set(userRef, { uid: userId, joinedEvents: arrayRemove(eventId) }, { merge: true });
+      return true;
     });
   } catch (error) {
-    // Fail silently for analytics
-    console.error('Impression tracking failed', error);
+    handleFirestoreError(error, OperationType.WRITE, `events/${eventId}/participants/${userId}`);
   }
 };
 
-export const trackClick = async (eventId: string) => {
+/** Cheap aggregate counters on the event document, so the admin page never scans analytics. */
+export const bumpEventCounter = async (eventId: string, field: 'impressions' | 'opens') => {
   try {
-    const eventRef = doc(db, 'events', eventId);
-    await updateDoc(eventRef, {
-      clicks: increment(1)
-    });
+    await ensureAnonymousAuth();
+    await updateDoc(doc(db, 'events', eventId), { [field]: increment(1) });
   } catch (error) {
-    console.error('Click tracking failed', error);
+    // Analytics must never surface as an error to the visitor.
+    console.warn(`${field} counter failed`, error);
   }
 };
 
-// --- Venues ---
+/** Records "I'd help run this" once per person per event. Returns true if it was new. */
+export const recordOrganiserInterest = async (eventId: string, userId: string): Promise<boolean> => {
+  const eventRef = doc(db, 'events', eventId);
+  const userRef = doc(db, 'users', userId);
+  try {
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(userRef);
+      const already = ((snap.data() as UserDoc | undefined)?.organiserEvents ?? []).includes(eventId);
+      if (already) return false;
+      tx.set(
+        userRef,
+        { uid: userId, wantsToOrganise: true, organiserEvents: arrayUnion(eventId) },
+        { merge: true },
+      );
+      tx.update(eventRef, { organiserInterest: increment(1) });
+      return true;
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
+  }
+};
+
+export const recordPriceAnswer = async (
+  userId: string,
+  eventId: string,
+  priceSeen: number,
+  priceAsked: number,
+  answer: PriceAnswer,
+) => {
+  try {
+    await setDoc(
+      doc(db, 'users', userId),
+      { uid: userId, priceAnswers: { [eventId]: { answer, priceAsked, priceSeen, ts: serverTimestamp() } } },
+      { merge: true },
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
+  }
+};
+
+/** Live copy of the visitor's own users/{uid} document (joins, answers, contact flag). */
+export const subscribeToMyUser = (userId: string, callback: (user: UserDoc | null) => void) => {
+  return onSnapshot(doc(db, 'users', userId), (snap) => {
+    callback(snap.exists() ? (snap.data() as UserDoc) : null);
+  }, (error) => {
+    console.warn('users listener failed', error);
+    callback(null);
+  });
+};
+
+// --- Suggestions & venue offers (create-only collections) ---
+
+export const submitSuggestion = async (input: { text: string; contact?: string }) => {
+  const user = await ensureAnonymousAuth();
+  try {
+    await addDoc(collection(db, 'suggestions'), {
+      uid: user.uid,
+      text: input.text.trim(),
+      contact: (input.contact ?? '').trim(),
+      source: getSource(),
+      ts: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, 'suggestions');
+  }
+};
+
+export const submitVenueOffer = async (input: { name: string; spaceType: string; contact: string }) => {
+  const user = await ensureAnonymousAuth();
+  try {
+    await addDoc(collection(db, 'venueOffers'), {
+      uid: user.uid,
+      name: input.name.trim(),
+      spaceType: input.spaceType.trim(),
+      contact: input.contact.trim(),
+      source: getSource(),
+      ts: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, 'venueOffers');
+  }
+};
+
+// --- Seeding ---
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Writes the 33 seed events to events/{slug}. Safe to re-run:
+ *  - existing events get their *content* refreshed (title, copy, price, costs, emoji…);
+ *  - counters, status, images, dates and createdAt are only set when the event is new, so a
+ *    re-seed never wipes real signups or an admin's manual status/photo changes.
+ */
+export const seedEvents = async (): Promise<{ created: number; updated: number }> => {
+  try {
+    const existing = new Set((await getDocs(collection(db, 'events'))).docs.map((d) => d.id));
+    const batch = writeBatch(db);
+    let created = 0;
+    let updated = 0;
+    const now = Date.now();
+
+    for (const s of SEED_EVENTS) {
+      const ref = doc(db, 'events', s.slug);
+      const content = {
+        slug: s.slug,
+        title: s.title,
+        description: s.description,
+        category: s.category,
+        price: s.price,
+        minParticipants: s.minParticipants,
+        durationHours: s.durationHours,
+        hostsNeeded: s.hostsNeeded,
+        fixedCost: s.fixedCost,
+        perPersonCost: s.perPersonCost,
+        bringYourOwn: s.bringYourOwn,
+        venueNote: s.venueNote,
+        season: s.season,
+        emoji: s.emoji,
+        accent: s.accent,
+      };
+      if (existing.has(s.slug)) {
+        batch.set(ref, content, { merge: true });
+        updated++;
+      } else {
+        batch.set(
+          ref,
+          {
+            ...content,
+            status: 'Pending',
+            organizerId: 'agorax',
+            imageUrls: [],
+            deadline: new Date(now + 21 * DAY_MS).toISOString(),
+            startTime: new Date(now + 28 * DAY_MS).toISOString(),
+            createdAt: serverTimestamp(),
+            participantsCount: 0,
+            impressions: 0,
+            opens: 0,
+            joins: 0,
+            organiserInterest: 0,
+          },
+          { merge: true },
+        );
+        created++;
+      }
+    }
+    await batch.commit();
+    return { created, updated };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'events');
+  }
+};
+
+// --- Venues (not reachable from the public build, kept for later) ---
 
 export const subscribeToVenues = (callback: (venues: Venue[]) => void) => {
   return onSnapshot(collection(db, 'venues'), (snapshot) => {
@@ -120,7 +337,7 @@ export const subscribeToVenues = (callback: (venues: Venue[]) => void) => {
     })) as Venue[];
     callback(venues);
   }, (error) => {
-    handleFirestoreError(error, OperationType.LIST, 'venues');
+    console.warn('Venues listener failed', error);
   });
 };
 
@@ -144,7 +361,7 @@ export const subscribeToComments = (eventId: string, callback: (comments: Commen
     })) as Comment[];
     callback(comments);
   }, (error) => {
-    handleFirestoreError(error, OperationType.LIST, `events/${eventId}/comments`);
+    console.warn(`Comments listener failed for ${eventId}`, error);
   });
 };
 

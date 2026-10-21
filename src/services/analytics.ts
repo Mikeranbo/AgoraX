@@ -1,0 +1,38 @@
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { ensureAnonymousAuth, getSource } from './identity';
+
+export type AnalyticsName =
+  | 'page_view'
+  | 'card_impression'
+  | 'card_open'
+  | 'join_click'
+  | 'leave_click'
+  | 'organiser_panel_open'
+  | 'organiser_interest_click'
+  | 'venue_offer_submit'
+  | 'contact_submit'
+  | 'suggestion_submit'
+  | 'price_ladder_answer'
+  | 'scroll_depth_25'
+  | 'scroll_depth_50'
+  | 'scroll_depth_75'
+  | 'scroll_depth_100';
+
+/** Fire-and-forget: analytics must never block or break the UI. */
+export function track(name: AnalyticsName, payload: Record<string, unknown> = {}): void {
+  void (async () => {
+    try {
+      const user = await ensureAnonymousAuth();
+      await addDoc(collection(db, 'analytics'), {
+        uid: user.uid,
+        name,
+        payload,
+        source: getSource(),
+        ts: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn('analytics failed', name, err);
+    }
+  })();
+}

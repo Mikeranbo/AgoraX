@@ -1,22 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Global Safety Net
+    // Global Safety Net — anything not matched below is denied.
     match /{document=**} {
       allow read, write: if false;
     }
 
     // --- Helpers ---
     function isSignedIn() {
+      // Anonymous users count as signed in: the public site has no login.
       return request.auth != null;
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function incoming() {
@@ -27,22 +24,38 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // Admins live in admins/{uid}. The first one is created by hand in the console.
+    function isAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function adminRole() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role;
+    }
+
+    // owner + editor may change content; viewer is read-only.
+    function isEditor() {
+      return isAdmin() && adminRole() in ['owner', 'editor'];
+    }
+
+    function isAdminOwner() {
+      return isAdmin() && adminRole() == 'owner';
+    }
+
     // --- Schemas ---
     function isValidEvent(data) {
-      return data.keys().hasAll(['title', 'description', 'category', 'organizerId', 'status', 'createdAt']) &&
+      return data.keys().hasAll(['title', 'description', 'category', 'status']) &&
              data.title is string && data.title.size() <= 200 &&
              data.description is string && data.description.size() <= 2000 &&
              data.category is string &&
-             data.organizerId == request.auth.uid &&
-             data.status in ['Pending', 'Confirmed', 'Cancelled'] &&
-             data.createdAt == request.time;
+             data.status in ['Pending', 'Confirmed', 'Cancelled'];
     }
 
     function isValidVenue(data) {
-      return data.keys().hasAll(['name', 'location', 'ownerId']) &&
+      return data.keys().hasAll(['name', 'location']) &&
              data.name is string && data.name.size() <= 200 &&
-             data.location is string && data.location.size() <= 1000 &&
-             data.ownerId == request.auth.uid;
+             data.location is string && data.location.size() <= 1000;
     }
 
     function isValidComment(data) {
@@ -52,43 +65,124 @@ service cloud.firestore {
              data.createdAt == request.time;
     }
 
+    function isValidParticipant(data) {
+      return data.keys().hasOnly(['joinedAt', 'priceSeen', 'source']) &&
+             data.priceSeen is number &&
+             data.source is string && data.source.size() <= 40;
+    }
+
+    // --- Event counters ---
+    // Anyone signed in may move these fields on an event, and nothing else, and only by one
+    // step at a time (increment/decrement), so a visitor cannot write an arbitrary number.
+    function counterFields() {
+      return ['participantsCount', 'impressions', 'opens', 'joins', 'organiserInterest'];
+    }
+
+    function stepOk(field) {
+      return incoming().get(field, 0) - existing().get(field, 0) <= 1 &&
+             incoming().get(field, 0) - existing().get(field, 0) >= -1;
+    }
+
+    function isCounterOnlyUpdate() {
+      return incoming().diff(existing()).affectedKeys().hasOnly(counterFields()) &&
+             stepOk('participantsCount') &&
+             stepOk('impressions') &&
+             stepOk('opens') &&
+             stepOk('joins') &&
+             stepOk('organiserInterest');
+    }
+
+    // Create-only collections: the writer must stamp their own uid.
+    function isOwnRecord(data) {
+      return isSignedIn() && data.uid == request.auth.uid;
+    }
+
     // --- Rules ---
-    match /users/{userId} {
+
+    match /admins/{adminUid} {
+      // Readable by any signed-in user so the UI can check its own access.
       allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      allow write: if isAdminOwner();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update, delete: if isOwner(userId);
     }
 
     match /events/{eventId} {
-      allow read: if true; // Everyone can see events
-      allow create: if isSignedIn() && isValidEvent(incoming());
-      allow update: if isSignedIn() && (
-        // Owner can update everything
-        (isOwner(existing().organizerId) && incoming().organizerId == existing().organizerId) ||
-        // Anyone can join (increment participantsCount) - client side state update
-        (incoming().diff(existing()).affectedKeys().hasOnly(['participantsCount', 'updatedAt'])) ||
-        // Analytics tracking
-        (incoming().diff(existing()).affectedKeys().hasAny(['impressions', 'clicks']) && 
-         incoming().diff(existing()).affectedKeys().size() <= 2)
-      );
-      allow delete: if isOwner(existing().organizerId);
+      allow read: if isSignedIn();
+      // The counter path is listed first so ordinary visitors never trigger an admin lookup.
+      allow create: if isEditor() && isValidEvent(incoming());
+      allow update: if (isSignedIn() && isCounterOnlyUpdate()) ||
+                       (isEditor() && isValidEvent(incoming()));
+      allow delete: if isEditor();
 
       match /comments/{commentId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && isValidComment(incoming());
         allow delete: if isOwner(existing().userId);
       }
 
+      // A person may create, update and delete only their own participant document.
       match /participants/{userId} {
-        allow read: if true;
-        allow write: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update: if isOwner(userId) && isValidParticipant(incoming());
+        allow delete: if isOwner(userId);
       }
     }
 
+    // Lets the admin page read every participant with one collection-group query.
+    match /{path=**}/participants/{userId} {
+      allow read: if isAdmin();
+    }
+
     match /venues/{venueId} {
-      allow read: if true;
-      allow create: if isSignedIn() && isValidVenue(incoming());
-      allow update: if isOwner(existing().ownerId) && incoming().ownerId == existing().ownerId;
-      allow delete: if isOwner(existing().ownerId);
+      allow read: if isSignedIn();
+      allow create, update: if isEditor() && isValidVenue(incoming());
+      allow delete: if isEditor();
+    }
+
+    // --- Create-only collections (no read, update or delete for visitors) ---
+
+    match /analytics/{docId} {
+      allow create: if isOwnRecord(incoming()) &&
+                       incoming().name is string && incoming().name.size() <= 64 &&
+                       incoming().ts == request.time;
+      allow read: if isAdmin();
+    }
+
+    match /suggestions/{docId} {
+      allow create: if isOwnRecord(incoming()) &&
+                       incoming().text is string &&
+                       incoming().text.size() > 0 && incoming().text.size() <= 1000 &&
+                       incoming().get('contact', '').size() <= 200 &&
+                       incoming().ts == request.time;
+      allow read: if isAdmin();
+    }
+
+    match /venueOffers/{docId} {
+      allow create: if isOwnRecord(incoming()) &&
+                       incoming().name is string && incoming().name.size() <= 200 &&
+                       incoming().spaceType is string && incoming().spaceType.size() <= 200 &&
+                       incoming().contact is string && incoming().contact.size() <= 200 &&
+                       incoming().ts == request.time;
+      allow read: if isAdmin();
+    }
+
+    match /mergeRequests/{docId} {
+      allow create: if isOwnRecord(incoming()) &&
+                       incoming().otherUid is string &&
+                       incoming().ts == request.time;
+      allow read: if isAdmin();
+    }
+
+    // Opaque lookup keys (hash of an email/phone → uid) used to spot the same person
+    // arriving on a second device. A visitor can check one key but never list them.
+    match /contactKeys/{keyId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isOwnRecord(incoming());
     }
   }
 }
