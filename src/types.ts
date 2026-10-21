@@ -88,6 +88,16 @@ export interface Comment {
 
 export type PriceAnswer = 'yes' | 'no' | 'depends';
 
+export type RanBefore = 'yes' | 'no' | 'sort-of';
+
+/** events/{eventId}/helpers/{uid}. Contact details are not copied here — they live on users/{uid}. */
+export interface HelperDoc {
+  uid: string;
+  eventId: string;
+  ranBefore: RanBefore;
+  ts?: any;
+}
+
 /** Shape of users/{uid}. Everything beyond uid/createdAt/lastSeenAt/source is optional. */
 export interface UserDoc {
   uid: string;

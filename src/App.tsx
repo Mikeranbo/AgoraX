@@ -1264,6 +1264,7 @@ export default function App() {
       name: values.name,
       email: values.email,
       phone: values.phone,
+      purpose: via === 'organiser' ? 'organising' : 'updates',
       wantsToOrganise: via === 'organiser',
     });
     track('contact_submit', { via, hasPhone: values.phone !== '', hasEmail: values.email !== '' });

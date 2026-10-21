@@ -1,9 +1,10 @@
 import { signInAnonymously, linkWithCredential, AuthCredential, User } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { deleteDoc, deleteField, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { once } from './session';
 import { acceptReferrer, resolveSource, shareCodeFor } from '../data/share';
-import { normaliseEmail, normalisePhone } from '../data/contact';
+import { contactKeyFor, normaliseEmail, normalisePhone } from '../data/contact';
+import { CONSENT_VERSION, ConsentPurpose } from '../data/consent';
 
 /**
  * Identity model: nobody signs in. Every visitor is a Firebase *anonymous* user and the
@@ -146,29 +147,13 @@ export interface ContactInput {
   name?: string;
   email?: string;
   phone?: string;
+  /** What this consent is for — recorded separately per purpose, never bundled. */
+  purpose: ConsentPurpose;
   wantsToOrganise?: boolean;
   hasSpace?: boolean;
 }
 
 export { normaliseEmail, normalisePhone };
-
-async function sha256Hex(input: string): Promise<string> {
-  if (globalThis.crypto?.subtle) {
-    const bytes = new TextEncoder().encode(input);
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
-    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
-  // crypto.subtle only exists on https/localhost; a phone testing over http://192.168.x.x
-  // would otherwise fail here. FNV-1a is enough for an opaque, stable document id.
-  let h1 = 0x811c9dc5;
-  let h2 = 0x1b873593;
-  for (let i = 0; i < input.length; i++) {
-    const c = input.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
-    h2 = Math.imul(h2 ^ c, 0x85ebca6b) >>> 0;
-  }
-  return 'f' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
-}
 
 /**
  * Security rules stop one visitor from reading another's users document, so duplicates can't
@@ -183,7 +168,7 @@ async function detectDuplicateContact(uid: string, email: string, phone: string)
   if (phone) candidates.push({ kind: 'phone', value: phone });
 
   for (const { kind, value } of candidates) {
-    const keyRef = doc(db, 'contactKeys', await sha256Hex(`${kind}:${value}`));
+    const keyRef = doc(db, 'contactKeys', await contactKeyFor(kind, value));
     const snap = await getDoc(keyRef);
     if (!snap.exists()) {
       await setDoc(keyRef, { uid, kind, ts: serverTimestamp() });
@@ -213,8 +198,7 @@ export async function linkContact(input: ContactInput): Promise<{ possibleDuplic
     lastSeenAt: serverTimestamp(),
     source: getSource(),
     hasContact: true,
-    consent: true,
-    consentAt: serverTimestamp(),
+    consents: { [input.purpose]: { version: CONSENT_VERSION, at: serverTimestamp() } },
   };
   if (!existing.exists()) payload.createdAt = serverTimestamp();
   if (input.name?.trim()) payload.name = input.name.trim();
@@ -232,6 +216,42 @@ export async function linkContact(input: ContactInput): Promise<{ possibleDuplic
     console.warn('duplicate check failed', err);
   }
   return { possibleDuplicate };
+}
+
+/**
+ * Self-service erasure (GDPR Art. 17): removes every contact detail and consent from
+ * users/{uid} and the lookup keys that point at this uid. Joins and price answers stay —
+ * without contact details they no longer identify anyone.
+ */
+export async function deleteMyContact(): Promise<void> {
+  const user = await ensureAnonymousAuth();
+  const ref = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
+  const data = snap.data() ?? {};
+  const keys: string[] = [];
+  if (data.email) keys.push(await contactKeyFor('email', data.email));
+  if (data.phone) keys.push(await contactKeyFor('phone', data.phone));
+  for (const key of keys) {
+    try {
+      await deleteDoc(doc(db, 'contactKeys', key));
+    } catch (err) {
+      // A key owned by someone else (a duplicate) is not ours to delete.
+      console.warn('contact key not deleted', err);
+    }
+  }
+  if (snap.exists()) {
+    await updateDoc(ref, {
+      hasContact: false,
+      name: deleteField(),
+      email: deleteField(),
+      phone: deleteField(),
+      consents: deleteField(),
+      consent: deleteField(),
+      consentAt: deleteField(),
+      wantsToOrganise: deleteField(),
+      hasSpace: deleteField(),
+    });
+  }
 }
 
 /**

@@ -16,8 +16,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { ensureAnonymousAuth, getSource } from './identity';
-import { Event, Venue, Comment, UserDoc, PriceAnswer } from '../types';
+import { ensureAnonymousAuth, getSource, linkContact } from './identity';
+import { Event, Venue, Comment, UserDoc, PriceAnswer, RanBefore } from '../types';
 import { SEED_EVENTS } from '../data/seedEvents';
 
 export const OperationType = {
@@ -173,6 +173,44 @@ export const bumpEventCounter = async (eventId: string, field: 'impressions' | '
     // Analytics must never surface as an error to the visitor.
     console.warn(`${field} counter failed`, error);
   }
+};
+
+export interface HelperInput {
+  firstName: string;
+  phone: string;
+  email: string;
+  ranBefore: RanBefore;
+}
+
+/**
+ * "I'd help run this", saved against the event at events/{eventId}/helpers/{uid}. The
+ * organiserInterest counter moves only the first time this person offers for this event;
+ * sending again just updates the answer. Contact details go to users/{uid} only.
+ * Returns true if this was a new offer.
+ */
+export const submitHelperInterest = async (eventId: string, userId: string, v: HelperInput): Promise<boolean> => {
+  const eventRef = doc(db, 'events', eventId);
+  const helperRef = doc(db, 'events', eventId, 'helpers', userId);
+  let created = false;
+  try {
+    created = await runTransaction(db, async (tx) => {
+      const existing = await tx.get(helperRef);
+      tx.set(helperRef, { ranBefore: v.ranBefore, ts: serverTimestamp() });
+      if (existing.exists()) return false;
+      tx.update(eventRef, { organiserInterest: increment(1) });
+      return true;
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `events/${eventId}/helpers/${userId}`);
+  }
+  await linkContact({
+    name: v.firstName,
+    phone: v.phone,
+    email: v.email,
+    purpose: 'organising',
+    wantsToOrganise: true,
+  });
+  return created;
 };
 
 /** Records "I'd help run this" once per person per event. Returns true if it was new. */

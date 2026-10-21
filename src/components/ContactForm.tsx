@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { normalisePhone } from '../services/identity';
+import { normalisePhone } from '../data/contact';
+import { CONSENT_TEXTS } from '../data/consent';
 
 export interface ContactValues {
   name: string;
@@ -14,8 +15,7 @@ interface ContactFormProps {
   skipLabel?: string;
 }
 
-export const CONSENT_TEXT =
-  "We'll only use this to tell you when an event you picked is happening. Nothing else, and you can ask us to delete it any time.";
+export const CONSENT_TEXT = CONSENT_TEXTS.updates;
 
 const inputClass =
   'w-full glass bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary';
