@@ -11,6 +11,7 @@ import { EventsTable } from './admin/sections/EventsTable';
 import { BySource } from './admin/sections/BySource';
 import { PriceAnswers } from './admin/sections/PriceAnswers';
 import { Helpers } from './admin/sections/Helpers';
+import { Proposals } from './admin/sections/Proposals';
 import { SpaceOffers } from './admin/sections/SpaceOffers';
 import { Suggestions } from './admin/sections/Suggestions';
 import { Admins } from './admin/sections/Admins';
@@ -73,6 +74,7 @@ function Dashboard({ uid, admin }: { uid: string; admin: AdminDoc }) {
           <EventsTable />
           <BySource />
           <PriceAnswers />
+          <Proposals />
           <Helpers />
           <SpaceOffers />
           <Suggestions />

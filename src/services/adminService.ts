@@ -14,7 +14,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { AdminDoc, AdminRole, Event, EventStatus, ParticipantDoc, Proposal } from '../types';
+import { AdminDoc, AdminRole, Event, EventStatus, HelperDoc, ParticipantDoc, Proposal } from '../types';
 import { SEED_EVENTS } from '../data/seedEvents';
 import { eventFromProposal } from '../data/proposals';
 import { selectEventsToPurge } from '../data/purge';
@@ -46,6 +46,22 @@ export function subscribeParticipants(callback: (items: ParticipantDoc[]) => voi
           uid: d.id,
           ...d.data({ serverTimestamps: 'estimate' }),
         })) as ParticipantDoc[],
+      ),
+    (err) => onError?.(err),
+  );
+}
+
+/** Every events/{id}/helpers/{uid} ("I'd help run this") in one listener. Contact lives on users/{uid}. */
+export function subscribeHelpers(callback: (items: HelperDoc[]) => void, onError?: OnError): Unsubscribe {
+  return onSnapshot(
+    collectionGroup(db, 'helpers'),
+    (snap) =>
+      callback(
+        snap.docs.map((d) => ({
+          eventId: d.ref.parent.parent?.id ?? '',
+          uid: d.id,
+          ...d.data({ serverTimestamps: 'estimate' }),
+        })) as HelperDoc[],
       ),
     (err) => onError?.(err),
   );

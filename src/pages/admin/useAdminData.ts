@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { subscribeCollection, subscribeParticipants } from '../../services/adminService';
-import { AdminDoc, Event, ParticipantDoc, UserDoc } from '../../types';
+import { subscribeCollection, subscribeHelpers, subscribeParticipants } from '../../services/adminService';
+import { AdminDoc, Event, HelperDoc, ParticipantDoc, Proposal, UserDoc, VenueOffer } from '../../types';
 import { num, tsMs } from './ui';
+import { kpiTargets } from './kpis';
 
 export interface Suggestion {
   id: string;
   uid: string;
   text: string;
-  contact?: string;
   source?: string;
   ts?: any;
 }
 
-export interface LegacyVenueOffer {
-  id: string;
-  uid: string;
-  name: string;
-  spaceType: string;
-  contact: string;
-  source?: string;
-  ts?: any;
+/** Who someone is, from users/{uid} — the only place contact details are kept. */
+function personOf(user: (UserDoc & { id: string }) | undefined) {
+  return {
+    name: user?.name ?? '',
+    phone: user?.phone ?? '',
+    email: user?.email ?? '',
+    source: user?.source ?? 'direct',
+  };
 }
 
 /** Every live listener the admin page needs, plus the numbers derived from them. */
@@ -27,8 +27,10 @@ export function useAdminData() {
   const [events, setEvents] = useState<Event[]>([]);
   const [users, setUsers] = useState<(UserDoc & { id: string })[]>([]);
   const [participants, setParticipants] = useState<ParticipantDoc[]>([]);
+  const [helpers, setHelpers] = useState<HelperDoc[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [venueOffers, setVenueOffers] = useState<LegacyVenueOffer[]>([]);
+  const [venueOffers, setVenueOffers] = useState<VenueOffer[]>([]);
   const [admins, setAdmins] = useState<AdminDoc[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -42,8 +44,10 @@ export function useAdminData() {
       subscribeCollection<Event>('events', setEvents, (e) => addError(`events: ${e.message}`)),
       subscribeCollection<UserDoc>('users', setUsers, (e) => addError(`users: ${e.message}`)),
       subscribeParticipants(setParticipants, (e) => addError(`participants: ${e.message}`)),
+      subscribeHelpers(setHelpers, (e) => addError(`helpers: ${e.message}`)),
+      subscribeCollection<Proposal>('proposals', setProposals, (e) => addError(`proposals: ${e.message}`)),
       subscribeCollection<Suggestion>('suggestions', setSuggestions, (e) => addError(`suggestions: ${e.message}`)),
-      subscribeCollection<LegacyVenueOffer>('venueOffers', setVenueOffers, (e) => addError(`venueOffers: ${e.message}`)),
+      subscribeCollection<VenueOffer>('venueOffers', setVenueOffers, (e) => addError(`venueOffers: ${e.message}`)),
       subscribeCollection<AdminDoc>('admins', (list) => setAdmins(list.map((a) => ({ ...a, uid: a.id }))), (e) => addError(`admins: ${e.message}`)),
     ];
     return () => unsubs.forEach((u) => u());
@@ -128,23 +132,47 @@ export function useAdminData() {
       .sort((a, b) => b.total - a.total);
   }, [users, events]);
 
-  const hostingRows = useMemo(() => {
+  const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+
+  const helperRows = useMemo(() => {
     const titles = new Map(events.map((e) => [e.id, e.title]));
-    return users.flatMap((u) =>
-      (u.organiserEvents ?? []).map((eventId) => ({
-        key: `${u.id}-${eventId}`,
-        event: titles.get(eventId) ?? `(deleted: ${eventId})`,
-        name: u.name ?? '',
-        phone: u.phone ?? '',
-        email: u.email ?? '',
-        source: u.source ?? 'direct',
-        uid: u.id,
-      })),
-    );
-  }, [users, events]);
+    return helpers
+      .filter((h) => titles.has(h.eventId))
+      .map((h) => ({
+        key: `${h.uid}-${h.eventId}`,
+        event: titles.get(h.eventId)!,
+        ranBefore: h.ranBefore,
+        uid: h.uid,
+        ...personOf(usersById.get(h.uid)),
+      }))
+      .sort((a, b) => a.event.localeCompare(b.event));
+  }, [helpers, events, usersById]);
+
+  const proposalRows = useMemo(() => {
+    const order = { new: 0, approved: 1, rejected: 2 } as const;
+    return [...proposals]
+      .sort((a, b) => order[a.status] - order[b.status] || tsMs(b.ts) - tsMs(a.ts))
+      .map((p) => ({ proposal: p, ...personOf(usersById.get(p.uid)) }));
+  }, [proposals, usersById]);
 
   const suggestionRows = useMemo(() => [...suggestions].sort((a, b) => tsMs(b.ts) - tsMs(a.ts)), [suggestions]);
-  const offerRows = useMemo(() => [...venueOffers].sort((a, b) => tsMs(b.ts) - tsMs(a.ts)), [venueOffers]);
+  const offerRows = useMemo(
+    () => [...venueOffers].sort((a, b) => tsMs(b.ts) - tsMs(a.ts)).map((o) => ({ offer: o, ...personOf(usersById.get(o.uid)) })),
+    [venueOffers, usersById],
+  );
+
+  const targets = useMemo(
+    () =>
+      kpiTargets({
+        users,
+        joinerUids: new Set(stats.joins.map((p) => p.uid)),
+        joinsByEvent: stats.joinsByEvent,
+        helperUids: helpers.map((h) => h.uid),
+        spaceUids: venueOffers.map((o) => o.uid),
+      }),
+    [users, stats, helpers, venueOffers],
+  );
+
   const adminRows = useMemo(
     () => [...admins].sort((a, b) => a.role.localeCompare(b.role) || (a.label ?? '').localeCompare(b.label ?? '')),
     [admins],
@@ -153,6 +181,7 @@ export function useAdminData() {
   return {
     events,
     users,
+    proposals,
     suggestions,
     venueOffers,
     errors,
@@ -162,10 +191,12 @@ export function useAdminData() {
     eventRows,
     sourceRows,
     ladderRows,
-    hostingRows,
+    helperRows,
+    proposalRows,
     suggestionRows,
     offerRows,
     adminRows,
+    targets,
   };
 }
 
