@@ -6,12 +6,18 @@ import {
   deleteDoc,
   setDoc,
   doc,
+  getDocs,
   onSnapshot,
   serverTimestamp,
+  writeBatch,
+  DocumentReference,
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AdminDoc, AdminRole, Event, EventStatus, ParticipantDoc } from '../types';
+import { SEED_EVENTS } from '../data/seedEvents';
+import { selectEventsToPurge } from '../data/purge';
+import { chunk } from '../lib/batch';
 
 type OnError = (error: Error) => void;
 
@@ -107,6 +113,47 @@ export async function setEventStatus(id: string, status: EventStatus) {
  */
 export async function deleteEvent(id: string) {
   await deleteDoc(doc(db, 'events', id));
+}
+
+export interface PurgeResult {
+  events: number;
+  participants: number;
+  comments: number;
+  helpers: number;
+}
+
+const BATCH_SIZE = 450;
+
+async function deleteAll(refs: DocumentReference[]) {
+  for (const group of chunk(refs, BATCH_SIZE)) {
+    const batch = writeBatch(db);
+    group.forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+/**
+ * Deletes every event that is not one of the 33 seed events (approved proposals are kept),
+ * together with its participants, comments and helpers. Firestore does not cascade, so the
+ * subcollections go first and the event document last: if a run stops halfway, running it
+ * again finds the same event and finishes the job.
+ */
+export async function purgeNonSeedEvents(): Promise<PurgeResult> {
+  const snap = await getDocs(collection(db, 'events'));
+  const events = snap.docs.map((d) => ({ id: d.id, origin: (d.data() as Event).origin }));
+  const ids = selectEventsToPurge(events, SEED_EVENTS.map((e) => e.slug));
+  const result: PurgeResult = { events: 0, participants: 0, comments: 0, helpers: 0 };
+
+  for (const id of ids) {
+    for (const sub of ['participants', 'comments', 'helpers'] as const) {
+      const docs = (await getDocs(collection(db, 'events', id, sub))).docs.map((d) => d.ref);
+      await deleteAll(docs);
+      result[sub] += docs.length;
+    }
+    await deleteDoc(doc(db, 'events', id));
+    result.events++;
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------- admins

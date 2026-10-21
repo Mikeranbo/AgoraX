@@ -51,6 +51,8 @@ export interface Event {
   clicks?: number;
   /** Firestore Timestamp (or null while the write is still pending). Absent on older documents. */
   createdAt?: any;
+  /** 'seed' = one of the 33; 'proposal' = created by approving a student proposal. */
+  origin?: 'seed' | 'proposal';
   // Fields that come from the seed list / admin editor.
   slug?: string;
   durationHours?: number;
