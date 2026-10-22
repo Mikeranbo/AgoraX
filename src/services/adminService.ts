@@ -198,6 +198,28 @@ export async function purgeNonSeedEvents(): Promise<PurgeResult> {
 
 // ---------------------------------------------------------------- admins
 
+/** True while nobody has claimed the first owner seat (meta/bootstrap does not exist). */
+export function subscribeToClaimable(callback: (claimable: boolean) => void, onError?: OnError): Unsubscribe {
+  return onSnapshot(
+    doc(db, 'meta', 'bootstrap'),
+    (snap) => callback(!snap.exists()),
+    (err) => onError?.(err),
+  );
+}
+
+/** Claims the first owner seat: admins/{uid} and the bootstrap lock in one batch (rules allow it once). */
+export async function claimOwner(uid: string) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'admins', uid), {
+    role: 'owner',
+    label: 'Mike (founder)',
+    grantedBy: 'bootstrap',
+    grantedAt: serverTimestamp(),
+  });
+  batch.set(doc(db, 'meta', 'bootstrap'), { claimedBy: uid, ts: serverTimestamp() });
+  await batch.commit();
+}
+
 export async function grantAdmin(targetUid: string, role: AdminRole, label: string, grantedBy: string) {
   await setDoc(doc(db, 'admins', targetUid), {
     role,

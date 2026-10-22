@@ -5,6 +5,7 @@
 @source not "../docs";
 
 @theme {
+  --color-brand-action: #6366f1;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", sans-serif;
   

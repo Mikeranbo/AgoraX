@@ -140,10 +140,33 @@ service cloud.firestore {
 
     // --- Rules ---
 
+    // First owner, once: the claimer writes admins/{own uid} and meta/bootstrap in one batch.
+    // meta/bootstrap can never be updated or deleted, so after the first claim nobody can claim.
+    function bootstrapDoc() {
+      return /databases/$(database)/documents/meta/bootstrap;
+    }
+
+    function isBootstrapClaim(adminUid) {
+      return isSignedIn() && adminUid == request.auth.uid &&
+             incoming().role == 'owner' &&
+             !exists(bootstrapDoc()) && existsAfter(bootstrapDoc());
+    }
+
     match /admins/{adminUid} {
       // Readable by any signed-in user so the UI can check its own access.
       allow read: if isSignedIn();
-      allow write: if isAdminOwner();
+      allow create: if isAdminOwner() || isBootstrapClaim(adminUid);
+      allow update, delete: if isAdminOwner();
+    }
+
+    match /meta/bootstrap {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       !exists(bootstrapDoc()) &&
+                       existsAfter(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+                       incoming().keys().hasOnly(['claimedBy', 'ts']) &&
+                       incoming().claimedBy == request.auth.uid &&
+                       incoming().ts == request.time;
     }
 
     match /users/{userId} {
