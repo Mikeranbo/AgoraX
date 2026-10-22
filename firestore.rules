@@ -58,38 +58,79 @@ service cloud.firestore {
              data.location is string && data.location.size() <= 1000;
     }
 
-    function isValidComment(data) {
-      return data.keys().hasAll(['userId', 'userName', 'text', 'createdAt']) &&
-             data.userId == request.auth.uid &&
-             data.text is string && data.text.size() <= 1000 &&
-             data.createdAt == request.time;
-    }
-
     function isValidParticipant(data) {
       return data.keys().hasOnly(['joinedAt', 'priceSeen', 'source']) &&
              data.priceSeen is number &&
              data.source is string && data.source.size() <= 40;
     }
 
+    function isValidHelper(data) {
+      return data.keys().hasOnly(['ranBefore', 'ts']) &&
+             data.ranBefore in ['yes', 'no', 'sort-of'] &&
+             data.ts == request.time;
+    }
+
+    // Mass-assignment guard: a visitor may write only these fields on their own users doc.
+    function isValidUser(userId, data) {
+      return data.keys().hasOnly([
+               'uid', 'createdAt', 'lastSeenAt', 'source', 'shareCode', 'referredBy',
+               'hasContact', 'name', 'email', 'phone', 'wantsToOrganise', 'hasSpace',
+               'consents', 'consent', 'consentAt', 'joinedEvents', 'organiserEvents', 'priceAnswers'
+             ]) &&
+             data.get('uid', userId) == userId &&
+             data.get('name', '').size() <= 80 &&
+             data.get('email', '').size() <= 254 &&
+             data.get('phone', '').size() <= 32;
+    }
+
     // --- Event counters ---
-    // Anyone signed in may move these fields on an event, and nothing else, and only by one
-    // step at a time (increment/decrement), so a visitor cannot write an arbitrary number.
+    // Anyone signed in may move the counters on an event, and nothing else. Every step is
+    // tied to something real, so a script cannot inflate or wipe the numbers this test
+    // exists to measure:
+    //  - participantsCount and joins move together: +1 only when the caller's own
+    //    participant doc is created in the same write, -1 only when it is deleted;
+    //  - organiserInterest moves +1 only when the caller's helper doc is created;
+    //  - impressions and opens only go up, one at a time.
     function counterFields() {
       return ['participantsCount', 'impressions', 'opens', 'joins', 'organiserInterest'];
     }
 
-    function stepOk(field) {
-      return incoming().get(field, 0) - existing().get(field, 0) <= 1 &&
-             incoming().get(field, 0) - existing().get(field, 0) >= -1;
+    function delta(field) {
+      return incoming().get(field, 0) - existing().get(field, 0);
     }
 
-    function isCounterOnlyUpdate() {
+    function participantDoc(eventId) {
+      return /databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid);
+    }
+
+    function helperDoc(eventId) {
+      return /databases/$(database)/documents/events/$(eventId)/helpers/$(request.auth.uid);
+    }
+
+    function joinStepOk(eventId) {
+      return delta('joins') == delta('participantsCount') && (
+               delta('participantsCount') == 0 ||
+               (delta('participantsCount') == 1 &&
+                  !exists(participantDoc(eventId)) && existsAfter(participantDoc(eventId))) ||
+               (delta('participantsCount') == -1 &&
+                  exists(participantDoc(eventId)) && !existsAfter(participantDoc(eventId)))
+             );
+    }
+
+    function interestStepOk(eventId) {
+      return delta('organiserInterest') == 0 ||
+             (delta('organiserInterest') == 1 &&
+                !exists(helperDoc(eventId)) && existsAfter(helperDoc(eventId)));
+    }
+
+    function viewStepOk() {
+      return delta('impressions') >= 0 && delta('impressions') <= 1 &&
+             delta('opens') >= 0 && delta('opens') <= 1;
+    }
+
+    function isCounterOnlyUpdate(eventId) {
       return incoming().diff(existing()).affectedKeys().hasOnly(counterFields()) &&
-             stepOk('participantsCount') &&
-             stepOk('impressions') &&
-             stepOk('opens') &&
-             stepOk('joins') &&
-             stepOk('organiserInterest');
+             viewStepOk() && joinStepOk(eventId) && interestStepOk(eventId);
     }
 
     // Create-only collections: the writer must stamp their own uid.
@@ -99,41 +140,78 @@ service cloud.firestore {
 
     // --- Rules ---
 
+    // First owner, once: the claimer writes admins/{own uid} and meta/bootstrap in one batch.
+    // meta/bootstrap can never be updated or deleted, so after the first claim nobody can claim.
+    function bootstrapDoc() {
+      return /databases/$(database)/documents/meta/bootstrap;
+    }
+
+    function isBootstrapClaim(adminUid) {
+      return isSignedIn() && adminUid == request.auth.uid &&
+             incoming().role == 'owner' &&
+             !exists(bootstrapDoc()) && existsAfter(bootstrapDoc());
+    }
+
     match /admins/{adminUid} {
       // Readable by any signed-in user so the UI can check its own access.
       allow read: if isSignedIn();
-      allow write: if isAdminOwner();
+      allow create: if isAdminOwner() || isBootstrapClaim(adminUid);
+      allow update, delete: if isAdminOwner();
+    }
+
+    match /meta/bootstrap {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       !exists(bootstrapDoc()) &&
+                       existsAfter(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+                       incoming().keys().hasOnly(['claimedBy', 'ts']) &&
+                       incoming().claimedBy == request.auth.uid &&
+                       incoming().ts == request.time;
     }
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create, update, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUser(userId, incoming());
+      allow delete: if isOwner(userId);
     }
 
     match /events/{eventId} {
       allow read: if isSignedIn();
       // The counter path is listed first so ordinary visitors never trigger an admin lookup.
       allow create: if isEditor() && isValidEvent(incoming());
-      allow update: if (isSignedIn() && isCounterOnlyUpdate()) ||
+      allow update: if (isSignedIn() && isCounterOnlyUpdate(eventId)) ||
                        (isEditor() && isValidEvent(incoming()));
       allow delete: if isEditor();
 
+      // Comments are switched off (APP_CHANGES §5): no new writes. Admins can still read
+      // and remove the old ones.
       match /comments/{commentId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn() && isValidComment(incoming());
-        allow delete: if isOwner(existing().userId);
+        allow read: if isAdmin();
+        allow delete: if isEditor();
       }
 
       // A person may create, update and delete only their own participant document.
+      // Editors may delete any, so an admin can purge an event completely.
       match /participants/{userId} {
         allow read: if isOwner(userId) || isAdmin();
         allow create, update: if isOwner(userId) && isValidParticipant(incoming());
-        allow delete: if isOwner(userId);
+        allow delete: if isOwner(userId) || isEditor();
+      }
+
+      // "I'd help run this", saved against the event. No contact details in here.
+      match /helpers/{userId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update: if isOwner(userId) && isValidHelper(incoming());
+        allow delete: if isOwner(userId) || isEditor();
       }
     }
 
-    // Lets the admin page read every participant with one collection-group query.
+    // Let the admin page read every participant / helper with one collection-group query.
     match /{path=**}/participants/{userId} {
+      allow read: if isAdmin();
+    }
+
+    match /{path=**}/helpers/{userId} {
       allow read: if isAdmin();
     }
 
@@ -143,29 +221,55 @@ service cloud.firestore {
       allow delete: if isEditor();
     }
 
+    // Student proposals: hidden from everyone but admins, approved into events by editors.
+    match /proposals/{proposalId} {
+      allow create: if isOwnRecord(incoming()) &&
+                       incoming().keys().hasOnly(['uid', 'title', 'category', 'price', 'minPeople',
+                                                  'needs', 'status', 'source', 'ts']) &&
+                       incoming().status == 'new' &&
+                       incoming().title is string &&
+                       incoming().title.size() >= 3 && incoming().title.size() <= 120 &&
+                       incoming().category in ['Sports', 'Games', 'Creative', 'Social', 'Study',
+                                               'Tech & Ideas', 'Outdoor'] &&
+                       incoming().price is number && incoming().price >= 0 && incoming().price <= 200 &&
+                       incoming().minPeople is int &&
+                       incoming().minPeople >= 2 && incoming().minPeople <= 200 &&
+                       incoming().needs is string && incoming().needs.size() <= 500 &&
+                       incoming().source is string && incoming().source.size() <= 40 &&
+                       incoming().ts == request.time;
+      allow read: if isAdmin();
+      allow update: if isEditor() && incoming().status in ['new', 'approved', 'rejected'];
+    }
+
     // --- Create-only collections (no read, update or delete for visitors) ---
 
     match /analytics/{docId} {
       allow create: if isOwnRecord(incoming()) &&
                        incoming().name is string && incoming().name.size() <= 64 &&
+                       incoming().payload is map && incoming().payload.size() <= 12 &&
                        incoming().ts == request.time;
       allow read: if isAdmin();
     }
 
+    // Anonymous on purpose: no contact field means no personal data and no consent needed.
     match /suggestions/{docId} {
       allow create: if isOwnRecord(incoming()) &&
+                       incoming().keys().hasOnly(['uid', 'text', 'source', 'ts']) &&
                        incoming().text is string &&
                        incoming().text.size() > 0 && incoming().text.size() <= 1000 &&
-                       incoming().get('contact', '').size() <= 200 &&
+                       incoming().source is string && incoming().source.size() <= 40 &&
                        incoming().ts == request.time;
       allow read: if isAdmin();
     }
 
+    // The person's name and contact are on users/{uid} (consent 'space'), not in here.
     match /venueOffers/{docId} {
       allow create: if isOwnRecord(incoming()) &&
-                       incoming().name is string && incoming().name.size() <= 200 &&
-                       incoming().spaceType is string && incoming().spaceType.size() <= 200 &&
-                       incoming().contact is string && incoming().contact.size() <= 200 &&
+                       incoming().keys().hasOnly(['uid', 'spaceType', 'capacity', 'source', 'ts']) &&
+                       incoming().spaceType in ['room', 'hall', 'cafe', 'other'] &&
+                       incoming().capacity is int &&
+                       incoming().capacity >= 1 && incoming().capacity <= 5000 &&
+                       incoming().source is string && incoming().source.size() <= 40 &&
                        incoming().ts == request.time;
       allow read: if isAdmin();
     }
@@ -178,11 +282,13 @@ service cloud.firestore {
     }
 
     // Opaque lookup keys (hash of an email/phone → uid) used to spot the same person
-    // arriving on a second device. A visitor can check one key but never list them.
+    // arriving on a second device. A visitor can check one key but never list them, and
+    // can delete only their own (self-service erasure).
     match /contactKeys/{keyId} {
       allow get: if isSignedIn();
       allow list: if isAdmin();
       allow create: if isOwnRecord(incoming());
+      allow delete: if isSignedIn() && existing().uid == request.auth.uid;
     }
   }
 }

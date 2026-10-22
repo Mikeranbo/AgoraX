@@ -1,7 +1,10 @@
 import { signInAnonymously, linkWithCredential, AuthCredential, User } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { deleteDoc, deleteField, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { once } from './session';
+import { acceptReferrer, resolveSource, shareCodeFor } from '../data/share';
+import { contactKeyFor, normaliseEmail, normalisePhone } from '../data/contact';
+import { CONSENT_VERSION, ConsentPurpose } from '../data/consent';
 
 /**
  * Identity model: nobody signs in. Every visitor is a Firebase *anonymous* user and the
@@ -12,6 +15,7 @@ import { once } from './session';
 
 const UID_KEY = 'agorax_uid';
 const SRC_KEY = 'agorax_src';
+const REF_KEY = 'agorax_ref';
 
 let authPromise: Promise<User> | null = null;
 
@@ -61,20 +65,30 @@ export function getUid(): string | null {
   return auth.currentUser?.uid ?? null;
 }
 
-/** First-touch attribution: ?src= is captured on the first visit and never overwritten. */
+function urlParams(): URLSearchParams {
+  try {
+    return new URLSearchParams(window.location.search);
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+/** First-touch attribution: the poster (or 'share') of the first visit, never overwritten. */
 export function getSource(): string {
   const stored = safeGet(SRC_KEY);
-  if (stored) return stored;
-  let src = 'direct';
-  try {
-    const fromUrl = new URLSearchParams(window.location.search).get('src');
-    const clean = (fromUrl ?? '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40);
-    if (clean) src = clean;
-  } catch {
-    /* ignore */
-  }
-  safeSet(SRC_KEY, src);
+  const src = resolveSource(urlParams(), stored);
+  if (!stored) safeSet(SRC_KEY, src);
   return src;
+}
+
+/** First-touch referrer code from a shared link (?ref=), never the visitor's own. */
+export function getReferrer(uid: string): string | null {
+  const own = shareCodeFor(uid);
+  const stored = safeGet(REF_KEY);
+  if (stored) return acceptReferrer(stored, own);
+  const ref = acceptReferrer(urlParams().get('ref'), own);
+  if (ref) safeSet(REF_KEY, ref);
+  return ref;
 }
 
 /** Secondary check: if the stored uid differs from the one Firebase gave us, flag it for review. */
@@ -116,9 +130,10 @@ export async function touchUser(): Promise<void> {
         createdAt: serverTimestamp(),
         lastSeenAt: serverTimestamp(),
         source: getSource(),
+        shareCode: shareCodeFor(user.uid),
+        referredBy: getReferrer(user.uid),
         hasContact: false,
         joinedEvents: [],
-        organiserEvents: [],
       });
     }
   } catch (err) {
@@ -132,39 +147,13 @@ export interface ContactInput {
   name?: string;
   email?: string;
   phone?: string;
+  /** What this consent is for — recorded separately per purpose, never bundled. */
+  purpose: ConsentPurpose;
   wantsToOrganise?: boolean;
   hasSpace?: boolean;
 }
 
-export function normaliseEmail(raw?: string): string {
-  return (raw ?? '').trim().toLowerCase();
-}
-
-/** Strips formatting; assumes a Dutch national number (06…) when no country code is given. */
-export function normalisePhone(raw?: string): string {
-  let p = (raw ?? '').replace(/[\s().-]/g, '');
-  if (p.startsWith('00')) p = '+' + p.slice(2);
-  if (!p.startsWith('+') && /^0\d{9}$/.test(p)) p = '+31' + p.slice(1);
-  return p;
-}
-
-async function sha256Hex(input: string): Promise<string> {
-  if (globalThis.crypto?.subtle) {
-    const bytes = new TextEncoder().encode(input);
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
-    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
-  // crypto.subtle only exists on https/localhost; a phone testing over http://192.168.x.x
-  // would otherwise fail here. FNV-1a is enough for an opaque, stable document id.
-  let h1 = 0x811c9dc5;
-  let h2 = 0x1b873593;
-  for (let i = 0; i < input.length; i++) {
-    const c = input.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
-    h2 = Math.imul(h2 ^ c, 0x85ebca6b) >>> 0;
-  }
-  return 'f' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
-}
+export { normaliseEmail, normalisePhone };
 
 /**
  * Security rules stop one visitor from reading another's users document, so duplicates can't
@@ -179,7 +168,7 @@ async function detectDuplicateContact(uid: string, email: string, phone: string)
   if (phone) candidates.push({ kind: 'phone', value: phone });
 
   for (const { kind, value } of candidates) {
-    const keyRef = doc(db, 'contactKeys', await sha256Hex(`${kind}:${value}`));
+    const keyRef = doc(db, 'contactKeys', await contactKeyFor(kind, value));
     const snap = await getDoc(keyRef);
     if (!snap.exists()) {
       await setDoc(keyRef, { uid, kind, ts: serverTimestamp() });
@@ -209,8 +198,7 @@ export async function linkContact(input: ContactInput): Promise<{ possibleDuplic
     lastSeenAt: serverTimestamp(),
     source: getSource(),
     hasContact: true,
-    consent: true,
-    consentAt: serverTimestamp(),
+    consents: { [input.purpose]: { version: CONSENT_VERSION, at: serverTimestamp() } },
   };
   if (!existing.exists()) payload.createdAt = serverTimestamp();
   if (input.name?.trim()) payload.name = input.name.trim();
@@ -228,6 +216,42 @@ export async function linkContact(input: ContactInput): Promise<{ possibleDuplic
     console.warn('duplicate check failed', err);
   }
   return { possibleDuplicate };
+}
+
+/**
+ * Self-service erasure (GDPR Art. 17): removes every contact detail and consent from
+ * users/{uid} and the lookup keys that point at this uid. Joins and price answers stay —
+ * without contact details they no longer identify anyone.
+ */
+export async function deleteMyContact(): Promise<void> {
+  const user = await ensureAnonymousAuth();
+  const ref = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
+  const data = snap.data() ?? {};
+  const keys: string[] = [];
+  if (data.email) keys.push(await contactKeyFor('email', data.email));
+  if (data.phone) keys.push(await contactKeyFor('phone', data.phone));
+  for (const key of keys) {
+    try {
+      await deleteDoc(doc(db, 'contactKeys', key));
+    } catch (err) {
+      // A key owned by someone else (a duplicate) is not ours to delete.
+      console.warn('contact key not deleted', err);
+    }
+  }
+  if (snap.exists()) {
+    await updateDoc(ref, {
+      hasContact: false,
+      name: deleteField(),
+      email: deleteField(),
+      phone: deleteField(),
+      consents: deleteField(),
+      consent: deleteField(),
+      consentAt: deleteField(),
+      wantsToOrganise: deleteField(),
+      hasSpace: deleteField(),
+    });
+  }
 }
 
 /**

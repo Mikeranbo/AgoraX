@@ -1,16 +1,11 @@
 import React, { useRef } from 'react';
 import { Modal } from './Modal';
 import { Event, PriceAnswer } from '../types';
+import { useVisitor } from '../state/VisitorProvider';
 
 export interface LadderPrompt {
   event: Event;
   nextPrice: number;
-}
-
-interface PriceLadderSheetProps {
-  prompt: LadderPrompt | null;
-  onAnswer: (prompt: LadderPrompt, answer: PriceAnswer) => void;
-  onSkip: () => void;
 }
 
 const OPTIONS: { value: PriceAnswer; label: string }[] = [
@@ -19,32 +14,36 @@ const OPTIONS: { value: PriceAnswer; label: string }[] = [
   { value: 'depends', label: 'Depends' },
 ];
 
-/** Never blocks the join — the person is already in when this slides up. */
-export const PriceLadderSheet = ({ prompt, onAnswer, onSkip }: PriceLadderSheetProps) => {
+/** Slides up after a join. The person is already in, so skipping costs nothing. */
+export const PriceLadderSheet = () => {
+  const { state, actions } = useVisitor();
+  const prompt = state.ladder;
   const last = useRef<LadderPrompt | null>(prompt);
   if (prompt) last.current = prompt;
   const shown = prompt ?? last.current;
 
   return (
-    <Modal isOpen={!!prompt} onClose={onSkip} title="One quick question">
+    <Modal isOpen={!!prompt} onClose={actions.skipLadder} title="One quick question">
       {shown && (
         <div>
-          <p className="text-slate-400 text-xs mb-2">{shown.event.emoji} {shown.event.title}</p>
-          <p className="text-white text-xl font-display font-black leading-snug mb-6">
+          <p className="mb-1 text-[15px] text-slate-400">
+            {shown.event.emoji} {shown.event.title}
+          </p>
+          <p className="mb-6 font-display text-[22px] font-bold leading-snug text-white">
             Would you still come if it were €{shown.nextPrice}?
           </p>
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="mb-3 grid grid-cols-3 gap-2">
             {OPTIONS.map((o) => (
               <button
                 key={o.value}
-                onClick={() => onAnswer(shown, o.value)}
-                className="py-3 glass rounded-2xl font-bold text-white hover:bg-white/10 active:scale-95 transition-all"
+                onClick={() => actions.answerLadder(shown, o.value)}
+                className="min-h-12 rounded-sheet border border-sheet-line bg-brand-dark font-display text-[17px] font-bold text-white hover:border-brand-primary"
               >
                 {o.label}
               </button>
             ))}
           </div>
-          <button onClick={onSkip} className="w-full py-2 text-xs font-bold text-slate-500 hover:text-white transition-colors">
+          <button onClick={actions.skipLadder} className="min-h-11 w-full text-[15px] font-semibold text-slate-400 hover:text-white">
             Skip
           </button>
         </div>

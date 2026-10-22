@@ -54,7 +54,7 @@ function initial(event: Event | null): FormState {
     deadline: toLocalInput(event?.deadline ?? new Date(Date.now() + 21 * DAY).toISOString()),
     startTime: toLocalInput(event?.startTime ?? new Date(Date.now() + 28 * DAY).toISOString()),
     imageUrls: (event?.imageUrls ?? []).join('\n'),
-    emoji: event?.emoji ?? '🎟️',
+    emoji: event?.emoji ?? '💡',
     accent: event?.accent ?? '#818cf8',
     durationHours: String(event?.durationHours ?? 2),
     hostsNeeded: String(event?.hostsNeeded ?? 1),
@@ -107,7 +107,7 @@ export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
         .split('\n')
         .map((u) => u.trim())
         .filter(Boolean),
-      emoji: f.emoji.trim() || '🎟️',
+      emoji: f.emoji.trim() || '💡',
       accent: f.accent,
       durationHours: toNumber(f.durationHours),
       hostsNeeded: Math.max(1, Math.round(toNumber(f.hostsNeeded))),

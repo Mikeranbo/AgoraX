@@ -4,7 +4,6 @@ import {
   updateDoc,
   doc,
   onSnapshot,
-  query,
   orderBy,
   getDocs,
   serverTimestamp,
@@ -16,8 +15,9 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { ensureAnonymousAuth, getSource } from './identity';
-import { Event, Venue, Comment, UserDoc, PriceAnswer } from '../types';
+import { ensureAnonymousAuth, getSource, linkContact } from './identity';
+import { Event, EventCategory, Venue, UserDoc, PriceAnswer, RanBefore, SpaceType } from '../types';
+import { splitContact } from '../data/forms';
 import { SEED_EVENTS } from '../data/seedEvents';
 
 export const OperationType = {
@@ -84,21 +84,6 @@ export const subscribeToEvents = (callback: (events: Event[]) => void, onError?:
     console.error('Events listener failed', error);
     onError?.(error);
   });
-};
-
-export const createEvent = async (event: Omit<Event, 'id' | 'createdAt'>) => {
-  try {
-    const docRef = await addDoc(collection(db, 'events'), {
-      ...event,
-      createdAt: serverTimestamp(),
-      participantsCount: 0,
-      impressions: 0,
-      clicks: 0
-    });
-    return docRef.id;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, 'events');
-  }
 };
 
 export interface JoinMeta {
@@ -175,26 +160,42 @@ export const bumpEventCounter = async (eventId: string, field: 'impressions' | '
   }
 };
 
-/** Records "I'd help run this" once per person per event. Returns true if it was new. */
-export const recordOrganiserInterest = async (eventId: string, userId: string): Promise<boolean> => {
+export interface HelperInput {
+  firstName: string;
+  phone: string;
+  email: string;
+  ranBefore: RanBefore;
+}
+
+/**
+ * "I'd help run this", saved against the event at events/{eventId}/helpers/{uid}. The
+ * organiserInterest counter moves only the first time this person offers for this event;
+ * sending again just updates the answer. Contact details go to users/{uid} only.
+ * Returns true if this was a new offer.
+ */
+export const submitHelperInterest = async (eventId: string, userId: string, v: HelperInput): Promise<boolean> => {
   const eventRef = doc(db, 'events', eventId);
-  const userRef = doc(db, 'users', userId);
+  const helperRef = doc(db, 'events', eventId, 'helpers', userId);
+  let created = false;
   try {
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(userRef);
-      const already = ((snap.data() as UserDoc | undefined)?.organiserEvents ?? []).includes(eventId);
-      if (already) return false;
-      tx.set(
-        userRef,
-        { uid: userId, wantsToOrganise: true, organiserEvents: arrayUnion(eventId) },
-        { merge: true },
-      );
+    created = await runTransaction(db, async (tx) => {
+      const existing = await tx.get(helperRef);
+      tx.set(helperRef, { ranBefore: v.ranBefore, ts: serverTimestamp() });
+      if (existing.exists()) return false;
       tx.update(eventRef, { organiserInterest: increment(1) });
       return true;
     });
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
+    handleFirestoreError(error, OperationType.WRITE, `events/${eventId}/helpers/${userId}`);
   }
+  await linkContact({
+    name: v.firstName,
+    phone: v.phone,
+    email: v.email,
+    purpose: 'organising',
+    wantsToOrganise: true,
+  });
+  return created;
 };
 
 export const recordPriceAnswer = async (
@@ -227,13 +228,13 @@ export const subscribeToMyUser = (userId: string, callback: (user: UserDoc | nul
 
 // --- Suggestions & venue offers (create-only collections) ---
 
-export const submitSuggestion = async (input: { text: string; contact?: string }) => {
+/** Anonymous by design: no contact field, so no consent is needed (anyone who wants a reply uses Propose). */
+export const submitSuggestion = async (input: { text: string }) => {
   const user = await ensureAnonymousAuth();
   try {
     await addDoc(collection(db, 'suggestions'), {
       uid: user.uid,
       text: input.text.trim(),
-      contact: (input.contact ?? '').trim(),
       source: getSource(),
       ts: serverTimestamp(),
     });
@@ -242,20 +243,66 @@ export const submitSuggestion = async (input: { text: string; contact?: string }
   }
 };
 
-export const submitVenueOffer = async (input: { name: string; spaceType: string; contact: string }) => {
+export interface ProposalInput {
+  title: string;
+  category: EventCategory;
+  price: number;
+  minPeople: number;
+  needs: string;
+  firstName: string;
+  phone: string;
+}
+
+/**
+ * A student's event idea. Stored without contact details (those go to users/{uid} under the
+ * 'proposal' consent); it stays out of the feed until an admin approves it.
+ */
+export const submitProposal = async (input: ProposalInput) => {
+  const user = await ensureAnonymousAuth();
+  try {
+    await addDoc(collection(db, 'proposals'), {
+      uid: user.uid,
+      title: input.title.trim(),
+      category: input.category,
+      price: input.price,
+      minPeople: input.minPeople,
+      needs: input.needs.trim(),
+      status: 'new',
+      source: getSource(),
+      ts: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, 'proposals');
+  }
+  await linkContact({ name: input.firstName, phone: input.phone, purpose: 'proposal' });
+};
+
+export interface VenueOfferInput {
+  name: string;
+  spaceType: SpaceType;
+  capacity: number;
+  contact: string;
+}
+
+/**
+ * "I have a space". The offer records only the type and size of the space; the person's name
+ * and WhatsApp/email go to users/{uid} under the 'space' consent, so erasure covers them.
+ */
+export const submitVenueOffer = async (input: VenueOfferInput) => {
   const user = await ensureAnonymousAuth();
   try {
     await addDoc(collection(db, 'venueOffers'), {
       uid: user.uid,
-      name: input.name.trim(),
-      spaceType: input.spaceType.trim(),
-      contact: input.contact.trim(),
+      spaceType: input.spaceType,
+      capacity: input.capacity,
       source: getSource(),
       ts: serverTimestamp(),
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'venueOffers');
   }
+  const { email, phone } = splitContact(input.contact);
+  await linkContact({ name: input.name, email, phone, purpose: 'space', hasSpace: true });
 };
 
 // --- Seeding ---
@@ -347,31 +394,5 @@ export const createVenue = async (venue: Omit<Venue, 'id'>) => {
     return docRef.id;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'venues');
-  }
-};
-
-// --- Comments ---
-
-export const subscribeToComments = (eventId: string, callback: (comments: Comment[]) => void) => {
-  const q = query(collection(db, 'events', eventId, 'comments'), orderBy('createdAt', 'asc'));
-  return onSnapshot(q, (snapshot) => {
-    const comments = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Comment[];
-    callback(comments);
-  }, (error) => {
-    console.warn(`Comments listener failed for ${eventId}`, error);
-  });
-};
-
-export const addComment = async (eventId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => {
-  try {
-    await addDoc(collection(db, 'events', eventId, 'comments'), {
-      ...comment,
-      createdAt: serverTimestamp()
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, `events/${eventId}/comments`);
   }
 };

@@ -14,6 +14,8 @@ export type AnalyticsName =
   | 'contact_submit'
   | 'suggestion_submit'
   | 'price_ladder_answer'
+  | 'proposal_submit'
+  | 'share_click'
   | 'scroll_depth_25'
   | 'scroll_depth_50'
   | 'scroll_depth_75'
