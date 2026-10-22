@@ -25,9 +25,9 @@ export const TabBar = () => {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-sheet-line bg-brand-dark pb-[env(safe-area-inset-bottom)]"
+      className="sheet fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-md rounded-sheet"
     >
-      <div className="mx-auto flex max-w-md items-stretch px-2">
+      <div className="flex items-stretch px-2">
         <TabButton tab="events" label="Events">
           <ListChecks size={22} />
         </TabButton>

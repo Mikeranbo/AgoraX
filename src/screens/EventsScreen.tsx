@@ -22,7 +22,7 @@ const FilterBar = ({ filter, setFilter, query, setQuery }: {
   };
 
   return (
-    <div className="sticky top-0 z-30 -mx-4 border-b border-sheet-line bg-brand-dark px-4 py-2 sm:mx-0 sm:px-0">
+    <div className="sheet sticky top-2 z-30 rounded-sheet p-1.5">
       {searching ? (
         <div className="flex items-center gap-2">
           <label htmlFor="event-search" className="sr-only">Search events</label>
@@ -33,7 +33,7 @@ const FilterBar = ({ filter, setFilter, query, setQuery }: {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Chess, hiking, pottery…"
-            className="min-h-11 flex-1 rounded-sheet border border-sheet-line bg-sheet px-3 text-[16px] text-white placeholder:text-slate-400 focus:border-brand-secondary focus:outline-none"
+            className="min-h-11 flex-1 rounded-sheet border border-sheet-line bg-brand-dark px-3 text-[16px] text-white placeholder:text-slate-400 focus:border-brand-secondary focus:outline-none"
           />
           <button onClick={closeSearch} aria-label="Close search" className="grid size-11 place-items-center text-slate-300 hover:text-white">
             <X size={20} />

@@ -6,6 +6,10 @@ import {
   bumpEventCounter,
   recordPriceAnswer,
   subscribeToMyUser,
+  subscribeToFaces,
+  showMyInitial,
+  hideMyInitial,
+  Face,
 } from '../services/firebaseService';
 import { ensureAnonymousAuth, touchUser, linkContact, deleteMyContact, getSource, describeAuthError } from '../services/identity';
 import { track, AnalyticsName } from '../services/analytics';
@@ -16,7 +20,7 @@ import type { LadderPrompt } from '../components/PriceLadderSheet';
 import type { ContactValues } from '../components/ContactForm';
 
 export type Tab = 'events' | 'propose' | 'picks';
-export type Sheet = 'contact' | 'space' | 'privacy' | null;
+export type Sheet = 'contact' | 'space' | 'privacy' | 'initial' | null;
 
 interface VisitorState {
   phase: 'loading' | 'ready' | 'error';
@@ -32,6 +36,8 @@ interface VisitorState {
   organiserEvent: Event | null;
   ladder: LadderPrompt | null;
   sheet: Sheet;
+  /** The event the "show my initial" sheet is about. */
+  initialEvent: Event | null;
   bannerDismissed: boolean;
   toast: string;
 }
@@ -46,7 +52,10 @@ interface VisitorActions {
   closeOrganiser: () => void;
   answerLadder: (prompt: LadderPrompt, answer: PriceAnswer) => void;
   skipLadder: () => void;
-  openSheet: (sheet: Exclude<Sheet, null>) => void;
+  openSheet: (sheet: Exclude<Sheet, null | 'initial'>) => void;
+  askInitial: (e: Event) => void;
+  showInitial: (e: Event, initial: string) => Promise<void>;
+  hideInitial: (e: Event) => Promise<void>;
   closeSheet: () => void;
   submitContact: (values: ContactValues) => Promise<void>;
   deleteContact: () => Promise<void>;
@@ -57,6 +66,8 @@ interface VisitorActions {
 interface VisitorMeta {
   joined: Set<string>;
   picks: Event[];
+  /** Initials shown on each event's list, by event id. */
+  faces: Map<string, Face[]>;
 }
 
 const VisitorContext = createContext<{ state: VisitorState; actions: VisitorActions; meta: VisitorMeta } | null>(null);
@@ -97,6 +108,8 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   const [organiserEvent, setOrganiserEvent] = useState<Event | null>(null);
   const [ladder, setLadder] = useState<LadderPrompt | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [initialEvent, setInitialEvent] = useState<Event | null>(null);
+  const [faces, setFaces] = useState<Map<string, Face[]>>(() => new Map());
   const [bannerDismissed, setBannerDismissed] = useState(() => readFlag(BANNER_KEY));
   const [toast, setToast] = useState('');
 
@@ -133,6 +146,7 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
           ),
         );
         unsubscribers.push(subscribeToMyUser(user.uid, setMe));
+        unsubscribers.push(subscribeToFaces(setFaces));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -274,6 +288,24 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     },
     skipLadder: () => setLadder(null),
     openSheet: (next) => setSheet(next),
+    askInitial: (event) => {
+      setInitialEvent(event);
+      setSheet('initial');
+    },
+    showInitial: async (event, initial) => {
+      if (!uid) return;
+      await showMyInitial(event.id, uid, initial);
+      setSheet(null);
+    },
+    hideInitial: async (event) => {
+      if (!uid) return;
+      try {
+        await hideMyInitial(event.id, uid);
+      } catch (err) {
+        console.error(err);
+        showToast("That didn't save. Check your connection and try again.");
+      }
+    },
     closeSheet: () => setSheet(null),
     submitContact: async (values) => {
       await linkContact({ phone: values.phone, email: values.email, purpose: 'updates' });
@@ -283,6 +315,10 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     deleteContact: async () => {
       try {
         await deleteMyContact();
+        if (uid) {
+          const mine = [...faces.values()].flat().filter((f) => f.uid === uid);
+          await Promise.all(mine.map((f) => hideMyInitial(f.eventId, uid)));
+        }
         showToast('Your contact details are deleted.');
       } catch (err) {
         console.error(err);
@@ -314,9 +350,10 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     organiserEvent,
     ladder,
     sheet,
+    initialEvent,
     bannerDismissed,
     toast,
   };
 
-  return <VisitorContext value={{ state, actions, meta: { joined, picks } }}>{children}</VisitorContext>;
+  return <VisitorContext value={{ state, actions, meta: { joined, picks, faces } }}>{children}</VisitorContext>;
 }

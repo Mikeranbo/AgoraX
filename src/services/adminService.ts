@@ -160,6 +160,7 @@ export interface PurgeResult {
   participants: number;
   comments: number;
   helpers: number;
+  faces: number;
 }
 
 const BATCH_SIZE = 450;
@@ -174,7 +175,7 @@ async function deleteAll(refs: DocumentReference[]) {
 
 /**
  * Deletes every event that is not one of the 33 seed events (approved proposals are kept),
- * together with its participants, comments and helpers. Firestore does not cascade, so the
+ * together with its participants, comments, helpers and shown initials. Firestore does not cascade, so the
  * subcollections go first and the event document last: if a run stops halfway, running it
  * again finds the same event and finishes the job.
  */
@@ -182,10 +183,10 @@ export async function purgeNonSeedEvents(): Promise<PurgeResult> {
   const snap = await getDocs(collection(db, 'events'));
   const events = snap.docs.map((d) => ({ id: d.id, origin: (d.data() as Event).origin }));
   const ids = selectEventsToPurge(events, SEED_EVENTS.map((e) => e.slug));
-  const result: PurgeResult = { events: 0, participants: 0, comments: 0, helpers: 0 };
+  const result: PurgeResult = { events: 0, participants: 0, comments: 0, helpers: 0, faces: 0 };
 
   for (const id of ids) {
-    for (const sub of ['participants', 'comments', 'helpers'] as const) {
+    for (const sub of ['participants', 'comments', 'helpers', 'faces'] as const) {
       const docs = (await getDocs(collection(db, 'events', id, sub))).docs.map((d) => d.ref);
       await deleteAll(docs);
       result[sub] += docs.length;

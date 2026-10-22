@@ -34,6 +34,38 @@
     @apply bg-brand-dark text-slate-200 font-sans antialiased;
   }
 
+  /*
+   * The board: navy into the brand indigo and purple with a faint cyan glow, and a tile of
+   * line doodles drawn in a light indigo tint. Both layers stay put while the page scrolls.
+   * Mixed this dark, white and slate text on it stays above WCAG AA.
+   */
+  body::before,
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  body::before {
+    z-index: -2;
+    background:
+      radial-gradient(40rem 32rem at 100% 0%, rgb(34 211 238 / 0.13), transparent 70%),
+      linear-gradient(
+        165deg,
+        #0f172a 0%,
+        color-mix(in srgb, #6366f1 26%, #0f172a) 55%,
+        color-mix(in srgb, #a855f7 26%, #0f172a) 100%
+      );
+  }
+
+  body::after {
+    z-index: -1;
+    background-image: url('./assets/doodles.svg');
+    background-size: 360px 360px;
+    opacity: 0.09;
+  }
+
   ::selection {
     background: rgb(129 140 248 / 0.4);
     color: #fff;
@@ -57,6 +89,9 @@
 .glass-dark {
   background-color: var(--color-sheet);
   border: 1px solid var(--color-sheet-line);
+  box-shadow:
+    0 12px 32px -14px rgb(2 6 23 / 0.75),
+    0 2px 6px rgb(2 6 23 / 0.3);
 }
 
 /* The pinned action gradient: "I'd join" and form submits only. */

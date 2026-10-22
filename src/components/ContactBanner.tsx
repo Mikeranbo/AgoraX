@@ -9,7 +9,7 @@ export const ContactBanner = () => {
   if (meta.picks.length === 0 || state.me?.hasContact || state.bannerDismissed || state.tab === 'picks') return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 px-4 pb-3">
+    <div className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40">
       <div className="sheet mx-auto flex max-w-md items-center gap-3 rounded-sheet py-2 pl-4 pr-1">
         <p className="flex-1 text-[14px] leading-snug text-slate-200">
           Leave your WhatsApp and we'll tell you when one of your events is happening.

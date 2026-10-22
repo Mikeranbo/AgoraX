@@ -198,6 +198,18 @@ service cloud.firestore {
         allow delete: if isOwner(userId) || isEditor();
       }
 
+      // Opt-in: a joiner's first initial, shown on the event's list. Only people who joined
+      // can add one, only their own, and only a single character.
+      match /faces/{userId} {
+        allow read: if isSignedIn();
+        allow create, update: if isOwner(userId) &&
+                                 incoming().keys().hasOnly(['initial', 'ts']) &&
+                                 incoming().initial is string && incoming().initial.size() == 1 &&
+                                 incoming().ts == request.time &&
+                                 existsAfter(participantDoc(eventId));
+        allow delete: if isOwner(userId) || isEditor();
+      }
+
       // "I'd help run this", saved against the event. No contact details in here.
       match /helpers/{userId} {
         allow read: if isOwner(userId) || isAdmin();
@@ -213,6 +225,10 @@ service cloud.firestore {
 
     match /{path=**}/helpers/{userId} {
       allow read: if isAdmin();
+    }
+
+    match /{path=**}/faces/{userId} {
+      allow read: if isSignedIn();
     }
 
     match /venues/{venueId} {

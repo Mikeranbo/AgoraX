@@ -11,6 +11,7 @@ import { OrganiserPanel } from './components/OrganiserPanel';
 import { PriceLadderSheet } from './components/PriceLadderSheet';
 import { VenueOfferModal } from './components/VenueOfferModal';
 import { PrivacyNote } from './components/PrivacyNote';
+import { InitialSheet } from './components/InitialSheet';
 import { ContactForm } from './components/ContactForm';
 import { Modal } from './components/Modal';
 
@@ -47,6 +48,7 @@ const Sheets = () => {
       </Modal>
       <VenueOfferModal isOpen={state.sheet === 'space'} onClose={actions.closeSheet} />
       <PrivacyNote isOpen={state.sheet === 'privacy'} onClose={actions.closeSheet} />
+      <InitialSheet />
     </>
   );
 };
@@ -77,7 +79,7 @@ const Shell = () => {
       )}
       <Sheets />
       {state.toast && (
-        <div role="status" className="sheet fixed bottom-24 left-1/2 z-[80] -translate-x-1/2 rounded-sheet px-4 py-2.5 text-[15px] text-white">
+        <div role="status" className="sheet fixed bottom-28 left-1/2 z-[80] -translate-x-1/2 rounded-sheet px-4 py-2.5 text-[15px] text-white">
           {state.toast}
         </div>
       )}

@@ -2,6 +2,8 @@ import {
   collection,
   addDoc,
   updateDoc,
+  deleteDoc,
+  collectionGroup,
   doc,
   onSnapshot,
   orderBy,
@@ -140,6 +142,8 @@ export const leaveEvent = async (eventId: string, userId: string): Promise<boole
         return false;
       }
       tx.delete(participantRef);
+      // Leaving also takes the person's initial off the list, if they showed it.
+      tx.delete(doc(db, 'events', eventId, 'faces', userId));
       tx.update(eventRef, { participantsCount: increment(-1), joins: increment(-1) });
       tx.set(userRef, { uid: userId, joinedEvents: arrayRemove(eventId) }, { merge: true });
       return true;
@@ -148,6 +152,36 @@ export const leaveEvent = async (eventId: string, userId: string): Promise<boole
     handleFirestoreError(error, OperationType.WRITE, `events/${eventId}/participants/${userId}`);
   }
 };
+
+/** A joiner who chose to show their initial on an event's list. */
+export interface Face {
+  eventId: string;
+  uid: string;
+  initial: string;
+}
+
+/** Every shown initial, in one listener, grouped by event id. */
+export const subscribeToFaces = (callback: (faces: Map<string, Face[]>) => void) =>
+  onSnapshot(
+    collectionGroup(db, 'faces'),
+    (snap) => {
+      const byEvent = new Map<string, Face[]>();
+      snap.docs.forEach((d) => {
+        const eventId = d.ref.parent.parent?.id ?? '';
+        const list = byEvent.get(eventId) ?? [];
+        list.push({ eventId, uid: d.id, initial: String(d.data().initial ?? '') });
+        byEvent.set(eventId, list);
+      });
+      callback(byEvent);
+    },
+    (error) => console.warn('Faces listener failed', error),
+  );
+
+/** Opt-in: show this person's first initial on one event they joined. */
+export const showMyInitial = (eventId: string, userId: string, initial: string) =>
+  setDoc(doc(db, 'events', eventId, 'faces', userId), { initial, ts: serverTimestamp() });
+
+export const hideMyInitial = (eventId: string, userId: string) => deleteDoc(doc(db, 'events', eventId, 'faces', userId));
 
 /** Cheap aggregate counters on the event document, so the admin page never scans analytics. */
 export const bumpEventCounter = async (eventId: string, field: 'impressions' | 'opens') => {
