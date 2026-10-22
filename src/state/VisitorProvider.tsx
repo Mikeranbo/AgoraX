@@ -18,6 +18,7 @@ import { nextPriceFor } from '../data/priceLadder';
 import type { Event, PriceAnswer, UserDoc } from '../types';
 import type { LadderPrompt } from '../components/PriceLadderSheet';
 import type { ContactValues } from '../components/ContactForm';
+import { LIST_ID } from '../components/ui';
 
 export type Tab = 'events' | 'propose' | 'picks';
 export type Sheet = 'contact' | 'space' | 'privacy' | 'initial' | null;
@@ -266,7 +267,12 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     setTab: (next) => {
       if (selectedId) actions.back();
       setTabState(next);
-      window.scrollTo(0, 0);
+      // The opening view is for arriving on the site; from the tab bar, go straight to the list.
+      setTimeout(() => {
+        const list = next === 'events' ? document.getElementById(LIST_ID) : null;
+        if (list) list.scrollIntoView();
+        else window.scrollTo(0, 0);
+      }, 0);
     },
     helpRun: (event) => {
       setOrganiserEvent(event);

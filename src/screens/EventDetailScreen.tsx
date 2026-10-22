@@ -2,14 +2,14 @@ import React from 'react';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { Event } from '../types';
 import { useVisitor } from '../state/VisitorProvider';
-import { EventPhoto, PeopleLine, PriceAndAction, QuietLinks } from '../components/EventCard';
+import { PeopleLine, PhotoBackdrop, PhotoBadges, PriceAndAction, QuietLinks } from '../components/EventCard';
 import { formatDuration } from '../data/earnings';
 import { closesLabel } from '../data/dates';
 
 const Fact = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className="grid grid-cols-[7.5rem_1fr] gap-3 border-b border-sheet-line py-3 last:border-0">
-    <dt className="text-[14px] text-slate-400">{label}</dt>
-    <dd className="text-[15px] text-white">{children}</dd>
+  <div className="grid grid-cols-[6.5rem_1fr] gap-3 border-b border-sheet-line py-2.5 last:border-0">
+    <dt className="text-[13px] text-slate-400">{label}</dt>
+    <dd className="text-[14px] text-white">{children}</dd>
   </div>
 );
 
@@ -27,11 +27,18 @@ export const EventDetailScreen = ({ event }: { event: Event }) => {
       </button>
 
       <article className="sheet overflow-hidden rounded-sheet">
-        <EventPhoto event={event} className="h-56 sm:h-72" />
-        <div className="space-y-5 p-4 sm:p-5">
-          <h1 className="font-display text-[28px] font-bold leading-tight text-white">{event.title}</h1>
+        <PhotoBackdrop event={event} className="flex min-h-[min(62dvh,560px)] flex-col justify-end">
+          <PhotoBadges event={event} />
+          <h1
+            className="relative bg-gradient-to-t from-[#0f172a] via-[#0f172a]/75 to-transparent px-4 pt-24 pb-5 font-display leading-[0.92] font-extrabold tracking-[-0.03em] text-balance text-white sm:px-6"
+            style={{ fontSize: 'clamp(40px, 10vw, 76px)' }}
+          >
+            {event.title}
+          </h1>
+        </PhotoBackdrop>
+        <div className="space-y-5 p-4 sm:p-6">
           <PeopleLine event={event} />
-          <p className="whitespace-pre-wrap text-[16px] leading-relaxed text-slate-200">{event.description}</p>
+          <p className="max-w-[60ch] whitespace-pre-wrap text-[16px] leading-relaxed text-pretty text-slate-200">{event.description}</p>
           <dl>
             <Fact label="Price">{event.price === 0 ? 'Free' : `€${event.price} per person, charged only if it runs`}</Fact>
             {event.venueNote && <Fact label="Where">{event.venueNote}</Fact>}
@@ -52,7 +59,7 @@ export const EventDetailScreen = ({ event }: { event: Event }) => {
 
       <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-2xl">
         <div className="sheet rounded-sheet px-4 py-3">
-          <PriceAndAction event={event} />
+          <PriceAndAction event={event} size="large" />
         </div>
       </div>
     </div>

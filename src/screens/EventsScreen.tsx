@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { EventCategory, PUBLIC_CATEGORIES } from '../types';
+import { EventCategory, LEGACY_CATEGORIES, PUBLIC_CATEGORIES } from '../types';
 import { useVisitor } from '../state/VisitorProvider';
 import { EventCard } from '../components/EventCard';
 import { SuggestionBox } from '../components/SuggestionBox';
+import { OpeningHero } from '../components/OpeningHero';
+import { LIST_ID } from '../components/ui';
 
 type Filter = EventCategory | 'All';
 const CHIPS: Filter[] = ['All', ...PUBLIC_CATEGORIES];
@@ -71,7 +73,7 @@ const FilterBar = ({ filter, setFilter, query, setQuery }: {
 };
 
 const Empty = ({ children }: { children: React.ReactNode }) => (
-  <p className="col-span-full py-16 text-center text-[15px] text-slate-400">{children}</p>
+  <p className="py-16 text-center text-[15px] text-slate-300">{children}</p>
 );
 
 export const EventsScreen = () => {
@@ -90,26 +92,43 @@ export const EventsScreen = () => {
     );
   }, [visible, filter, query]);
 
+  // With no search, the list is split into category sections, each with its own big heading.
+  const groups = useMemo(() => {
+    const q = query.trim();
+    if (q) return [{ title: `Results for "${q}"`, events: shown }];
+    return [...PUBLIC_CATEGORIES, ...LEGACY_CATEGORIES]
+      .map((cat) => ({ title: cat as string, events: shown.filter((e) => e.category === cat) }))
+      .filter((g) => g.events.length > 0);
+  }, [shown, query]);
+
   return (
-    <div className="px-4 sm:px-6">
-      <header className="pt-5 pb-4">
-        <p className="mb-5 font-display text-[17px] font-extrabold tracking-tight text-white">
-          Agora<span className="text-brand-secondary">X</span>
-        </p>
-        <h1 className="max-w-xl font-display text-[30px] font-bold leading-[1.05] tracking-tight text-white sm:text-[40px]">
-          What would you actually go to?
-        </h1>
-        <p className="mt-2 max-w-xl text-[16px] leading-snug text-slate-300">
-          Every event has a target. When enough people want one, it happens.
-        </p>
-      </header>
+    <div>
+      <OpeningHero />
 
-      <FilterBar filter={filter} setFilter={setFilter} query={query} setQuery={setQuery} />
+      <div id={LIST_ID} className="mx-auto max-w-6xl snap-start scroll-mt-0 px-4 pt-2 sm:px-6">
+        <FilterBar filter={filter} setFilter={setFilter} query={query} setQuery={setQuery} />
 
-      <div className="grid grid-cols-1 items-start gap-3 pt-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-        {shown.map((event) => (
-          <EventCard key={event.id} event={event} />
+        {groups.map((g) => (
+          <section key={g.title} className="mt-10 first-of-type:mt-6">
+            <div className="mb-4 flex items-baseline justify-between gap-4">
+              <h2
+                className="font-display leading-none font-bold tracking-[-0.02em] text-white"
+                style={{ fontSize: query.trim() ? 'clamp(24px, 4vw, 32px)' : 'clamp(32px, 6.5vw, 56px)' }}
+              >
+                {g.title}
+              </h2>
+              <span className="shrink-0 text-[13px] text-slate-300 tabular-nums">
+                {g.events.length} {g.events.length === 1 ? 'event' : 'events'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              {g.events.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          </section>
         ))}
+
         {shown.length === 0 && (
           <Empty>
             {state.eventsError
@@ -123,23 +142,23 @@ export const EventsScreen = () => {
                     : 'Nothing in this category yet.'}
           </Empty>
         )}
-      </div>
 
-      <div className="mt-10 sm:max-w-xl">
-        <SuggestionBox />
-      </div>
+        <div className="mt-10 sm:max-w-xl">
+          <SuggestionBox />
+        </div>
 
-      <footer className="mt-8 space-y-1 text-[14px] text-slate-400">
-        <p>No account needed. Nothing is charged until an event runs.</p>
-        <p className="flex flex-wrap gap-x-5">
-          <button onClick={() => actions.openSheet('space')} className="min-h-11 font-semibold text-brand-secondary underline underline-offset-4">
-            I have a space
-          </button>
-          <button onClick={() => actions.openSheet('privacy')} className="min-h-11 font-semibold text-slate-300 underline underline-offset-4">
-            Your details
-          </button>
-        </p>
-      </footer>
+        <footer className="mt-8 space-y-1 text-[14px] text-slate-300">
+          <p>No account needed. Nothing is charged until an event runs.</p>
+          <p className="flex flex-wrap gap-x-5">
+            <button onClick={() => actions.openSheet('space')} className="min-h-11 font-semibold text-brand-secondary underline underline-offset-4">
+              I have a space
+            </button>
+            <button onClick={() => actions.openSheet('privacy')} className="min-h-11 font-semibold text-slate-300 underline underline-offset-4">
+              Your details
+            </button>
+          </p>
+        </footer>
+      </div>
     </div>
   );
 };

@@ -36,12 +36,20 @@ components:
 
 ## Overview
 
-Event cards float on a board. The board is a fixed gradient from navy into the brand indigo and
-purple with a faint cyan glow top right, under a repeating tile of line doodles (bicycle, canal
-bridge, Martinitoren, books, football, guitar, chess pawn, climbing hold, paintbrush, coffee cup,
-tent, cat, bird, fish) in light indigo at 9% opacity (`src/assets/doodles.svg`). Cards, sheets,
-the filter bar and the tab bar are flat `sheet` surfaces with a soft shadow. One corner radius,
-`rounded-sheet` (14px). Phone first at 390px; 2 columns from 640px, 3 from 1024px.
+Event cards float on a sketchbook board: a fixed gradient from navy into the brand indigo and
+purple with a faint cyan glow, under two hand-wobbled doodle tiles of unrelated sizes (1400px and
+1130px, offset) so the repeat never shows. Large drawings carry detail (a Dutch bike with spokes and a
+basket, the Martinitoren with windows and clock, a guitar with strings, canal houses), medium ones
+are the events' things, small ones are a few strokes; they rotate and overlap. Regenerate with
+`python scripts/make-doodles.py`. Cards, sheets, the filter bar and the tab bar are flat `sheet`
+surfaces with a soft shadow. One corner radius, `rounded-sheet` (14px).
+
+## Opening view
+
+Every visit to "/" starts with a full-screen view: "Pick the events you'd actually go to." at
+clamp(56px, 14vw, 140px), leading 0.88, then one 15px line and one button down to the list (tapping
+anywhere also scrolls there; the page snaps to the list). Visitors who already picked something get a
+64dvh version with their count. The variant is decided once per load, so a join never makes it jump.
 
 ## Colors
 
@@ -55,8 +63,10 @@ the filter bar and the tab bar are flat `sheet` surfaces with a soft shadow. One
 
 ## Typography
 
-Bricolage Grotesque for titles, prices, counts and buttons; the system font for body text.
-Body 15–16px, chips and badges 13px. No tracked uppercase labels.
+Bricolage Grotesque for display, headings, prices and buttons; the system font for body text. The
+scale jumps instead of stepping: opening headline 56–140px → category headings 32–56px bold → card
+titles 23px → body 14–16px → chips and facts 13px. Detail screen: title 40–76px over the photo,
+price 40px, facts 13–14px. Headlines run wider than the card column; body stays under 60ch.
 
 ## Event card (`src/components/EventCard.tsx`)
 

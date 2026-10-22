@@ -14,3 +14,6 @@ export const quietLinkClass =
   'inline-flex min-h-11 items-center text-[15px] font-semibold text-brand-secondary underline decoration-brand-secondary/40 underline-offset-4 hover:decoration-brand-secondary';
 
 export const errorClass = 'text-sm text-red-300';
+
+/** Anchor of the event list, below the opening view. */
+export const LIST_ID = 'events-list';

@@ -40,44 +40,56 @@ function useImpression(ref: React.RefObject<HTMLElement | null>, eventId: string
 
 export const priceLabel = (event: Event) => (event.price === 0 ? 'Free' : `€${event.price}`);
 
-/**
- * The event's photo with its category, state and closing date on top. If the photo is missing
- * or fails to load, the event's emoji on its own colour takes its place.
- */
-export const EventPhoto = ({ event, className = '', children }: { event: Event; className?: string; children?: React.ReactNode }) => {
+/** The event's photo, or its emoji on its own colour when there is none or it fails to load. */
+export const PhotoBackdrop = ({ event, className = '', children }: { event: Event; className?: string; children?: React.ReactNode }) => {
   const url = photoFor(event);
   const [failed, setFailed] = useState(false);
-  const closes = closesLabel(event.deadline, new Date());
   const accent = event.accent || DEFAULT_ACCENT;
 
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ backgroundColor: `color-mix(in srgb, ${accent} 55%, #0f172a)` }}>
       {url && !failed ? (
-        <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+        <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <span aria-hidden="true" className="absolute inset-0 grid place-items-center text-6xl">{event.emoji}</span>
       )}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0f172a]/80 via-transparent to-[#0f172a]/30" />
-      <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-        <span className="flex flex-wrap gap-1.5">
-          <span className="rounded-full bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">{event.category}</span>
-          {event.season === 'spring' && (
-            <span className="rounded-full bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">Spring trip</span>
-          )}
-        </span>
-        {hasEnough(event) && (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-happening px-3 py-1 text-[13px] font-bold text-brand-dark">
-            <Check size={14} strokeWidth={3} /> This is happening
-          </span>
-        )}
-      </div>
-      {closes && (
-        <span className="absolute bottom-3 right-3 rounded-full bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">
-          {closes}
-        </span>
-      )}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0f172a]/85 via-transparent to-[#0f172a]/30" />
       {children}
     </div>
+  );
+};
+
+const Chip = ({ children }: { children: React.ReactNode }) => (
+  <span className="rounded-full bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">{children}</span>
+);
+
+/** Category (and "Spring trip") top left, "This is happening" top right. */
+export const PhotoBadges = ({ event }: { event: Event }) => (
+  <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+    <span className="flex flex-wrap gap-1.5">
+      <Chip>{event.category}</Chip>
+      {event.season === 'spring' && <Chip>Spring trip</Chip>}
+    </span>
+    {hasEnough(event) && (
+      <span className="flex shrink-0 items-center gap-1 rounded-full bg-happening px-3 py-1 text-[13px] font-bold text-brand-dark">
+        <Check size={14} strokeWidth={3} /> This is happening
+      </span>
+    )}
+  </div>
+);
+
+/** The card's header: photo, badges, and the closing date bottom right. */
+export const EventPhoto = ({ event, className = '' }: { event: Event; className?: string }) => {
+  const closes = closesLabel(event.deadline, new Date());
+  return (
+    <PhotoBackdrop event={event} className={className}>
+      <PhotoBadges event={event} />
+      {closes && (
+        <span className="absolute right-3 bottom-3">
+          <Chip>{closes}</Chip>
+        </span>
+      )}
+    </PhotoBackdrop>
   );
 };
 
@@ -158,14 +170,18 @@ export const PeopleLine = ({ event }: { event: Event }) => {
 };
 
 /** Price on the left, always visible; the action on the right. */
-export const PriceAndAction = ({ event }: { event: Event }) => {
+export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 'card' | 'large' }) => {
   const { state, actions, meta } = useVisitor();
   const busy = state.pending.has(event.id);
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
     <div className="flex items-center justify-between gap-3">
-      <p className="font-display text-[28px] font-bold leading-none text-white tabular-nums">{priceLabel(event)}</p>
+      <p
+        className={`font-display leading-none font-extrabold tracking-[-0.02em] text-white tabular-nums ${size === 'large' ? 'text-[40px]' : 'text-[30px]'}`}
+      >
+        {priceLabel(event)}
+      </p>
       {event.status === 'Cancelled' ? (
         <p className="text-[15px] text-slate-300">Cancelled</p>
       ) : meta.joined.has(event.id) ? (
@@ -254,7 +270,7 @@ export const EventCard = ({ event }: { event: Event }) => {
       <EventPhoto event={event} className="h-40" />
       <div className="space-y-3 px-4 pt-3 pb-2">
         <div>
-          <h3 className="font-display text-[21px] font-bold leading-tight text-white">
+          <h3 className="font-display text-[23px] leading-[1.05] font-bold tracking-[-0.01em] text-white">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -265,7 +281,7 @@ export const EventCard = ({ event }: { event: Event }) => {
               {event.title}
             </button>
           </h3>
-          <p className="mt-1 line-clamp-2 text-[15px] leading-snug text-slate-300">{event.description}</p>
+          <p className="mt-1.5 line-clamp-2 text-[14px] leading-snug text-slate-300">{event.description}</p>
         </div>
         <PeopleLine event={event} />
         <PriceAndAction event={event} />

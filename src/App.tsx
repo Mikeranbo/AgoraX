@@ -68,7 +68,7 @@ const Shell = () => {
 
   return (
     <div className="min-h-dvh">
-      <main className="mx-auto max-w-6xl pb-40">
+      <main className="pb-40">
         <Screen />
       </main>
       {!state.selected && (
