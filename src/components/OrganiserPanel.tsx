@@ -1,144 +1,182 @@
 import React, { useRef, useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
 import { Modal } from './Modal';
-import { ContactForm, ContactValues } from './ContactForm';
-import { Event } from '../types';
+import { Event, RanBefore } from '../types';
 import { earningsFor, eur } from '../data/earnings';
 import { PLATFORM_FEE } from '../data/seedEvents';
+import { CONSENT_TEXTS } from '../data/consent';
+import { validateHelperForm } from '../data/forms';
+import { submitHelperInterest } from '../services/firebaseService';
+import { track } from '../services/analytics';
+import { useVisitor } from '../state/VisitorProvider';
+import { errorClass, fieldClass, labelClass, primaryButtonClass } from './ui';
 
-interface OrganiserPanelProps {
-  event: Event | null;
-  hasContact: boolean;
-  onClose: () => void;
-  /** Records the interest (counter + per-person record). */
-  onInterest: (event: Event) => Promise<void>;
-  onContact: (values: ContactValues) => Promise<void>;
-}
+const money = (n: number) => `€${n.toFixed(2)}`;
 
-const Row = ({ label, value, strong, muted }: { label: string; value: string; strong?: boolean; muted?: boolean }) => (
-  <div className="flex justify-between items-baseline gap-4 py-2 border-b border-white/5 last:border-0">
-    <span className={`text-sm ${muted ? 'text-slate-500' : 'text-slate-300'}`}>{label}</span>
-    <span className={`font-display ${strong ? 'text-lg font-black text-brand-secondary' : 'font-bold text-white'}`}>{value}</span>
+const Row = ({ label, value, note, total }: { label: string; value: string; note?: string; total?: boolean }) => (
+  <div className={`flex items-baseline justify-between gap-4 py-2 ${total ? 'border-t border-sheet-line mt-1 pt-3' : ''}`}>
+    <span className={total ? 'font-display text-[17px] font-bold text-white' : 'text-[15px] text-slate-300'}>
+      {label}
+      {note && <span className="block text-[13px] text-slate-400">{note}</span>}
+    </span>
+    <span className={`font-display tabular-nums ${total ? 'text-[22px] font-bold text-brand-secondary' : 'text-[16px] font-semibold text-white'}`}>
+      {value}
+    </span>
   </div>
 );
 
-const PanelBody = ({ event, hasContact, onClose, onInterest, onContact }: Omit<OrganiserPanelProps, 'event'> & { event: Event }) => {
-  const [stage, setStage] = useState<'info' | 'contact' | 'done'>('info');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+/** The money at exactly the minimum headcount, laid out like a receipt. */
+const Breakdown = ({ event }: { event: Event }) => {
   const e = earningsFor(event);
   const hosts = event.hostsNeeded ?? 1;
-  const free = event.price === 0;
-  const perPersonTotal = (event.perPersonCost ?? 0) * event.minParticipants;
+  const min = event.minParticipants;
+  return (
+    <div>
+      {event.price === 0 ? (
+        <p className="text-[15px] text-slate-300">
+          This one is free for everyone, so there's nothing to earn and nothing to pay. You run it because you'd
+          like it to exist.
+        </p>
+      ) : (
+        <div className="rounded-sheet bg-brand-dark px-4 py-2">
+          <Row label={`${min} people × ${eur(event.price)}`} value={money(e.gross)} />
+          {(event.fixedCost ?? 0) > 0 && <Row label="Fixed costs" note={event.venueNote} value={`− ${money(event.fixedCost ?? 0)}`} />}
+          {(event.perPersonCost ?? 0) > 0 && (
+            <Row label={`${min} × ${eur(event.perPersonCost ?? 0)} per person`} value={`− ${money((event.perPersonCost ?? 0) * min)}`} />
+          )}
+          <Row label={`Platform fee ${Math.round(PLATFORM_FEE * 100)}%`} value={`− ${money(e.platformFee)}`} />
+          <Row total label={hosts > 1 ? 'Each host keeps' : 'You keep'} value={money(e.perHost)} />
+        </div>
+      )}
+      <p className="mt-4 text-[15px] leading-relaxed text-slate-300">
+        Needs {hosts} host{hosts === 1 ? '' : 's'}. A second host joins automatically above 20 people, and the
+        earnings are split between you.
+      </p>
+      <p className="mt-2 text-[15px] leading-relaxed text-white">
+        If fewer than {min} sign up, nothing is charged. You don't lose anything.
+      </p>
+    </div>
+  );
+};
 
-  const interested = async () => {
+const RAN_BEFORE: { value: RanBefore; label: string }[] = [
+  { value: 'yes', label: 'Yes' },
+  { value: 'sort-of', label: 'Sort of' },
+  { value: 'no', label: 'No' },
+];
+
+const HelperForm = ({ event, onDone }: { event: Event; onDone: () => void }) => {
+  const { state } = useVisitor();
+  const [firstName, setFirstName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [ranBefore, setRanBefore] = useState<RanBefore | ''>('');
+  const [consent, setConsent] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const problem = validateHelperForm({ firstName, phone, email, ranBefore, consent });
+    setError(problem ?? '');
+    if (problem || !ranBefore || !state.uid) return;
     setBusy(true);
-    setError('');
     try {
-      await onInterest(event);
-      setStage(hasContact ? 'done' : 'contact');
+      await submitHelperInterest(event.id, state.uid, { firstName, phone, email, ranBefore });
+      track('organiser_interest_click', { eventId: event.id, ranBefore });
+      onDone();
     } catch (err) {
       console.error(err);
-      setError("Couldn't record that — please try again.");
-    } finally {
+      setError("That didn't save. Check your connection and try again.");
       setBusy(false);
     }
   };
 
+  return (
+    <form onSubmit={submit} className="space-y-4" noValidate>
+      <div>
+        <label className={labelClass} htmlFor="hf-name">First name</label>
+        <input id="hf-name" autoComplete="given-name" maxLength={80} className={fieldClass} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="hf-phone">WhatsApp number</label>
+        <input id="hf-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12345678" className={fieldClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="hf-email">Email (optional)</label>
+        <input id="hf-email" type="email" autoComplete="email" className={fieldClass} value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <fieldset>
+        <legend className={labelClass}>Have you run something like this before?</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {RAN_BEFORE.map((o) => (
+            <label
+              key={o.value}
+              className={`flex min-h-11 cursor-pointer items-center justify-center rounded-sheet border text-[15px] font-semibold ${
+                ranBefore === o.value ? 'border-brand-primary bg-brand-action/20 text-white' : 'border-sheet-line text-slate-300'
+              }`}
+            >
+              <input type="radio" name="ran-before" value={o.value} checked={ranBefore === o.value} onChange={() => setRanBefore(o.value)} className="sr-only" />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label className="flex cursor-pointer items-start gap-3">
+        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-brand-action" />
+        <span className="text-[14px] leading-relaxed text-slate-300">{CONSENT_TEXTS.organising}</span>
+      </label>
+      {error && <p role="alert" className={errorClass}>{error}</p>}
+      <button type="submit" disabled={busy} className={primaryButtonClass}>
+        {busy ? 'Sending…' : 'Send'}
+      </button>
+    </form>
+  );
+};
+
+const PanelBody = ({ event, onClose }: { event: Event; onClose: () => void }) => {
+  const [stage, setStage] = useState<'info' | 'form' | 'done'>('info');
+
   if (stage === 'done') {
     return (
-      <div className="text-center py-6">
-        <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center mb-4">
-          <CheckCircle2 size={32} className="text-green-400" />
-        </div>
-        <h3 className="text-xl font-display font-black text-white mb-2">Thanks — you're on the list</h3>
-        <p className="text-slate-400 text-sm mb-6">
-          If {event.title} gets enough people, we'll get in touch about running it together.
+      <div className="space-y-5">
+        <p className="text-[16px] leading-relaxed text-slate-200">
+          Thanks, you're on the list for {event.title}. When it gets close to {event.minParticipants}, we'll message
+          you on WhatsApp to plan it together.
         </p>
-        <button onClick={onClose} className="px-8 py-3 bg-white text-brand-dark rounded-2xl font-black text-xs uppercase tracking-widest">
-          Done
-        </button>
-      </div>
-    );
-  }
-
-  if (stage === 'contact') {
-    return (
-      <div>
-        <p className="text-white font-bold mb-1">Your interest in {event.title} is recorded.</p>
-        <p className="text-slate-400 text-sm mb-5">Leave a number and we'll message you if it gets enough sign-ups.</p>
-        <ContactForm
-          submitLabel="Send my details"
-          onSkip={() => setStage('done')}
-          skipLabel="Skip — I'll leave it there"
-          onSubmit={async (values) => {
-            await onContact(values);
-            setStage('done');
-          }}
-        />
+        <button onClick={onClose} className={primaryButtonClass}>Done</button>
       </div>
     );
   }
 
   return (
-    <div>
-      <p className="text-slate-400 text-sm mb-1">{event.emoji} {event.title}</p>
-      <p className="text-white font-bold mb-5">What a host keeps if exactly {event.minParticipants} people come</p>
-
-      {free ? (
-        <div className="p-4 glass rounded-2xl text-sm text-slate-300 mb-5">
-          This one is free for everyone, so hosting is for the fun of it — there's nothing to earn, and nothing to pay.
-        </div>
+    <div className="space-y-5">
+      <p className="text-[15px] text-slate-300">
+        {event.emoji} {event.title}: what a host keeps if exactly {event.minParticipants} people come.
+      </p>
+      <Breakdown event={event} />
+      {stage === 'info' ? (
+        <button onClick={() => setStage('form')} className={primaryButtonClass}>
+          I'd help run this
+        </button>
       ) : (
-        <div className="p-4 glass rounded-2xl mb-5">
-          <Row label={`${event.minParticipants} people × ${eur(event.price)}`} value={eur(e.gross)} />
-          {(event.fixedCost ?? 0) > 0 && <Row muted label="Fixed costs (room, coach, hire)" value={`− ${eur(event.fixedCost ?? 0)}`} />}
-          {(event.perPersonCost ?? 0) > 0 && (
-            <Row muted label={`Per-person costs (${event.minParticipants} × ${eur(event.perPersonCost ?? 0)})`} value={`− ${eur(perPersonTotal)}`} />
-          )}
-          {e.costs === 0 && <Row muted label="Listed costs" value="€0" />}
-          <Row muted label={`Platform fee (${Math.round(PLATFORM_FEE * 100)}%)`} value={`− ${eur(Math.round(e.platformFee * 100) / 100)}`} />
-          <Row label={`Hosts needed`} value={String(hosts)} />
-          <Row strong label="Each host keeps" value={eur(Math.round(e.perHost * 100) / 100)} />
-        </div>
+        <HelperForm event={event} onDone={() => setStage('done')} />
       )}
-
-      <ul className="text-xs text-slate-400 space-y-1.5 mb-4">
-        {event.venueNote && <li>📍 {event.venueNote}</li>}
-        {event.bringYourOwn && <li>🎒 Not included: {event.bringYourOwn}</li>}
-      </ul>
-
-      <p className="text-sm text-slate-200 italic mb-3">
-        A second host joins automatically above 20 people — the earnings split between you.
-      </p>
-      <p className="text-sm text-slate-200 italic mb-6">
-        If fewer than {event.minParticipants} sign up, nothing is charged — you don't lose anything either.
-      </p>
-
-      {error && <p role="alert" className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-3">{error}</p>}
-
-      <button
-        onClick={interested}
-        disabled={busy}
-        className="w-full py-4 gradient-brand text-white rounded-2xl font-black text-sm tracking-wide disabled:opacity-60"
-      >
-        {busy ? 'Saving…' : "I'd help run this"}
-      </button>
     </div>
   );
 };
 
-export const OrganiserPanel = ({ event, hasContact, onClose, onInterest, onContact }: OrganiserPanelProps) => {
-  // Keep the last event around so the sheet's slide-out animation still has content.
+/** Opens from "Help run this". */
+export const OrganiserPanel = () => {
+  const { state, actions } = useVisitor();
+  const event = state.organiserEvent;
+  // Keep the last event so the sheet still has content while it slides away.
   const last = useRef<Event | null>(event);
   if (event) last.current = event;
   const shown = event ?? last.current;
 
   return (
-    <Modal isOpen={!!event} onClose={onClose} title="Help run this">
-      {shown && (
-        <PanelBody key={shown.id} event={shown} hasContact={hasContact} onClose={onClose} onInterest={onInterest} onContact={onContact} />
-      )}
+    <Modal isOpen={!!event} onClose={actions.closeOrganiser} title="Help run this">
+      {shown && <PanelBody key={shown.id} event={shown} onClose={actions.closeOrganiser} />}
     </Modal>
   );
 };

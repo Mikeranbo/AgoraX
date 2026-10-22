@@ -3,6 +3,8 @@ name: AgoraX
 description: Pick the events you'd actually go to in Groningen. When enough people want one, it happens.
 colors:
   navy-ground: "#0f172a"
+  sheet: "#18213a"
+  sheet-line: "#2a3654"
   action-indigo: "#6366f1"
   action-purple: "#a855f7"
   progress-indigo: "#818cf8"
@@ -12,95 +14,88 @@ colors:
   text-strong: "#ffffff"
   text-body: "#cbd5e1"
   text-muted: "#94a3b8"
-  text-faint: "#64748b"
+typography:
+  display: "Bricolage Grotesque Variable (self-hosted via @fontsource)"
+  body: "system UI stack"
+radius:
+  sheet: "14px"
 components:
   button-primary:
-    backgroundColor: "{colors.action-indigo}"
+    background: "linear-gradient(135deg, {colors.action-indigo}, {colors.action-purple})"
     textColor: "{colors.text-strong}"
-  progress-fill:
-    backgroundColor: "{colors.progress-indigo}"
-  progress-fill-happening:
-    backgroundColor: "{colors.happening-green}"
+    font: "display 19px bold"
+  place-filled:
+    background: "{colors.progress-indigo} → {colors.progress-cyan} across the list"
+  place-happening:
+    background: "{colors.happening-green}"
 ---
 
-<!-- Captured 21 Oct 2026 from src/index.css and component usage, before the Phase 4 redesign.
-     Colors are pinned by PRODUCT.md (Brand Commitments) and stay normative through the redesign.
-     Typography, shape, elevation and component treatment below describe the incumbent world,
-     which Phase 4 replaces; this file is rewritten from the built world when that phase finishes. -->
+<!-- Rewritten 22 Oct 2026 from the built world (Phase 4). Tokens live in src/index.css @theme. -->
 
 # Design System: AgoraX
 
 ## Overview
 
-**Creative North Star: to be confirmed in the Phase 4 brief.**
+**Creative North Star: the sign-up list (*intekenlijst*).** Every student-association door in
+Groningen has a sheet with numbered lines; when enough lines are filled, the trip happens. Each
+event in AgoraX is that sheet: its minimum drawn as numbered places, filled places in the progress
+colour, the event's own accent as the coloured paper at the top.
 
-The palette is the one fixed thing: a dark navy ground, an indigo-to-purple gradient that means
-"act", a blue-to-cyan gradient that means "progress toward the minimum", and green that means
-"this is happening". Everything else in the current build (glass panels with backdrop blur, neon
-glows, Outfit display type over Inter, eight different corner radii, tracked 9–10px uppercase
-labels) is the incumbent look, kept here as evidence of where the product starts.
-
-**Key Characteristics:**
-- Dark, phone-first, one column at 390px, widening to a grid on tablet and desktop.
-- Colour carries meaning, not decoration: action, progress, reached.
-- Every event card is distinguished by its own emoji and accent colour from the seed data.
+- Flat sheets (`sheet` on `navy-ground`, 1px `sheet-line` border). No glass, blur, glow or
+  decorative gradients. The old `.glass` classes now render as flat sheets.
+- One corner radius, `rounded-sheet` (14px). The places themselves are square, like boxes on paper.
+- Phone first at 390px: one column, 2–3 lists per screen; 2 columns from 640px, 3 from 1024px.
 
 ## Colors
 
-Four roles on a navy ground; each colour has one job and is not used for anything else.
+Each colour has one job.
 
-### Primary
-- **Action Indigo → Action Purple** (`action-indigo` → `action-purple`, 135°): the gradient on
-  primary actions only ("I'd join", form submits). Nothing decorative uses it.
-
-### Secondary
-- **Progress Indigo → Progress Cyan** (`progress-indigo` → `progress-cyan`, left to right): the
-  fill of every progress bar toward an event's minimum. Cyan alone marks secondary links.
-
-### Tertiary
-- **Happening Green** (`happening-green` for fills, `happening-green-ink` for text on navy): an
-  event that has reached its minimum, and the visitor's own "You're in" state.
-
-### Neutral
-- **Navy Ground** (`navy-ground`): the page.
-- **Text Strong / Body / Muted / Faint** (white → slate 300 → 400 → 500): headings, body copy,
-  supporting copy, captions. Faint is the floor for any text a student must read.
-
-### Named Rules
-**The Pinned Palette Rule.** These colours do not change in a redesign (PRODUCT.md, Brand
-Commitments). New work changes how they are used, never the hues.
-
-**The One Meaning Rule.** Indigo→purple means "do this", blue→cyan means "how close", green means
-"it's happening". A colour that shows up outside its meaning is a bug.
+- **Action** (`action-indigo` → `action-purple`, 135°): "I'd join" and form submits only. The label
+  is 19px bold so white text stays readable on both ends of the gradient (WCAG large text).
+- **Progress** (`progress-indigo` → `progress-cyan`): filled places, shaded left to right across
+  the list. Cyan alone marks secondary links ("Help run this", "I have a space").
+- **Happening** (`happening-green`, ink `happening-green-ink`): every place once an event reaches
+  its minimum or is confirmed in /admin, and the "This is happening" label.
+- **Event accent**: each event's own colour, mixed 50% into navy for the header band so white
+  text passes contrast. It is the only colour outside the four roles.
+- Text: white for headings and numbers, `text-body` for paragraphs, `text-muted` for secondary
+  lines. Nothing smaller or fainter carries information.
 
 ## Typography
 
-**Incumbent:** Outfit (display) over Inter (body), loaded from Google Fonts. Heavy use of 9–11px
-uppercase tracked labels. Both faces are on impeccable's list of training-data defaults; Phase 4
-replaces the pairing.
+- **Bricolage Grotesque** for titles, numbers, counts and buttons (tabular figures on counts).
+- **System font** for body text, so paragraphs load nothing extra.
+- Body 15–16px, meta 14px, the smallest text (place numbers) 12px. No tracked uppercase labels.
 
-## Layout
+## Components
 
-Phone-first single column (max 448px), widening to 672 / 896 / 1152px at the `sm` / `md` / `lg`
-breakpoints with a 1 / 2 / 3-column card grid. A fixed bottom area holds the visitor's picks.
+- **Event card** (`src/components/EventCard.tsx`): accent band with emoji and title (and "Spring
+  trip" or "This is happening"), meta line "€12 · 1.5 h · needs 12" with "Closes 10 Nov", the
+  sign-up list, one primary button, then "Help run this · keep ~€84" as a quiet link.
+- **Sign-up list** (`src/components/SignupList.tsx`): up to 12 places on one line, otherwise rows of
+  10 (the largest minimum, 24, is three rows). States: default "8 of 12 — 4 more and this runs";
+  close to the minimum (≤3 left or ≥75%) leads with "**3 more** and this runs"; joined puts a
+  check in solid action indigo on your place; running turns every place green and adds "+N after
+  it filled".
+- **Sheets** (`src/components/Modal.tsx`): slide up from the bottom, 88dvh at most.
+- **Tab bar**: Events · (+) Propose · My picks, fixed to the bottom, 56px targets.
 
-## Elevation & Depth
+## Motion
 
-**Incumbent:** translucent "glass" panels (white at 5% over navy, 10% white border, backdrop
-blur) layered on blurred colour blobs, with coloured glow shadows on primary buttons. Phase 4
-replaces this; the replacement is recorded here when it is built.
+One authored moment, all of it off or reduced under `prefers-reduced-motion`
+(`MotionConfig reducedMotion="user"`, CSS delays set to 0):
 
-## Shapes
+- The first time a list is on screen in a visit, its places fill left to right while the count
+  counts up (0.6s, `cubic-bezier(0.16, 1, 0.3, 1)`).
+- Tapping "I'd join" stamps a check onto your place (0.22s).
+- Reaching the minimum sweeps the places to green, one after another.
 
-**Incumbent:** eight radii in use (`rounded-lg` to `rounded-[40px]` plus pills). Phase 4 settles
-one corner language.
+Sheets slide in over 0.32s. Nothing else moves on its own.
 
 ## Do's and Don'ts
 
-### Do:
-- **Do** keep the four colour roles exactly as listed in the frontmatter.
-- **Do** let each event's own emoji and accent colour make its card different from its neighbours.
-
-### Don't:
-- **Don't** introduce a new hue for decoration; the palette is pinned.
-- **Don't** set text a student has to read below the Text Faint colour or below 12px.
+- Do keep the count toward the minimum the most visible thing on every card.
+- Do keep every control at least 44px tall and every text 12px or larger.
+- Don't add countdowns, "N people viewing", stock photos or a ticket emoji.
+- Don't put two equal buttons on a card; helping run an event is a link.
+- Don't use the action gradient for anything but actions.

@@ -1,29 +1,15 @@
 import React, { useState } from 'react';
-import { normalisePhone } from '../data/contact';
 import { CONSENT_TEXTS } from '../data/consent';
+import { hasValidEmail, hasValidPhone } from '../data/forms';
+import { errorClass, fieldClass, labelClass, primaryButtonClass } from './ui';
 
 export interface ContactValues {
-  name: string;
   phone: string;
   email: string;
 }
 
-interface ContactFormProps {
-  onSubmit: (values: ContactValues) => Promise<void>;
-  submitLabel?: string;
-  onSkip?: () => void;
-  skipLabel?: string;
-}
-
-export const CONSENT_TEXT = CONSENT_TEXTS.updates;
-
-const inputClass =
-  'w-full glass bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary';
-const labelClass = 'text-[10px] uppercase font-bold text-slate-500 tracking-widest';
-
-/** WhatsApp number is the primary field; name and email are optional. Consent is required. */
-export const ContactForm = ({ onSubmit, submitLabel = 'Save my number', onSkip, skipLabel = 'Not now' }: ContactFormProps) => {
-  const [name, setName] = useState('');
+/** WhatsApp is the main field, email is optional, consent is required. Nothing else is asked. */
+export const ContactForm = ({ onSubmit }: { onSubmit: (values: ContactValues) => Promise<void> }) => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(false);
@@ -32,88 +18,47 @@ export const ContactForm = ({ onSubmit, submitLabel = 'Save my number', onSkip, 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasValidPhone(phone)) return setError('Add your WhatsApp number, for example 06 12345678.');
+    if (email.trim() && !hasValidEmail(email)) return setError("That email doesn't look right.");
+    if (!consent) return setError('Tick the box so we can message you.');
     setError('');
-    const digits = normalisePhone(phone).replace(/\D/g, '');
-    const hasPhone = digits.length >= 8;
-    const hasEmail = /^\S+@\S+\.\S+$/.test(email.trim());
-    if (!hasPhone && !hasEmail) {
-      setError('Add a WhatsApp number (or an email) so we can reach you.');
-      return;
-    }
-    if (phone.trim() && !hasPhone) {
-      setError("That number looks too short — include the full number, e.g. 06 12345678.");
-      return;
-    }
-    if (email.trim() && !hasEmail) {
-      setError("That email doesn't look right.");
-      return;
-    }
-    if (!consent) {
-      setError('Please tick the box so we know you are happy for us to message you.');
-      return;
-    }
     setBusy(true);
     try {
-      await onSubmit({ name: name.trim(), phone: hasPhone ? phone.trim() : '', email: hasEmail ? email.trim() : '' });
+      await onSubmit({ phone: phone.trim(), email: email.trim() });
     } catch (err) {
       console.error(err);
-      setError("Couldn't save that — check your connection and try again.");
+      setError("That didn't save. Check your connection and try again.");
       setBusy(false);
     }
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
-      <div className="space-y-1">
-        <label className={labelClass} htmlFor="cf-name">First name (optional)</label>
-        <input id="cf-name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" />
-      </div>
-      <div className="space-y-1">
+    <form onSubmit={submit} className="space-y-4" noValidate>
+      <div>
         <label className={labelClass} htmlFor="cf-phone">WhatsApp number</label>
         <input
           id="cf-phone"
           type="tel"
           inputMode="tel"
-          className={inputClass}
+          autoComplete="tel"
           placeholder="06 12345678"
+          className={fieldClass}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          autoComplete="tel"
         />
       </div>
-      <div className="space-y-1">
+      <div>
         <label className={labelClass} htmlFor="cf-email">Email (optional)</label>
-        <input id="cf-email" type="email" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+        <input id="cf-email" type="email" autoComplete="email" className={fieldClass} value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
-
-      <label className="flex items-start gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-          className="mt-1 h-4 w-4 accent-brand-secondary shrink-0"
-        />
-        <span className="text-xs text-slate-300 leading-relaxed">{CONSENT_TEXT}</span>
+      <label className="flex cursor-pointer items-start gap-3">
+        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-brand-action" />
+        <span className="text-[14px] leading-relaxed text-slate-300">{CONSENT_TEXTS.updates}</span>
       </label>
-
-      {error && (
-        <p role="alert" className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
-          {error}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full py-3 gradient-brand text-white rounded-2xl font-black text-sm tracking-wide disabled:opacity-60"
-      >
-        {busy ? 'Saving…' : submitLabel}
+      {error && <p role="alert" className={errorClass}>{error}</p>}
+      <button type="submit" disabled={busy} className={primaryButtonClass}>
+        {busy ? 'Saving…' : 'Save my number'}
       </button>
-      {onSkip && (
-        <button type="button" onClick={onSkip} className="w-full py-2 text-xs font-bold text-slate-500 hover:text-white transition-colors">
-          {skipLabel}
-        </button>
-      )}
     </form>
   );
 };

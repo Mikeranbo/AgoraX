@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode;
 }
 
+/** A sheet that slides up from the bottom on phones and sits centred on wider screens. */
 export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => (
   <AnimatePresence>
     {isOpen && (
@@ -17,23 +18,28 @@ export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => (
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
           onClick={onClose}
-          className="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-[60]"
+          className="fixed inset-0 bg-brand-dark/80 z-[60]"
         />
         <motion.div
-          initial={{ y: "100%" }}
+          initial={{ y: '100%' }}
           animate={{ y: 0 }}
-          exit={{ y: "100%" }}
-          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          exit={{ y: '100%' }}
+          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
           role="dialog"
           aria-modal="true"
-          aria-label={title || 'Dialog'}
-          className="fixed bottom-0 left-0 right-0 max-w-md sm:max-w-lg md:max-w-xl mx-auto glass rounded-t-[40px] p-8 z-[70] max-h-[85vh] overflow-y-auto no-scrollbar border-t border-white/20"
+          aria-label={title}
+          className="sheet fixed bottom-0 inset-x-0 mx-auto w-full max-w-lg rounded-t-sheet border-b-0 px-5 pt-5 pb-8 z-[70] max-h-[88dvh] overflow-y-auto"
         >
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-display font-black text-white">{title}</h2>
-            <button onClick={onClose} aria-label="Close" className="p-2 glass rounded-full text-slate-400">
-              <X size={20} />
+          <div className="flex justify-between items-start gap-4 mb-5">
+            <h2 className="font-display text-[24px] font-bold leading-tight text-white">{title}</h2>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="-mr-2 -mt-1 grid size-11 shrink-0 place-items-center text-slate-300 hover:text-white"
+            >
+              <X size={22} />
             </button>
           </div>
           {children}

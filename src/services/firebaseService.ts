@@ -4,7 +4,6 @@ import {
   updateDoc,
   doc,
   onSnapshot,
-  query,
   orderBy,
   getDocs,
   serverTimestamp,
@@ -17,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { ensureAnonymousAuth, getSource, linkContact } from './identity';
-import { Event, EventCategory, Venue, Comment, UserDoc, PriceAnswer, RanBefore, SpaceType } from '../types';
+import { Event, EventCategory, Venue, UserDoc, PriceAnswer, RanBefore, SpaceType } from '../types';
 import { splitContact } from '../data/forms';
 import { SEED_EVENTS } from '../data/seedEvents';
 
@@ -85,21 +84,6 @@ export const subscribeToEvents = (callback: (events: Event[]) => void, onError?:
     console.error('Events listener failed', error);
     onError?.(error);
   });
-};
-
-export const createEvent = async (event: Omit<Event, 'id' | 'createdAt'>) => {
-  try {
-    const docRef = await addDoc(collection(db, 'events'), {
-      ...event,
-      createdAt: serverTimestamp(),
-      participantsCount: 0,
-      impressions: 0,
-      clicks: 0
-    });
-    return docRef.id;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, 'events');
-  }
 };
 
 export interface JoinMeta {
@@ -212,28 +196,6 @@ export const submitHelperInterest = async (eventId: string, userId: string, v: H
     wantsToOrganise: true,
   });
   return created;
-};
-
-/** Records "I'd help run this" once per person per event. Returns true if it was new. */
-export const recordOrganiserInterest = async (eventId: string, userId: string): Promise<boolean> => {
-  const eventRef = doc(db, 'events', eventId);
-  const userRef = doc(db, 'users', userId);
-  try {
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(userRef);
-      const already = ((snap.data() as UserDoc | undefined)?.organiserEvents ?? []).includes(eventId);
-      if (already) return false;
-      tx.set(
-        userRef,
-        { uid: userId, wantsToOrganise: true, organiserEvents: arrayUnion(eventId) },
-        { merge: true },
-      );
-      tx.update(eventRef, { organiserInterest: increment(1) });
-      return true;
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
-  }
 };
 
 export const recordPriceAnswer = async (
@@ -432,31 +394,5 @@ export const createVenue = async (venue: Omit<Venue, 'id'>) => {
     return docRef.id;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'venues');
-  }
-};
-
-// --- Comments ---
-
-export const subscribeToComments = (eventId: string, callback: (comments: Comment[]) => void) => {
-  const q = query(collection(db, 'events', eventId, 'comments'), orderBy('createdAt', 'asc'));
-  return onSnapshot(q, (snapshot) => {
-    const comments = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Comment[];
-    callback(comments);
-  }, (error) => {
-    console.warn(`Comments listener failed for ${eventId}`, error);
-  });
-};
-
-export const addComment = async (eventId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => {
-  try {
-    await addDoc(collection(db, 'events', eventId, 'comments'), {
-      ...comment,
-      createdAt: serverTimestamp()
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, `events/${eventId}/comments`);
   }
 };
