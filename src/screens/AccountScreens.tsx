@@ -1,18 +1,10 @@
 import React, { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useVisitor } from '../state/VisitorProvider';
-import { ProfileAvatar, displayNameOf } from '../components/Avatar';
 import { maskPhone } from '../data/contact';
-import { CONSENT_TEXTS } from '../data/consent';
-import { timestampMillis } from '../services/firebaseService';
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-export const ScreenTitle = ({ children }: { children: React.ReactNode }) => (
-  <h1 className="mb-6 font-display leading-[0.95] font-extrabold tracking-[-0.025em] text-white" style={{ fontSize: 'clamp(36px, 8vw, 56px)' }}>
-    {children}
-  </h1>
-);
+import { CONTACT_EMAIL } from '../config/pilot';
+import { PilotExplainer } from '../components/OpeningHero';
+import { Block, ScreenTitle, Switch } from './SettingsScreens';
 
 const Row = ({ label, value, onClick }: { label: string; value: React.ReactNode; onClick?: () => void }) => {
   const body = (
@@ -32,75 +24,7 @@ const Row = ({ label, value, onClick }: { label: string; value: React.ReactNode;
   );
 };
 
-export const ProfileScreen = () => {
-  const { state, actions, meta } = useVisitor();
-  const me = state.me;
-  const since = timestampMillis(me?.createdAt);
-  const sinceLabel = since ? (() => { const d = new Date(since); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; })() : '';
-
-  return (
-    <div className="mx-auto max-w-xl px-4 pt-16 sm:px-6 lg:pt-8">
-      <div className="mb-8 flex items-center gap-5">
-        <ProfileAvatar size={84} />
-        <div className="min-w-0">
-          <h1 className="truncate font-display text-[36px] leading-none font-extrabold tracking-[-0.02em] text-white">
-            {displayNameOf(me?.displayName)}
-          </h1>
-          <button onClick={() => actions.openSheet('profile')} className="mt-2 min-h-11 text-[15px] font-semibold text-brand-secondary underline underline-offset-4">
-            Edit profile
-          </button>
-        </div>
-      </div>
-      <div className="sheet overflow-hidden rounded-sheet">
-        <Row label="My picks" value={meta.picks.length} onClick={() => actions.setTab('picks')} />
-        <Row
-          label="Updates on WhatsApp"
-          value={me?.consents?.updates && me.phone ? maskPhone(me.phone) : 'Off'}
-          onClick={() => actions.setTab('data')}
-        />
-        {sinceLabel && <Row label="On AgoraX since" value={sinceLabel} />}
-        <Row label="City" value="Groningen" />
-      </div>
-      <p className="mt-4 text-[13px] text-slate-300">Only you can see this profile.</p>
-    </div>
-  );
-};
-
-const Switch = ({ label, hint, checked, disabled, onChange }: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (on: boolean) => void;
-}) => (
-  <div className="flex items-start justify-between gap-4 border-b border-sheet-line px-4 py-3.5 last:border-0">
-    <div>
-      <p className="text-[15px] text-white">{label}</p>
-      {hint && <p className="mt-1 text-[13px] leading-snug text-slate-400">{hint}</p>}
-    </div>
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className="grid min-h-11 shrink-0 place-items-center disabled:opacity-40"
-    >
-      <span className={`flex h-7 w-12 items-center rounded-full p-0.5 transition-colors ${checked ? 'bg-brand-action' : 'bg-white/15'}`}>
-        <span className={`size-6 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : ''}`} />
-      </span>
-    </button>
-  </div>
-);
-
-const Block = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="mb-8">
-    <h2 className="mb-3 font-display text-[22px] font-bold text-white">{title}</h2>
-    <div className="sheet overflow-hidden rounded-sheet">{children}</div>
-  </section>
-);
-
-/** Privacy & my data: contact details, the privacy switches, and deletion, all in one place. */
+/** Privacy & my data: what we hold about you, the privacy switches, and deletion. */
 export const MyDataScreen = () => {
   const { state, actions, meta } = useVisitor();
   const [confirming, setConfirming] = useState(false);
@@ -109,8 +33,8 @@ export const MyDataScreen = () => {
   const shownInitials = [...meta.faces.values()].flat().filter((f) => f.uid === state.uid).length;
 
   return (
-    <div className="mx-auto max-w-xl px-4 pt-16 sm:px-6 lg:pt-8">
-      <ScreenTitle>Privacy & my data</ScreenTitle>
+    <div className="mx-auto max-w-xl px-4 pt-16 sm:px-6">
+      <ScreenTitle>Privacy &amp; my data</ScreenTitle>
 
       <Block title="Contact details">
         {hasContact ? (
@@ -138,7 +62,7 @@ export const MyDataScreen = () => {
                 </p>
               ) : (
                 <button onClick={() => setConfirming(true)} className="min-h-11 text-[15px] font-semibold text-red-300 underline underline-offset-4">
-                  Delete my details
+                  Delete my contact details
                 </button>
               )}
             </div>
@@ -147,7 +71,7 @@ export const MyDataScreen = () => {
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <p className="text-[15px] text-slate-200">No contact details saved.</p>
             <button onClick={() => actions.openSheet('contact')} className="min-h-11 shrink-0 rounded-sheet border border-brand-primary px-4 text-[15px] font-bold text-white hover:bg-brand-action/20">
-              Add your WhatsApp
+              Add an email or WhatsApp
             </button>
           </div>
         )}
@@ -155,21 +79,8 @@ export const MyDataScreen = () => {
 
       <Block title="Privacy switches">
         <Switch
-          label="Message me when an event I picked is happening"
-          hint={CONSENT_TEXTS.updates}
-          checked={!!me?.consents?.updates}
-          onChange={(on) => (on && !hasContact ? actions.openSheet('contact') : void actions.setConsent('updates', on))}
-        />
-        <Switch
-          label="Talk to me about events I offered to help run"
-          hint={hasContact ? CONSENT_TEXTS.organising : 'Turns on when you offer to help run an event.'}
-          checked={!!me?.consents?.organising}
-          disabled={!hasContact}
-          onChange={(on) => void actions.setConsent('organising', on)}
-        />
-        <Switch
           label="Count my visits in AgoraX statistics"
-          hint="Which cards you saw and opened, without your name. Applies to this device. Your picks always count."
+          hint="Which cards you saw and opened, without your name. Applies to this device. Your interests always count."
           checked={!state.statsOff}
           onChange={(on) => actions.setStatsOff(!on)}
         />
@@ -183,10 +94,23 @@ export const MyDataScreen = () => {
             </button>
           )}
         </div>
+        {me?.publicId && (
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <p className="text-[15px] text-white">Public profile</p>
+            <button onClick={() => void actions.deletePublicProfile()} className="min-h-11 text-[15px] font-semibold text-red-300 underline underline-offset-4">
+              Delete it
+            </button>
+          </div>
+        )}
       </Block>
 
-      <button onClick={() => actions.openSheet('privacy')} className="min-h-11 text-[15px] font-semibold text-slate-200 underline underline-offset-4">
-        What we keep, why, and for how long
+      <div className="sheet mb-8 overflow-hidden rounded-sheet">
+        <Row label="Messages we may send you" value="Notification preferences" onClick={() => actions.setTab('notifications')} />
+        <Row label="Everything, including this account" value="Delete my data" onClick={() => actions.setTab('account')} />
+      </div>
+
+      <button onClick={() => actions.setTab('notice')} className="min-h-11 text-[15px] font-semibold text-slate-200 underline underline-offset-4">
+        Privacy notice: what we keep, why, and for how long
       </button>
     </div>
   );
@@ -194,7 +118,7 @@ export const MyDataScreen = () => {
 
 const Step = ({ n, title, children }: { n: number; title: string; children: React.ReactNode }) => (
   <li className="grid grid-cols-[3.5rem_1fr] gap-3">
-    <span className="font-display text-[48px] leading-none font-extrabold text-brand-secondary tabular-nums">{n}</span>
+    <span aria-hidden="true" className="font-display text-[48px] leading-none font-extrabold text-brand-secondary tabular-nums">{n}</span>
     <div className="pt-1">
       <h2 className="font-display text-[22px] leading-tight font-bold text-white">{title}</h2>
       <p className="mt-1 max-w-[52ch] text-[15px] leading-relaxed text-slate-300">{children}</p>
@@ -205,29 +129,32 @@ const Step = ({ n, title, children }: { n: number; title: string; children: Reac
 export const HowItWorksScreen = () => {
   const { actions } = useVisitor();
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-16 sm:px-6 lg:pt-8">
-      <ScreenTitle>How AgoraX works</ScreenTitle>
-      <ol className="space-y-7">
-        <Step n={1} title="Pick what you'd go to">
-          Tap "I'd join" on any event. It costs nothing, and you can leave any time.
+    <div className="mx-auto max-w-2xl px-4 pt-16 sm:px-6">
+      <ScreenTitle>How the pilot works</ScreenTitle>
+      <PilotExplainer />
+      <ol className="sheet mt-6 space-y-7 rounded-sheet p-4 sm:p-6">
+        <Step n={1} title="Say what you'd go to">
+          Tap "I'm interested" on any proposal you'd really attend at the indicative price. It costs nothing and you can withdraw any time.
         </Step>
-        <Step n={2} title="Every event has a target">
-          The bar shows how many people picked it and how many it needs to run.
+        <Step n={2} title="Every proposal has a target">
+          The bar shows how many people are interested and how many we'd want before looking at running it. The numbers are real sign-ups.
         </Step>
-        <Step n={3} title="Enough people? It happens">
-          We set a date and a place and message everyone who left a WhatsApp number. You only pay then.
+        <Step n={3} title="We look at the best-supported ones">
+          Reaching the target doesn't make an event happen. We still need hosts, a venue and a date. We aim to run one to three events in
+          this pilot.
         </Step>
-        <Step n={4} title="Not enough? Nothing happens">
-          Nobody pays, and nobody loses anything.
+        <Step n={4} title="We tell you either way">
+          If you left an email or number, we'll tell you whether your events go ahead, are cancelled or won't happen. Nothing is paid through
+          AgoraX.
         </Step>
       </ol>
-      <p className="mt-10 text-[15px] text-slate-300">
+      <p className="sheet mt-6 rounded-sheet p-4 text-[15px] text-slate-300 sm:p-6">
         Want to run one?{' '}
         <button onClick={() => actions.setTab('events')} className="min-h-11 font-semibold text-white underline underline-offset-4">
-          Tap "Help run this" on an event
+          Tap "Help run this" on a proposal
         </button>{' '}
-        to see what a host keeps. Have an idea of your own?{' '}
-        <button onClick={() => actions.setTab('propose')} className="min-h-11 font-semibold text-white underline underline-offset-4">
+        to see an estimate of what a host might keep. Have an idea of your own?{' '}
+        <button onClick={() => actions.editProposal(null)} className="min-h-11 font-semibold text-white underline underline-offset-4">
           Propose it
         </button>
         .
@@ -237,25 +164,27 @@ export const HowItWorksScreen = () => {
 };
 
 const FAQ: [string, string][] = [
-  ['Do I need an account?', 'No. Your picks are saved on this phone or laptop, under a random ID.'],
-  ['Does picking an event cost money?', "No. You pay the listed price only if the event reaches its target and you still want to go."],
-  ['What happens when an event reaches its target?', 'We pick a date and a place, and message everyone who left a WhatsApp number.'],
-  ['Can I change my mind?', 'Yes. Tap Leave on the event or in My picks.'],
-  ['Who can see that I picked an event?', 'Nobody, unless you tap "Show my initial" on it. Then only the first letter you choose is shown.'],
-  ['Who runs the events?', 'Students. Anyone can offer to help run one and keep part of the money. "Help run this" shows how much.'],
-  ['I use AgoraX on two devices.', "For now your picks stay on the device you made them on. Keeping them across devices is coming."],
-  ['How do I get my details deleted?', 'Privacy & my data → Delete my details, or email sondarevn@gmail.com.'],
+  ['Is this a booking?', "No. AgoraX is a pilot. Saying you're interested isn't a booking or a ticket, and it doesn't guarantee the event will happen."],
+  ['Do I pay anything?', 'No. Nothing is paid through AgoraX. Prices are estimates of what an event might cost if it ran.'],
+  ['What happens when a proposal reaches its target?', "We look at whether we can find hosts, a venue and a date. Only the best-supported, workable ones go ahead; we aim for one to three in this pilot."],
+  ['Do I need an account?', 'No login. Your interests are saved in this browser under a random ID.'],
+  ['Can I change my mind?', 'Yes. Tap Withdraw on the proposal or in My interests.'],
+  ['Who can see what I picked?', 'Nobody, unless you tap "Show my initial" on it. Then only the one letter you choose is shown.'],
+  ['Are the organiser earnings real?', "They're illustrative estimates at the target number of people, not an offer or guaranteed income."],
+  ['Who are the organisers?', "Students and student groups describe themselves. AgoraX doesn't check or verify them."],
+  ['I use AgoraX on two devices.', 'For now your interests stay on the device you used. Keeping them across devices is on our list of ideas.'],
+  ['How do I get my data deleted?', `Account & security → Delete my data, or email ${CONTACT_EMAIL}.`],
 ];
 
 export const FaqScreen = () => (
-  <div className="mx-auto max-w-2xl px-4 pt-16 sm:px-6 lg:pt-8">
+  <div className="mx-auto max-w-2xl px-4 pt-16 sm:px-6">
     <ScreenTitle>FAQ</ScreenTitle>
     <div className="sheet divide-y divide-sheet-line overflow-hidden rounded-sheet">
       {FAQ.map(([q, a]) => (
         <details key={q} className="group px-4">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 font-display text-[18px] font-bold text-white">
             {q}
-            <ChevronRight size={18} className="shrink-0 text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true" />
+            <ChevronRight size={18} className="shrink-0 text-slate-400 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
           </summary>
           <p className="max-w-[60ch] pb-4 text-[15px] leading-relaxed text-slate-300">{a}</p>
         </details>
@@ -263,8 +192,8 @@ export const FaqScreen = () => (
     </div>
     <p className="mt-6 text-[15px] text-slate-300">
       Something else?{' '}
-      <a href="mailto:sondarevn@gmail.com" className="font-semibold text-white underline underline-offset-4">
-        sondarevn@gmail.com
+      <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-white underline underline-offset-4">
+        {CONTACT_EMAIL}
       </a>
     </p>
   </div>

@@ -9,6 +9,7 @@ import { submitHelperInterest } from '../services/firebaseService';
 import { track } from '../services/analytics';
 import { useVisitor } from '../state/VisitorProvider';
 import { errorClass, fieldClass, labelClass, primaryButtonClass } from './ui';
+import { CollectionNotice } from './CollectionNotice';
 
 const money = (n: number) => `€${n.toFixed(2)}`;
 
@@ -24,7 +25,7 @@ const Row = ({ label, value, note, total }: { label: string; value: string; note
   </div>
 );
 
-/** The money at exactly the minimum headcount, laid out like a receipt. */
+/** An illustrative estimate at exactly the target headcount, laid out like a receipt. Not an offer. */
 const Breakdown = ({ event }: { event: Event }) => {
   const e = earningsFor(event);
   const hosts = event.hostsNeeded ?? 1;
@@ -44,15 +45,21 @@ const Breakdown = ({ event }: { event: Event }) => {
             <Row label={`${min} × ${eur(event.perPersonCost ?? 0)} per person`} value={`− ${money((event.perPersonCost ?? 0) * min)}`} />
           )}
           <Row label={`Platform fee ${Math.round(PLATFORM_FEE * 100)}%`} value={`− ${money(e.platformFee)}`} />
-          <Row total label={hosts > 1 ? 'Each host keeps' : 'You keep'} value={money(e.perHost)} />
+          <Row total label={hosts > 1 ? 'Each host might keep' : 'A host might keep'} value={`~${money(e.perHost)}`} />
         </div>
       )}
+      {event.price > 0 && (
+        <p className="mt-3 text-[13px] leading-relaxed text-slate-400">
+          An illustrative estimate, not a confirmed offer or guaranteed income. Real costs, prices and numbers decide it, and AgoraX takes no
+          payments during the pilot.
+        </p>
+      )}
       <p className="mt-4 text-[15px] leading-relaxed text-slate-300">
-        Needs {hosts} host{hosts === 1 ? '' : 's'}. A second host joins automatically above 20 people, and the
-        earnings are split between you.
+        Needs {hosts} host{hosts === 1 ? '' : 's'}. Above 20 people a second host would be needed, and any earnings would be
+        split between you.
       </p>
       <p className="mt-2 text-[15px] leading-relaxed text-white">
-        If fewer than {min} sign up, nothing is charged. You don't lose anything.
+        Offering to help commits you to nothing yet. If it doesn't go ahead, you don't lose anything.
       </p>
     </div>
   );
@@ -76,6 +83,7 @@ const HelperForm = ({ event, onDone }: { event: Event; onDone: () => void }) => 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     const problem = validateHelperForm({ firstName, phone, email, ranBefore, consent });
     setError(problem ?? '');
     if (problem || !ranBefore || !state.uid) return;
@@ -98,12 +106,12 @@ const HelperForm = ({ event, onDone }: { event: Event; onDone: () => void }) => 
         <input id="hf-name" autoComplete="given-name" maxLength={80} className={fieldClass} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
       </div>
       <div>
-        <label className={labelClass} htmlFor="hf-phone">WhatsApp number</label>
-        <input id="hf-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12345678" className={fieldClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <label className={labelClass} htmlFor="hf-email">Email</label>
+        <input id="hf-email" type="email" autoComplete="email" className={fieldClass} value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
       <div>
-        <label className={labelClass} htmlFor="hf-email">Email (optional)</label>
-        <input id="hf-email" type="email" autoComplete="email" className={fieldClass} value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label className={labelClass} htmlFor="hf-phone">or WhatsApp number</label>
+        <input id="hf-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12345678" className={fieldClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
       </div>
       <fieldset>
         <legend className={labelClass}>Have you run something like this before?</legend>
@@ -129,6 +137,7 @@ const HelperForm = ({ event, onDone }: { event: Event; onDone: () => void }) => 
       <button type="submit" disabled={busy} className={primaryButtonClass}>
         {busy ? 'Sending…' : 'Send'}
       </button>
+      <CollectionNotice>This keeps your first name, the email or number you give, and your answer.</CollectionNotice>
     </form>
   );
 };
@@ -140,8 +149,8 @@ const PanelBody = ({ event, onClose }: { event: Event; onClose: () => void }) =>
     return (
       <div className="space-y-5">
         <p className="text-[16px] leading-relaxed text-slate-200">
-          Thanks, you're on the list for {event.title}. When it gets close to {event.minParticipants}, we'll message
-          you on WhatsApp to plan it together.
+          Thanks, you're on the list of possible hosts for {event.title}. If it gets close to {event.minParticipants} interested
+          people and we think we can run it, we'll get in touch to talk it through. Nothing is agreed until then.
         </p>
         <button onClick={onClose} className={primaryButtonClass}>Done</button>
       </div>
@@ -151,7 +160,7 @@ const PanelBody = ({ event, onClose }: { event: Event; onClose: () => void }) =>
   return (
     <div className="space-y-5">
       <p className="text-[15px] text-slate-300">
-        {event.emoji} {event.title}: what a host keeps if exactly {event.minParticipants} people come.
+        {event.emoji} {event.title}: an estimate of what a host might keep if exactly {event.minParticipants} people came.
       </p>
       <Breakdown event={event} />
       {stage === 'info' ? (

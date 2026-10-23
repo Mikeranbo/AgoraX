@@ -19,7 +19,7 @@ const TabButton = ({ tab, label, children }: { tab: Tab; label: string; children
   );
 };
 
-/** Events · (+) Propose · My picks */
+/** Proposals · (+) Propose · Interests */
 export const TabBar = () => {
   const { meta } = useVisitor();
   return (
@@ -28,7 +28,7 @@ export const TabBar = () => {
       className="sheet fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-md rounded-sheet lg:hidden"
     >
       <div className="flex items-stretch px-2">
-        <TabButton tab="events" label="Events">
+        <TabButton tab="events" label="Proposals">
           <ListChecks size={22} />
         </TabButton>
         <TabButton tab="propose" label="Propose">
@@ -36,7 +36,7 @@ export const TabBar = () => {
             <Plus size={20} strokeWidth={2.5} />
           </span>
         </TabButton>
-        <TabButton tab="picks" label={meta.picks.length ? `My picks (${meta.picks.length})` : 'My picks'}>
+        <TabButton tab="picks" label={meta.picks.length ? `Interests (${meta.picks.length})` : 'Interests'}>
           <Star size={22} />
         </TabButton>
       </div>

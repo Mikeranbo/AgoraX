@@ -1,6 +1,7 @@
 import {
   collection,
   collectionGroup,
+  deleteField,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -21,6 +22,7 @@ import { SEED_EVENTS } from '../data/seedEvents';
 import { eventFromProposal } from '../data/proposals';
 import { selectEventsToPurge } from '../data/purge';
 import { chunk } from '../lib/batch';
+import type { CounterFix } from '../pages/admin/recount';
 
 type OnError = (error: Error) => void;
 
@@ -101,16 +103,23 @@ export type EventFormData = Pick<
   | 'venueNote'
   | 'season'
   | 'imageCredit'
+  | 'dateConfirmed'
+  | 'city'
 >;
 
-/** Creates (id = null) or edits an event. Edits never touch the counters. */
+/**
+ * Creates (id = null) or edits an event. Edits never touch the counters. A date left empty is
+ * left out of a new event and removed from an edited one (Firestore refuses `undefined`).
+ */
 export async function saveEvent(id: string | null, data: EventFormData): Promise<string> {
+  const defined = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
   if (id) {
-    await updateDoc(doc(db, 'events', id), { ...data });
+    const cleared = Object.fromEntries(Object.entries(data).filter(([, v]) => v === undefined).map(([k]) => [k, deleteField()]));
+    await updateDoc(doc(db, 'events', id), { ...defined, ...cleared });
     return id;
   }
   const ref = await addDoc(collection(db, 'events'), {
-    ...data,
+    ...defined,
     organizerId: 'agorax',
     createdAt: serverTimestamp(),
     participantsCount: 0,
@@ -200,6 +209,24 @@ export async function purgeNonSeedEvents(): Promise<PurgeResult> {
   return result;
 }
 
+/**
+ * Sets each event's counters to its real sign-ups (see countersToFix). Counters move with
+ * increment() elsewhere, so run this when nobody is joining, and run it again if in doubt.
+ */
+export async function applyCounterFixes(fixes: CounterFix[]) {
+  for (const group of chunk(fixes, BATCH_SIZE)) {
+    const batch = writeBatch(db);
+    group.forEach((f) =>
+      batch.update(doc(db, 'events', f.id), {
+        participantsCount: f.participantsCount,
+        joins: f.participantsCount,
+        organiserInterest: f.organiserInterest,
+      }),
+    );
+    await batch.commit();
+  }
+}
+
 // ---------------------------------------------------------------- feature demand
 
 export interface FeatureSignal {
@@ -225,32 +252,11 @@ export function subscribeFeatureSignals(callback: (items: FeatureSignal[]) => vo
 
 // ---------------------------------------------------------------- admins
 
-/** True while nobody has claimed the first owner seat (meta/bootstrap does not exist). */
-export function subscribeToClaimable(callback: (claimable: boolean) => void, onError?: OnError): Unsubscribe {
-  return onSnapshot(
-    doc(db, 'meta', 'bootstrap'),
-    (snap) => callback(!snap.exists()),
-    (err) => onError?.(err),
-  );
-}
-
-/** Claims the first owner seat: admins/{uid} and the bootstrap lock in one batch (rules allow it once). */
-export async function claimOwner(uid: string) {
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'admins', uid), {
-    role: 'owner',
-    label: 'Mike (founder)',
-    grantedBy: 'bootstrap',
-    grantedAt: serverTimestamp(),
-  });
-  batch.set(doc(db, 'meta', 'bootstrap'), { claimedBy: uid, ts: serverTimestamp() });
-  await batch.commit();
-}
-
+/** Owners only, and never for their own uid (the rules refuse both). The first owner is provisioned by hand. */
 export async function grantAdmin(targetUid: string, role: AdminRole, label: string, grantedBy: string) {
   await setDoc(doc(db, 'admins', targetUid), {
     role,
-    label: label.trim(),
+    label: label.trim().slice(0, 80),
     grantedBy,
     grantedAt: serverTimestamp(),
   });

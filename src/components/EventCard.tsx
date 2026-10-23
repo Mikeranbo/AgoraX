@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useInView, useReducedMotion } from 'motion/react';
-import { Check, Users } from 'lucide-react';
+import { Bookmark, BookmarkCheck, CalendarClock, Check, Users } from 'lucide-react';
 import { Event } from '../types';
 import { bumpEventCounter, Face } from '../services/firebaseService';
 import { track } from '../services/analytics';
 import { once } from '../services/session';
 import { canOfferHosting, keepPerHost } from '../data/earnings';
-import { hasEnough, progressPercent } from '../data/progress';
-import { closesLabel } from '../data/dates';
+import { isConfirmed, progressLabel, progressPercent, targetReached } from '../data/progress';
+import { formatEventDate, isScheduled } from '../data/schedule';
 import { photoFor } from '../data/photos';
 import { useVisitor } from '../state/VisitorProvider';
 import { quietLinkClass } from './ui';
@@ -41,6 +41,9 @@ function useImpression(ref: React.RefObject<HTMLElement | null>, eventId: string
 
 export const priceLabel = (event: Event) => (event.price === 0 ? 'Free' : `€${event.price}`);
 
+/** "Sat 14 Nov, 19:30 CET" for a scheduled event; proposals have no date yet. */
+export const dateLabel = (event: Event) => (isScheduled(event) ? formatEventDate(event.startTime) : 'Date to be confirmed');
+
 /** The event's photo, or its emoji on its own colour when there is none or it fails to load. */
 export const PhotoBackdrop = ({ event, className = '', children }: { event: Event; className?: string; children?: React.ReactNode }) => {
   const url = photoFor(event);
@@ -64,35 +67,60 @@ const Chip = ({ children }: { children: React.ReactNode }) => (
   <span className="rounded-full bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">{children}</span>
 );
 
-/** Category (and "Spring trip") top left, "This is happening" top right. */
-export const PhotoBadges = ({ event }: { event: Event }) => (
+/** "Confirmed" only when an admin confirmed it; everything else is labelled a proposal. */
+export const StatusChip = ({ event }: { event: Event }) =>
+  isConfirmed(event) ? (
+    <span className="flex shrink-0 items-center gap-1 rounded-full bg-happening px-3 py-1 text-[13px] font-bold text-brand-dark">
+      <Check size={14} strokeWidth={3} aria-hidden="true" /> Confirmed
+    </span>
+  ) : (
+    <span className="rounded-full border border-white/30 bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">Proposal</span>
+  );
+
+/** Saved for later: private, and separate from saying you're interested. */
+export const SaveButton = ({ event }: { event: Event }) => {
+  const { actions, meta } = useVisitor();
+  const saved = meta.saved.has(event.id);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        void actions.toggleSaved(event);
+      }}
+      aria-pressed={saved}
+      aria-label={saved ? `Saved: ${event.title}. Remove from saved` : `Save ${event.title} for later`}
+      className="grid size-11 shrink-0 place-items-center rounded-full bg-[#0f172a]/80 text-white hover:bg-[#0f172a]"
+    >
+      {saved ? <BookmarkCheck size={20} className="text-brand-secondary" /> : <Bookmark size={20} />}
+    </button>
+  );
+};
+
+/** Category, "Proposal"/"Confirmed" and "Spring trip" top left, the save toggle top right. */
+export const PhotoBadges = ({ event, save = true }: { event: Event; save?: boolean }) => (
   <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
     <span className="flex flex-wrap gap-1.5">
+      <StatusChip event={event} />
       <Chip>{event.category}</Chip>
       {event.season === 'spring' && <Chip>Spring trip</Chip>}
     </span>
-    {hasEnough(event) && (
-      <span className="flex shrink-0 items-center gap-1 rounded-full bg-happening px-3 py-1 text-[13px] font-bold text-brand-dark">
-        <Check size={14} strokeWidth={3} /> This is happening
-      </span>
-    )}
+    {save && <SaveButton event={event} />}
   </div>
 );
 
-/** The card's header: photo, badges, and the closing date bottom right. */
-export const EventPhoto = ({ event, className = '' }: { event: Event; className?: string }) => {
-  const closes = closesLabel(event.deadline, new Date());
-  return (
-    <PhotoBackdrop event={event} className={className}>
-      <PhotoBadges event={event} />
-      {closes && (
-        <span className="absolute right-3 bottom-3">
-          <Chip>{closes}</Chip>
+/** The card's header: photo, badges, and the date (or "Date to be confirmed") bottom right. */
+export const EventPhoto = ({ event, className = '' }: { event: Event; className?: string }) => (
+  <PhotoBackdrop event={event} className={className}>
+    <PhotoBadges event={event} />
+    <span className="absolute right-3 bottom-3">
+      <Chip>
+        <span className="inline-flex items-center gap-1.5">
+          <CalendarClock size={14} aria-hidden="true" /> {dateLabel(event)}
         </span>
-      )}
-    </PhotoBackdrop>
-  );
-};
+      </Chip>
+    </span>
+  </PhotoBackdrop>
+);
 
 /** Initials of joiners who chose to show them. Never more than five circles. */
 const Avatars = ({ faces }: { faces: Face[] }) => {
@@ -116,7 +144,7 @@ const Avatars = ({ faces }: { faces: Face[] }) => {
 /** Bars fill once per visit: the first time each one is on screen. */
 const filledThisVisit = new Set<string>();
 
-/** "8 joined · target 12", the shown initials, and the bar toward the target. */
+/** "8 interested · target 12" from real sign-ups, the shown initials, and the bar toward the target. */
 export const PeopleLine = ({ event }: { event: Event }) => {
   const { meta } = useVisitor();
   const ref = useRef<HTMLDivElement>(null);
@@ -128,9 +156,9 @@ export const PeopleLine = ({ event }: { event: Event }) => {
   }, [inView, event.id]);
 
   const count = Math.max(0, event.participantsCount || 0);
-  const reached = hasEnough(event);
-  const pct = progressPercent(event);
-  const width = reached ? 100 : pct;
+  const confirmed = isConfirmed(event);
+  const reached = targetReached(event);
+  const width = confirmed || reached ? 100 : progressPercent(event);
 
   return (
     <div ref={ref}>
@@ -138,7 +166,8 @@ export const PeopleLine = ({ event }: { event: Event }) => {
         <p className="flex items-center gap-1.5 text-[15px] text-slate-200 tabular-nums">
           <Users size={16} className="text-brand-primary" aria-hidden="true" />
           <span>
-            <span className="font-semibold text-white">{count} joined</span> · target {event.minParticipants}
+            <span className="font-semibold text-white">{count} interested</span> · target {event.minParticipants}
+            {reached && !confirmed && <span className="block text-[13px] text-slate-300">Target reached · not confirmed yet</span>}
           </span>
         </p>
         <Avatars faces={meta.faces.get(event.id) ?? []} />
@@ -146,13 +175,14 @@ export const PeopleLine = ({ event }: { event: Event }) => {
       <div
         className="h-2 overflow-hidden rounded-full bg-white/10"
         role="progressbar"
-        aria-label="People toward the target"
+        aria-label="Interest toward the target"
+        aria-valuetext={progressLabel(event)}
         aria-valuemin={0}
         aria-valuemax={event.minParticipants}
         aria-valuenow={count}
       >
         <motion.div
-          className={`h-full origin-left rounded-full ${reached ? 'bg-happening' : 'bg-gradient-to-r from-brand-primary to-brand-secondary'}`}
+          className={`h-full origin-left rounded-full ${confirmed ? 'bg-happening' : 'bg-gradient-to-r from-brand-primary to-brand-secondary'}`}
           initial={armed ? { scaleX: 0 } : false}
           animate={{ scaleX: armed && !inView ? 0 : width / 100 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -162,7 +192,7 @@ export const PeopleLine = ({ event }: { event: Event }) => {
   );
 };
 
-/** Price on the left, always visible; the action on the right. */
+/** Indicative price on the left, always visible; "I'm interested" on the right. */
 export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 'card' | 'large' }) => {
   const { state, actions, meta } = useVisitor();
   const busy = state.pending.has(event.id);
@@ -170,17 +200,20 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
 
   return (
     <div className="flex items-center justify-between gap-3">
-      <p
-        className={`font-display leading-none font-extrabold tracking-[-0.02em] text-white tabular-nums ${size === 'large' ? 'text-[40px]' : 'text-[30px]'}`}
-      >
-        {priceLabel(event)}
+      <p className="flex flex-col">
+        <span
+          className={`font-display leading-none font-extrabold tracking-[-0.02em] text-white tabular-nums ${size === 'large' ? 'text-[40px]' : 'text-[30px]'}`}
+        >
+          {priceLabel(event)}
+        </span>
+        {event.price > 0 && <span className="mt-1 text-[12px] text-slate-400">indicative price</span>}
       </p>
       {event.status === 'Cancelled' ? (
         <p className="text-[15px] text-slate-300">Cancelled</p>
       ) : meta.joined.has(event.id) ? (
         <div className="flex items-center gap-1">
           <p className="flex min-h-12 items-center gap-1.5 rounded-sheet border border-brand-primary/60 bg-brand-action/20 px-4 font-display text-[17px] font-bold text-white">
-            <Check size={18} strokeWidth={3} /> You're in
+            <Check size={18} strokeWidth={3} aria-hidden="true" /> Interested
           </p>
           <button
             onClick={(e) => {
@@ -188,9 +221,10 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
               void actions.leave(event);
             }}
             disabled={busy}
+            aria-label={`Withdraw interest in ${event.title}`}
             className="min-h-11 px-2 text-[15px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white disabled:opacity-50"
           >
-            {busy ? 'Saving…' : 'Leave'}
+            {busy ? 'Saving…' : 'Withdraw'}
           </button>
         </div>
       ) : (
@@ -200,9 +234,9 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
             void actions.join(event);
           }}
           disabled={busy}
-          className="gradient-brand min-h-12 rounded-sheet px-6 font-display text-[19px] font-bold text-white transition-transform active:translate-y-px disabled:opacity-60"
+          className="gradient-brand min-h-12 shrink-0 rounded-sheet px-4 font-display text-[18px] font-bold whitespace-nowrap text-white transition-transform active:translate-y-px disabled:opacity-60"
         >
-          {busy ? 'Saving…' : "I'd join"}
+          {busy ? 'Saving…' : "I'm interested"}
         </button>
       )}
     </div>
@@ -229,7 +263,7 @@ export const QuietLinks = ({ event }: { event: Event }) => {
           }}
           className={quietLinkClass}
         >
-          {keep >= 1 ? `Help run this · keep ~€${keep}` : 'Help run this'}
+          {keep >= 1 ? `Help run this · est. €${keep} for a host` : 'Help run this'}
         </button>
       )}
       {joined && (

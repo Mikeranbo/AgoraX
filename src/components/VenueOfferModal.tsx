@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from './Modal';
+import { CollectionNotice } from './CollectionNotice';
 import { submitVenueOffer } from '../services/firebaseService';
 import { track } from '../services/analytics';
 import { SPACE_TYPES, validateVenueOffer } from '../data/forms';
@@ -90,6 +91,7 @@ const Form = ({ onClose }: { onClose: () => void }) => {
       <button type="submit" disabled={state === 'busy'} className={primaryButtonClass}>
         {state === 'busy' ? 'Sending…' : 'Send'}
       </button>
+      <CollectionNotice>This keeps your name, the number or email you give, and the type and size of the space.</CollectionNotice>
     </form>
   );
 };

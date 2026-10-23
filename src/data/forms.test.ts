@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitContact, validateHelperForm, validateVenueOffer } from './forms';
+import { contactProblem, splitContact, validateHelperForm, validateVenueOffer } from './forms';
 
 const space = { name: 'Anna', spaceType: 'cafe' as const, capacity: '40', contact: '06 12345678', consent: true };
 
@@ -43,9 +43,13 @@ describe('validateHelperForm (APP_CHANGES §6)', () => {
     expect(validateHelperForm({ ...ok, firstName: '  ' })).toMatch(/first name/i);
   });
 
-  it('needs a WhatsApp number long enough to be real', () => {
-    expect(validateHelperForm({ ...ok, phone: '0612' })).toMatch(/whatsapp/i);
-    expect(validateHelperForm({ ...ok, phone: '' })).toMatch(/whatsapp/i);
+  it('needs an email or a WhatsApp number, either is enough', () => {
+    expect(validateHelperForm({ ...ok, phone: '' })).toMatch(/email or a whatsapp/i);
+    expect(validateHelperForm({ ...ok, phone: '', email: 'anna@rug.nl' })).toBeNull();
+  });
+
+  it('rejects a number too short to be real', () => {
+    expect(validateHelperForm({ ...ok, phone: '0612' })).toMatch(/number doesn't look right/i);
   });
 
   it('accepts an email but rejects a malformed one', () => {
@@ -59,5 +63,19 @@ describe('validateHelperForm (APP_CHANGES §6)', () => {
 
   it('never accepts without consent', () => {
     expect(validateHelperForm({ ...ok, consent: false })).toMatch(/tick/i);
+  });
+});
+
+describe('contactProblem', () => {
+  it('takes an email, a WhatsApp number, or both', () => {
+    expect(contactProblem('anna@rug.nl', '')).toBeNull();
+    expect(contactProblem('', '06 12345678')).toBeNull();
+    expect(contactProblem('anna@rug.nl', '06 12345678')).toBeNull();
+  });
+
+  it('needs at least one, and checks whichever is filled in', () => {
+    expect(contactProblem('  ', '')).toMatch(/email or a whatsapp/i);
+    expect(contactProblem('anna@', '')).toMatch(/email/i);
+    expect(contactProblem('anna@rug.nl', '12')).toMatch(/number/i);
   });
 });

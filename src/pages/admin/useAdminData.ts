@@ -3,6 +3,15 @@ import { subscribeCollection, subscribeHelpers, subscribeParticipants } from '..
 import { AdminDoc, Event, HelperDoc, ParticipantDoc, Proposal, UserDoc, VenueOffer } from '../../types';
 import { num, tsMs } from './ui';
 import { kpiTargets } from './kpis';
+import { countersToFix } from './recount';
+
+/** What this admin's role may load. The rules refuse the rest, so don't subscribe to it. */
+export interface AdminAccess {
+  /** users/{uid}: names, contact details, price answers (owner + editor). */
+  people: boolean;
+  /** The admins list (owner only). */
+  admins: boolean;
+}
 
 export interface Suggestion {
   id: string;
@@ -23,7 +32,7 @@ function personOf(user: (UserDoc & { id: string }) | undefined) {
 }
 
 /** Every live listener the admin page needs, plus the numbers derived from them. */
-export function useAdminData() {
+export function useAdminData(access: AdminAccess) {
   const [events, setEvents] = useState<Event[]>([]);
   const [users, setUsers] = useState<(UserDoc & { id: string })[]>([]);
   const [participants, setParticipants] = useState<ParticipantDoc[]>([]);
@@ -42,16 +51,22 @@ export function useAdminData() {
   useEffect(() => {
     const unsubs = [
       subscribeCollection<Event>('events', setEvents, (e) => addError(`events: ${e.message}`)),
-      subscribeCollection<UserDoc>('users', setUsers, (e) => addError(`users: ${e.message}`)),
       subscribeParticipants(setParticipants, (e) => addError(`participants: ${e.message}`)),
       subscribeHelpers(setHelpers, (e) => addError(`helpers: ${e.message}`)),
       subscribeCollection<Proposal>('proposals', setProposals, (e) => addError(`proposals: ${e.message}`)),
       subscribeCollection<Suggestion>('suggestions', setSuggestions, (e) => addError(`suggestions: ${e.message}`)),
       subscribeCollection<VenueOffer>('venueOffers', setVenueOffers, (e) => addError(`venueOffers: ${e.message}`)),
-      subscribeCollection<AdminDoc>('admins', (list) => setAdmins(list.map((a) => ({ ...a, uid: a.id }))), (e) => addError(`admins: ${e.message}`)),
     ];
+    if (access.people) {
+      unsubs.push(subscribeCollection<UserDoc>('users', setUsers, (e) => addError(`users: ${e.message}`)));
+    }
+    if (access.admins) {
+      unsubs.push(
+        subscribeCollection<AdminDoc>('admins', (list) => setAdmins(list.map((a) => ({ ...a, uid: a.id }))), (e) => addError(`admins: ${e.message}`)),
+      );
+    }
     return () => unsubs.forEach((u) => u());
-  }, [addError]);
+  }, [addError, access.people, access.admins]);
 
   const stats = useMemo(() => {
     const eventIds = new Set(events.map((e) => e.id));
@@ -63,7 +78,12 @@ export function useAdminData() {
     const joinsByEvent = new Map<string, number>();
     joins.forEach((p) => joinsByEvent.set(p.eventId, (joinsByEvent.get(p.eventId) ?? 0) + 1));
 
-    const sum = (field: 'impressions' | 'opens' | 'organiserInterest') => events.reduce((a, e) => a + num(e[field]), 0);
+    // Host interest comes from the helper documents (one per person per event), like joins.
+    const offers = helpers.filter((h) => eventIds.has(h.eventId));
+    const interestByEvent = new Map<string, number>();
+    offers.forEach((h) => interestByEvent.set(h.eventId, (interestByEvent.get(h.eventId) ?? 0) + 1));
+
+    const sum = (field: 'impressions' | 'opens') => events.reduce((a, e) => a + num(e[field]), 0);
 
     return {
       visitors: users.length,
@@ -71,13 +91,14 @@ export function useAdminData() {
       joiners: joiners.size,
       contacts: contacts.length,
       avgPicks: joiners.size ? joins.length / joiners.size : 0,
-      organiserTaps: sum('organiserInterest'),
+      organiserTaps: offers.length,
       impressions: sum('impressions'),
       opens: sum('opens'),
       joinsByEvent,
+      interestByEvent,
       joins,
     };
-  }, [events, users, participants]);
+  }, [events, users, participants, helpers]);
 
   const eventRows = useMemo(
     () =>
@@ -91,7 +112,7 @@ export function useAdminData() {
             impressions: num(e.impressions),
             opens,
             conversion: opens > 0 ? joins / opens : null,
-            interest: num(e.organiserInterest),
+            interest: stats.interestByEvent.get(e.id) ?? 0,
           };
         })
         .sort((a, b) => b.joins - a.joins || a.event.title.localeCompare(b.event.title)),
@@ -148,9 +169,11 @@ export function useAdminData() {
       .sort((a, b) => a.event.localeCompare(b.event));
   }, [helpers, events, usersById]);
 
+  // Drafts are still being written by their authors: not ready for review, so not listed.
   const proposalRows = useMemo(() => {
-    const order = { new: 0, approved: 1, rejected: 2 } as const;
-    return [...proposals]
+    const order = { draft: 3, new: 0, approved: 1, rejected: 2 } as const;
+    return proposals
+      .filter((p) => p.status !== 'draft')
       .sort((a, b) => order[a.status] - order[b.status] || tsMs(b.ts) - tsMs(a.ts))
       .map((p) => ({ proposal: p, ...personOf(usersById.get(p.uid)) }));
   }, [proposals, usersById]);
@@ -172,6 +195,27 @@ export function useAdminData() {
       }),
     [users, stats, helpers, venueOffers],
   );
+
+  // "When would suit you?" per event, among the people interested in it. A preference, not availability.
+  const timingRows = useMemo(() => {
+    const timing = new Map(users.map((u) => [u.id, u.preferredTiming]));
+    return events
+      .map((e) => {
+        const row = { event: e, 'weekday-evening': 0, weekend: 0, flexible: 0, unknown: 0, total: 0 };
+        stats.joins
+          .filter((p) => p.eventId === e.id)
+          .forEach((p) => {
+            const t = timing.get(p.uid);
+            row[t ?? 'unknown']++;
+            row.total++;
+          });
+        return row;
+      })
+      .filter((r) => r.total > 0)
+      .sort((a, b) => b.total - a.total);
+  }, [events, users, stats]);
+
+  const counterFixes = useMemo(() => countersToFix(events, participants, helpers), [events, participants, helpers]);
 
   const adminRows = useMemo(
     () => [...admins].sort((a, b) => a.role.localeCompare(b.role) || (a.label ?? '').localeCompare(b.label ?? '')),
@@ -196,6 +240,8 @@ export function useAdminData() {
     suggestionRows,
     offerRows,
     adminRows,
+    timingRows,
+    counterFixes,
     targets,
   };
 }

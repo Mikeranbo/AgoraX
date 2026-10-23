@@ -10,6 +10,9 @@ import {
   subscribeIsAdmin,
   showMyInitial,
   hideMyInitial,
+  setSaved,
+  setPreferredTiming,
+  setMode,
   Face,
 } from '../services/firebaseService';
 import {
@@ -24,8 +27,14 @@ import {
 } from '../services/identity';
 import { track, AnalyticsName, statsOff, setStatsOff } from '../services/analytics';
 import { once } from '../services/session';
+import { subscribeMyProposals } from '../services/organiserService';
+import { deletePublicProfile, savePublicProfile, subscribeProfile } from '../services/profileService';
+import { deleteAllMyData, DeletionReport } from '../services/accountService';
 import { nextPriceFor } from '../data/priceLadder';
-import type { Event, EventCategory, PriceAnswer, UserDoc } from '../types';
+import { nearestCity } from '../data/location';
+import type { DateFilter } from '../data/schedule';
+import { CONTACT_EMAIL, PILOT_CITY } from '../config/pilot';
+import type { Event, EventCategory, PreferredTiming, PriceAnswer, Proposal, PublicProfile, UserDoc, UserMode } from '../types';
 import type { ConsentPurpose } from '../data/consent';
 import type { LockedFeature } from '../data/features';
 import { shareCodeFor } from '../data/share';
@@ -33,10 +42,28 @@ import type { LadderPrompt } from '../components/PriceLadderSheet';
 import type { ContactValues } from '../components/ContactForm';
 import { LIST_ID } from '../components/ui';
 
-/** The three bottom-bar tabs, plus the screens reached from the sidebar. */
-export type Tab = 'events' | 'propose' | 'picks' | 'profile' | 'data' | 'how' | 'faq';
-export type Sheet = 'contact' | 'space' | 'privacy' | 'initial' | 'profile' | 'locked' | null;
+/** Screens. The bottom bar shows three of them; the sidebar and account menu reach the rest. */
+export type Tab =
+  | 'events'
+  | 'propose'
+  | 'picks'
+  | 'saved'
+  | 'proposals'
+  | 'profile'
+  | 'data'
+  | 'notifications'
+  | 'account'
+  | 'notice'
+  | 'how'
+  | 'faq';
+export type Sheet = 'contact' | 'space' | 'initial' | 'profile' | 'locked' | 'mode' | null;
 export type Filter = EventCategory | 'All';
+/** Proposals are ideas without a date; scheduled events are confirmed with a real date. */
+export type View = 'proposals' | 'scheduled';
+export interface PlaceFilter {
+  city: string;
+  scope: 'all' | 'near' | 'other';
+}
 
 interface VisitorState {
   phase: 'loading' | 'ready' | 'error';
@@ -49,9 +76,17 @@ interface VisitorState {
   tab: Tab;
   /** Category shown in the event list; the sidebar sets it too. */
   filter: Filter;
+  view: View;
+  dateFilter: DateFilter;
+  place: PlaceFilter;
+  locating: boolean;
   selected: Event | null;
   isAdmin: boolean;
+  /** Phone drawer. */
   drawerOpen: boolean;
+  /** Laptop sidebar; remembered on this device. */
+  sidebarOpen: boolean;
+  accountMenuOpen: boolean;
   lockedFeature: LockedFeature | null;
   statsOff: boolean;
   pending: Set<string>;
@@ -62,21 +97,40 @@ interface VisitorState {
   initialEvent: Event | null;
   bannerDismissed: boolean;
   toast: string;
+  myProposals: Proposal[];
+  myProposalsLoaded: boolean;
+  /** The draft open in the Propose screen, if any. */
+  editing: Proposal | null;
+  profile: PublicProfile | null;
 }
 
 interface VisitorActions {
   join: (e: Event) => Promise<void>;
   leave: (e: Event) => Promise<void>;
+  toggleSaved: (e: Event) => Promise<void>;
   open: (e: Event) => void;
   back: () => void;
   setTab: (tab: Tab) => void;
   showCategory: (filter: Filter) => void;
+  showScheduled: () => void;
   setFilter: (filter: Filter) => void;
+  setView: (view: View) => void;
+  setDateFilter: (filter: DateFilter) => void;
+  setPlace: (place: PlaceFilter) => void;
+  locateMe: () => void;
+  clearFilters: () => void;
+  toggleNav: () => void;
+  closeNav: () => void;
   openDrawer: () => void;
   closeDrawer: () => void;
+  setAccountMenu: (open: boolean) => void;
   openLocked: (feature: LockedFeature) => void;
   voteFeature: (feature: LockedFeature) => void;
   saveProfile: (displayName: string) => Promise<void>;
+  savePublicProfile: (profile: PublicProfile) => Promise<void>;
+  deletePublicProfile: () => Promise<void>;
+  setMode: (mode: UserMode) => Promise<void>;
+  setTiming: (timing: PreferredTiming) => Promise<void>;
   setConsent: (purpose: ConsentPurpose, on: boolean) => Promise<void>;
   setStatsOff: (off: boolean) => void;
   hideAllInitials: () => Promise<void>;
@@ -85,13 +139,15 @@ interface VisitorActions {
   closeOrganiser: () => void;
   answerLadder: (prompt: LadderPrompt, answer: PriceAnswer) => void;
   skipLadder: () => void;
-  openSheet: (sheet: Exclude<Sheet, null | 'initial' | 'locked'>) => void;
+  openSheet: (sheet: Exclude<Sheet, null | 'initial' | 'locked'> | 'privacy') => void;
   askInitial: (e: Event) => void;
   showInitial: (e: Event, initial: string) => Promise<void>;
   hideInitial: (e: Event) => Promise<void>;
   closeSheet: () => void;
   submitContact: (values: ContactValues) => Promise<void>;
   deleteContact: () => Promise<void>;
+  deleteEverything: () => Promise<DeletionReport>;
+  editProposal: (p: Proposal | null) => void;
   dismissBanner: () => void;
   showToast: (message: string) => void;
 }
@@ -99,8 +155,12 @@ interface VisitorActions {
 interface VisitorMeta {
   joined: Set<string>;
   picks: Event[];
+  saved: Set<string>;
+  savedEvents: Event[];
   /** Initials shown on each event's list, by event id. */
   faces: Map<string, Face[]>;
+  /** Organiser tools are on (Organise or Both). */
+  organising: boolean;
 }
 
 const VisitorContext = createContext<{ state: VisitorState; actions: VisitorActions; meta: VisitorMeta } | null>(null);
@@ -112,6 +172,8 @@ export function useVisitor() {
 }
 
 const BANNER_KEY = 'agorax_banner_dismissed';
+const SIDEBAR_KEY = 'agorax_sidebar';
+const CITY_KEY = 'agorax_city';
 let pageViewSent = false;
 
 function readFlag(key: string): boolean {
@@ -122,9 +184,30 @@ function readFlag(key: string): boolean {
   }
 }
 
+function readString(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeString(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private mode: the choice lasts for this visit */
+  }
+}
+
 function urlEventId(): string | null {
   return new URLSearchParams(window.location.search).get('e');
 }
+
+/** The laptop layout: the sidebar sits beside the page instead of over it. */
+export const isWideScreen = () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
+
+const DEFAULT_PLACE = (): PlaceFilter => ({ city: readString(CITY_KEY) || PILOT_CITY, scope: 'all' });
 
 /** The only place that knows how the public site talks to Firebase. Screens read state and call actions. */
 export function VisitorProvider({ children }: { children: React.ReactNode }) {
@@ -137,8 +220,14 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<UserDoc | null>(null);
   const [tab, setTabState] = useState<Tab>('events');
   const [filter, setFilter] = useState<Filter>('All');
+  const [view, setView] = useState<View>('proposals');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('any');
+  const [place, setPlaceState] = useState<PlaceFilter>(DEFAULT_PLACE);
+  const [locating, setLocating] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => readString(SIDEBAR_KEY) !== '0');
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [lockedFeature, setLockedFeature] = useState<LockedFeature | null>(null);
   const [statsAreOff, setStatsAreOff] = useState(statsOff);
   const [selectedId, setSelectedId] = useState<string | null>(urlEventId);
@@ -150,6 +239,10 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   const [faces, setFaces] = useState<Map<string, Face[]>>(() => new Map());
   const [bannerDismissed, setBannerDismissed] = useState(() => readFlag(BANNER_KEY));
   const [toast, setToast] = useState('');
+  const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [myProposalsLoaded, setMyProposalsLoaded] = useState(false);
+  const [editing, setEditing] = useState<Proposal | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
 
   const scrollBeforeOpen = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -158,7 +251,7 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     const unsubscribers: Array<() => void> = [];
-    document.title = 'AgoraX · What would you actually go to?';
+    document.title = 'AgoraX · Help choose which events happen next';
 
     ensureAnonymousAuth()
       .then((user) => {
@@ -186,6 +279,19 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
         unsubscribers.push(subscribeToMyUser(user.uid, setMe));
         unsubscribers.push(subscribeToFaces(setFaces));
         unsubscribers.push(subscribeIsAdmin(user.uid, setIsAdmin));
+        unsubscribers.push(
+          subscribeMyProposals(
+            user.uid,
+            (list) => {
+              setMyProposals(list);
+              setMyProposalsLoaded(true);
+            },
+            (err) => {
+              console.warn('my proposals', err);
+              setMyProposalsLoaded(true);
+            },
+          ),
+        );
       })
       .catch((err) => {
         if (cancelled) return;
@@ -199,6 +305,16 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
       unsubscribers.forEach((u) => u());
     };
   }, []);
+
+  // The public profile, once the person has one.
+  const publicId = me?.publicId;
+  useEffect(() => {
+    if (!publicId) {
+      setProfile(null);
+      return;
+    }
+    return subscribeProfile(publicId, setProfile, (err) => console.warn('profile', err));
+  }, [publicId]);
 
   // The phone's back button closes an open event instead of leaving the site.
   useEffect(() => {
@@ -226,8 +342,11 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   }, [phase, selectedId, tab]);
 
   const joined = useMemo(() => new Set(me?.joinedEvents ?? []), [me]);
+  const saved = useMemo(() => new Set(me?.savedEvents ?? []), [me]);
   const picks = useMemo(() => events.filter((e) => joined.has(e.id) && e.status !== 'Cancelled'), [events, joined]);
+  const savedEvents = useMemo(() => events.filter((e) => saved.has(e.id) && e.status !== 'Cancelled'), [events, saved]);
   const selected = selectedId ? events.find((e) => e.id === selectedId) ?? null : null;
+  const organising = me?.mode === 'organise' || me?.mode === 'both';
 
   // A shared link (?e=…) opens on its event; count that as an open once the event is known.
   useEffect(() => {
@@ -242,6 +361,7 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(''), 4000);
   };
+  const saveFailed = () => showToast("That didn't save. Check your connection and try again.");
 
   const setBusy = (eventId: string, on: boolean) =>
     setPending((prev) => {
@@ -265,7 +385,7 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error(err);
-        showToast("That didn't save. Check your connection and try again.");
+        saveFailed();
       } finally {
         setBusy(event.id, false);
       }
@@ -278,9 +398,20 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
         await leaveEvent(event.id, uid);
       } catch (err) {
         console.error(err);
-        showToast("That didn't save. Check your connection and try again.");
+        saveFailed();
       } finally {
         setBusy(event.id, false);
+      }
+    },
+    toggleSaved: async (event) => {
+      if (!uid) return;
+      const on = !saved.has(event.id);
+      try {
+        await setSaved(uid, event.id, on);
+        showToast(on ? 'Saved. Find it under Saved events.' : 'Removed from Saved events.');
+      } catch (err) {
+        console.error(err);
+        saveFailed();
       }
     },
     open: (event) => {
@@ -305,8 +436,9 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     setTab: (next) => {
       if (selectedId) actions.back();
       setDrawerOpen(false);
+      setAccountMenuOpen(false);
       setTabState(next);
-      // The opening view is for arriving on the site; from the tab bar, go straight to the list.
+      // The opening view is for arriving on the site; from the menus, go straight to the list.
       setTimeout(() => {
         const list = next === 'events' ? document.getElementById(LIST_ID) : null;
         if (list) list.scrollIntoView();
@@ -315,11 +447,75 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     },
     showCategory: (next) => {
       setFilter(next);
+      setView('proposals');
+      actions.setTab('events');
+    },
+    showScheduled: () => {
+      setView('scheduled');
       actions.setTab('events');
     },
     setFilter,
+    setView: (next) => {
+      setView(next);
+      if (next === 'proposals') setDateFilter('any');
+    },
+    setDateFilter,
+    setPlace: (next) => {
+      setPlaceState(next);
+      writeString(CITY_KEY, next.city);
+    },
+    locateMe: () => {
+      // Asked only when the person taps "Use my location". The position is matched to the
+      // nearest listed city and then dropped: nothing but the city name is kept.
+      if (!('geolocation' in navigator)) {
+        showToast("This browser can't share a location. Pick a city instead.");
+        return;
+      }
+      setLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocating(false);
+          const city = nearestCity(pos.coords.latitude, pos.coords.longitude);
+          if (!city) {
+            showToast("You're not near any city on our list. Pick one instead.");
+            return;
+          }
+          actions.setPlace({ city, scope: 'near' });
+          showToast(`Showing events near ${city}.`);
+        },
+        () => {
+          setLocating(false);
+          showToast("Couldn't get your location. Pick a city instead.");
+        },
+        { enableHighAccuracy: false, maximumAge: 600_000, timeout: 10_000 },
+      );
+    },
+    clearFilters: () => {
+      setFilter('All');
+      setDateFilter('any');
+      setPlaceState((p) => ({ ...p, scope: 'all' }));
+    },
+    toggleNav: () => {
+      if (isWideScreen()) {
+        setSidebarOpen((open) => {
+          writeString(SIDEBAR_KEY, open ? '0' : '1');
+          return !open;
+        });
+      } else {
+        setDrawerOpen((open) => !open);
+      }
+    },
+    closeNav: () => {
+      if (isWideScreen()) {
+        setSidebarOpen(false);
+        writeString(SIDEBAR_KEY, '0');
+      } else {
+        setDrawerOpen(false);
+      }
+    },
     openDrawer: () => setDrawerOpen(true),
     closeDrawer: () => setDrawerOpen(false),
+    setAccountMenu: setAccountMenuOpen,
     openLocked: (feature) => {
       track('locked_feature_click', { feature });
       setLockedFeature(feature);
@@ -336,12 +532,39 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
       await saveDisplayName(displayName);
       setSheet(null);
     },
+    savePublicProfile: async (next) => {
+      await savePublicProfile(me?.publicId, next);
+    },
+    deletePublicProfile: async () => {
+      if (!me?.publicId) return;
+      await deletePublicProfile(me.publicId);
+      showToast('Your public profile is deleted.');
+    },
+    setMode: async (mode) => {
+      if (!uid) return;
+      try {
+        await setMode(uid, mode);
+        setSheet(null);
+      } catch (err) {
+        console.error(err);
+        saveFailed();
+      }
+    },
+    setTiming: async (timing) => {
+      if (!uid) return;
+      try {
+        await setPreferredTiming(uid, timing);
+      } catch (err) {
+        console.error(err);
+        saveFailed();
+      }
+    },
     setConsent: async (purpose, on) => {
       try {
         await setConsent(purpose, on);
       } catch (err) {
         console.error(err);
-        showToast("That didn't save. Check your connection and try again.");
+        saveFailed();
       }
     },
     setStatsOff: (off) => {
@@ -359,7 +582,7 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
       track('invite_click');
       try {
         if (navigator.share) {
-          await navigator.share({ title: 'AgoraX', text: "Pick the events you'd actually go to in Groningen.", url });
+          await navigator.share({ title: 'AgoraX', text: 'Help choose which events happen next in Groningen.', url });
           return;
         }
         await navigator.clipboard.writeText(url);
@@ -389,6 +612,12 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     skipLadder: () => setLadder(null),
     openSheet: (next) => {
       setDrawerOpen(false);
+      setAccountMenuOpen(false);
+      // The privacy notice is a full page now; older links still ask for the "privacy" sheet.
+      if (next === 'privacy') {
+        actions.setTab('notice');
+        return;
+      }
       setSheet(next);
     },
     askInitial: (event) => {
@@ -406,12 +635,12 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
         await hideMyInitial(event.id, uid);
       } catch (err) {
         console.error(err);
-        showToast("That didn't save. Check your connection and try again.");
+        saveFailed();
       }
     },
     closeSheet: () => setSheet(null),
     submitContact: async (values) => {
-      await linkContact({ phone: values.phone, email: values.email, purpose: 'updates' });
+      await linkContact({ phone: values.phone, email: values.email, purpose: 'updates', alsoConsent: values.alsoConsent });
       track('contact_submit', { via: 'banner', hasPhone: values.phone !== '', hasEmail: values.email !== '' });
       setSheet(null);
     },
@@ -425,8 +654,13 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
         showToast('Your contact details are deleted.');
       } catch (err) {
         console.error(err);
-        showToast("That didn't work. Email sondarevn@gmail.com and we'll delete them by hand.");
+        showToast(`That didn't work. Email ${CONTACT_EMAIL} and we'll delete them by hand.`);
       }
+    },
+    deleteEverything: () => deleteAllMyData(events.map((e) => e.id)),
+    editProposal: (p) => {
+      setEditing(p);
+      actions.setTab('propose');
     },
     dismissBanner: () => {
       setBannerDismissed(true);
@@ -449,9 +683,15 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     me,
     tab,
     filter,
+    view,
+    dateFilter,
+    place,
+    locating,
     selected,
     isAdmin,
     drawerOpen,
+    sidebarOpen,
+    accountMenuOpen,
     lockedFeature,
     statsOff: statsAreOff,
     pending,
@@ -461,7 +701,13 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     initialEvent,
     bannerDismissed,
     toast,
+    myProposals,
+    myProposalsLoaded,
+    editing,
+    profile,
   };
 
-  return <VisitorContext value={{ state, actions, meta: { joined, picks, faces } }}>{children}</VisitorContext>;
+  return (
+    <VisitorContext value={{ state, actions, meta: { joined, picks, saved, savedEvents, faces, organising } }}>{children}</VisitorContext>
+  );
 }

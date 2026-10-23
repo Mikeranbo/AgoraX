@@ -1,3 +1,4 @@
+import type { ConsentPurpose } from './data/consent';
 export type EventCategory =
   | 'Sports'
   | 'Games'
@@ -36,8 +37,18 @@ export interface Event {
   price: number;
   minParticipants: number;
   participantsCount: number;
-  deadline: string; // ISO date string
-  startTime: string; // ISO date string
+  /**
+   * ISO date strings. Older documents carry placeholder values written at seeding; they are kept
+   * but only shown when an admin confirms the date (see dateConfirmed and data/schedule.ts).
+   */
+  deadline?: string;
+  startTime?: string;
+  /** Set by an admin when startTime is a real, agreed date. */
+  dateConfirmed?: boolean;
+  /** Where it is organised; proposals without one count as the pilot city. */
+  city?: string;
+  /** Public profile id of the organiser who proposed it (never their uid). */
+  organiserPublicId?: string;
   status: EventStatus;
   organizerId: string;
   venueId?: string;
@@ -118,8 +129,11 @@ export interface Proposal {
   /** https link or a compressed data:image URL (see data/images.ts). */
   image?: string;
   imageCredit?: string;
-  status: 'new' | 'approved' | 'rejected';
+  /** 'draft' is still being edited by its author; 'new' is sent for review. */
+  status: 'draft' | 'new' | 'approved' | 'rejected';
   eventId?: string;
+  /** The author's public profile id, when they propose as an organiser. */
+  organiserPublicId?: string;
   source: string;
   ts?: any;
 }
@@ -153,12 +167,50 @@ export interface UserDoc {
   consent?: boolean;
   consentAt?: any;
   /** One entry per purpose the person agreed to (see data/consent.ts). */
-  consents?: Partial<Record<'updates' | 'organising' | 'proposal' | 'space', { version: string; at: any }>>;
+  consents?: Partial<Record<ConsentPurpose, { version: string; notice?: string; at: any }>>;
   /** Event ids the person has joined — mirrors events/{id}/participants/{uid}. */
   joinedEvents?: string[];
   /** Event ids the person tapped "help run this" on. */
   organiserEvents?: string[];
   priceAnswers?: Record<string, { answer: PriceAnswer; priceAsked: number; priceSeen: number; ts: any }>;
+  /** Event id of the latest price answer; the rules use it to check that single entry. */
+  lastPriceAnswer?: string;
+  /** Attend / Organise / Both, chosen by the person. Organising never grants admin rights. */
+  mode?: UserMode;
+  /** Event ids saved for later. Private. */
+  savedEvents?: string[];
+  /** When events would suit them. A preference, not a booking. Private. */
+  preferredTiming?: PreferredTiming;
+  /** Their public profile id (profiles/{publicId}). Kept private so the two can't be linked. */
+  publicId?: string;
+}
+
+export type UserMode = 'attend' | 'organise' | 'both';
+
+export type PreferredTiming = 'weekday-evening' | 'weekend' | 'flexible';
+
+/** profiles/{publicId}: what a person chose to show. No uid, contact details or history. */
+export interface PublicProfile {
+  displayName: string;
+  bio?: string;
+  interests?: string;
+  /** Broad area only, e.g. "Groningen". */
+  area?: string;
+  /** Compressed JPEG/WebP data URLs. */
+  avatar?: string;
+  cover?: string;
+  /** Vertical focus of the cover picture, 0 (top) to 100 (bottom). */
+  coverY?: number;
+  organiser?: OrganiserIdentity;
+  updatedAt?: any;
+}
+
+/** Self-described: AgoraX does not check or verify organisers. */
+export interface OrganiserIdentity {
+  enabled: boolean;
+  kind: 'individual' | 'organisation';
+  name: string;
+  about?: string;
 }
 
 export interface ParticipantDoc {

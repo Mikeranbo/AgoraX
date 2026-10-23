@@ -5,7 +5,7 @@ import { downloadCsv } from '../../../lib/csv';
 import { approveProposal, rejectProposal } from '../../../services/adminService';
 import type { Proposal } from '../../../types';
 
-const STATUS: Record<Proposal['status'], string> = { new: 'Waiting', approved: 'Approved', rejected: 'Rejected' };
+const STATUS: Record<Proposal['status'], string> = { draft: 'Draft', new: 'Waiting', approved: 'Approved', rejected: 'Rejected' };
 
 /** APP_CHANGES §9/§12: proposals stay out of the feed until an editor approves one. */
 export function Proposals() {

@@ -1,7 +1,6 @@
 import {
   collection,
   addDoc,
-  updateDoc,
   deleteDoc,
   collectionGroup,
   doc,
@@ -19,9 +18,11 @@ import {
 import { db, auth } from '../lib/firebase';
 import { ensureAnonymousAuth, getSource, linkContact } from './identity';
 import { statsOff } from './analytics';
-import { Event, EventCategory, Venue, UserDoc, PriceAnswer, RanBefore, SpaceType } from '../types';
+import { onceOnDevice } from './session';
+import { Event, EventCategory, Venue, UserDoc, PriceAnswer, RanBefore, SpaceType, PreferredTiming, UserMode } from '../types';
 import { splitContact } from '../data/forms';
 import { SEED_EVENTS } from '../data/seedEvents';
+import { writeProposal } from './organiserService';
 
 export const OperationType = {
   CREATE: 'create',
@@ -130,7 +131,11 @@ export const joinEvent = async (eventId: string, userId: string, meta: JoinMeta)
   }
 };
 
-/** Mirror of joinEvent: only decrements if the participant document existed. */
+/**
+ * Mirror of joinEvent: only decrements if the participant document existed. The rules make
+ * the delete and the -1 one write, so leaving and rejoining can never inflate the count. A
+ * counter that already drifted to 0 is left at 0 rather than going negative.
+ */
 export const leaveEvent = async (eventId: string, userId: string): Promise<boolean> => {
   const eventRef = doc(db, 'events', eventId);
   const participantRef = doc(db, 'events', eventId, 'participants', userId);
@@ -142,10 +147,13 @@ export const leaveEvent = async (eventId: string, userId: string): Promise<boole
         tx.set(userRef, { uid: userId, joinedEvents: arrayRemove(eventId) }, { merge: true });
         return false;
       }
+      const eventSnap = await tx.get(eventRef);
       tx.delete(participantRef);
       // Leaving also takes the person's initial off the list, if they showed it.
       tx.delete(doc(db, 'events', eventId, 'faces', userId));
-      tx.update(eventRef, { participantsCount: increment(-1), joins: increment(-1) });
+      if (eventSnap.exists() && (eventSnap.data().participantsCount ?? 0) > 0) {
+        tx.update(eventRef, { participantsCount: increment(-1), joins: increment(-1) });
+      }
       tx.set(userRef, { uid: userId, joinedEvents: arrayRemove(eventId) }, { merge: true });
       return true;
     });
@@ -192,12 +200,22 @@ export const showMyInitial = (eventId: string, userId: string, initial: string) 
 
 export const hideMyInitial = (eventId: string, userId: string) => deleteDoc(doc(db, 'events', eventId, 'faces', userId));
 
-/** Cheap aggregate counters on the event document, so the admin page never scans analytics. */
+/**
+ * Cheap aggregate counters on the event document, so the admin page never scans analytics.
+ * Each visitor moves each counter once per event: the rules only accept the +1 together with
+ * the first write of that field on events/{id}/seen/{uid}. These are analytics, kept apart
+ * from participantsCount, which only joins and leaves can move.
+ */
 export const bumpEventCounter = async (eventId: string, field: 'impressions' | 'opens') => {
   if (statsOff()) return;
+  // Already counted from this device: skip the write the rules would refuse anyway.
+  if (!onceOnDevice(`${field}:${eventId}`)) return;
   try {
-    await ensureAnonymousAuth();
-    await updateDoc(doc(db, 'events', eventId), { [field]: increment(1) });
+    const user = await ensureAnonymousAuth();
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'events', eventId, 'seen', user.uid), { [field]: serverTimestamp() }, { merge: true });
+    batch.update(doc(db, 'events', eventId), { [field]: increment(1) });
+    await batch.commit();
   } catch (error) {
     // Analytics must never surface as an error to the visitor.
     console.warn(`${field} counter failed`, error);
@@ -206,6 +224,7 @@ export const bumpEventCounter = async (eventId: string, field: 'impressions' | '
 
 export interface HelperInput {
   firstName: string;
+  /** At least one of phone / email. */
   phone: string;
   email: string;
   ranBefore: RanBefore;
@@ -242,6 +261,33 @@ export const submitHelperInterest = async (eventId: string, userId: string, v: H
   return created;
 };
 
+/** Takes back an "I'd help run this" offer; the counter moves down with it (never below 0). */
+export const withdrawHelperInterest = async (eventId: string, userId: string): Promise<boolean> => {
+  const eventRef = doc(db, 'events', eventId);
+  const helperRef = doc(db, 'events', eventId, 'helpers', userId);
+  return runTransaction(db, async (tx) => {
+    const existing = await tx.get(helperRef);
+    if (!existing.exists()) return false;
+    const eventSnap = await tx.get(eventRef);
+    tx.delete(helperRef);
+    if (eventSnap.exists() && (eventSnap.data().organiserInterest ?? 0) > 0) {
+      tx.update(eventRef, { organiserInterest: increment(-1) });
+    }
+    return true;
+  });
+};
+
+/** Saved for later: private to the visitor, and separate from expressing interest. */
+export const setSaved = (userId: string, eventId: string, on: boolean) =>
+  setDoc(doc(db, 'users', userId), { uid: userId, savedEvents: on ? arrayUnion(eventId) : arrayRemove(eventId) }, { merge: true });
+
+/** "When would suit you?" A preference, not a booking. */
+export const setPreferredTiming = (userId: string, timing: PreferredTiming) =>
+  setDoc(doc(db, 'users', userId), { uid: userId, preferredTiming: timing }, { merge: true });
+
+/** Attend / Organise / Both. Organising turns on organiser tools, never admin rights. */
+export const setMode = (userId: string, mode: UserMode) => setDoc(doc(db, 'users', userId), { uid: userId, mode }, { merge: true });
+
 export const recordPriceAnswer = async (
   userId: string,
   eventId: string,
@@ -252,7 +298,8 @@ export const recordPriceAnswer = async (
   try {
     await setDoc(
       doc(db, 'users', userId),
-      { uid: userId, priceAnswers: { [eventId]: { answer, priceAsked, priceSeen, ts: serverTimestamp() } } },
+      // lastPriceAnswer tells the rules which single entry this write may change.
+      { uid: userId, lastPriceAnswer: eventId, priceAnswers: { [eventId]: { answer, priceAsked, priceSeen, ts: serverTimestamp() } } },
       { merge: true },
     );
   } catch (error) {
@@ -294,35 +341,27 @@ export interface ProposalInput {
   minPeople: number;
   needs: string;
   firstName: string;
+  /** At least one of phone / email. */
   phone: string;
+  email?: string;
   image?: string;
   imageCredit?: string;
+  /** Updates this draft instead of creating a new proposal. */
+  draftId?: string | null;
+  organiserPublicId?: string;
 }
 
 /**
- * A student's event idea. Stored without contact details (those go to users/{uid} under the
- * 'proposal' consent); it stays out of the feed until an admin approves it.
+ * A student's event idea, sent for review. Stored without contact details (those go to
+ * users/{uid} under the 'proposal' consent); it stays out of the feed until an admin approves it.
  */
 export const submitProposal = async (input: ProposalInput) => {
-  const user = await ensureAnonymousAuth();
   try {
-    await addDoc(collection(db, 'proposals'), {
-      uid: user.uid,
-      title: input.title.trim(),
-      category: input.category,
-      price: input.price,
-      minPeople: input.minPeople,
-      needs: input.needs.trim(),
-      ...(input.image ? { image: input.image } : {}),
-      ...(input.imageCredit ? { imageCredit: input.imageCredit } : {}),
-      status: 'new',
-      source: getSource(),
-      ts: serverTimestamp(),
-    });
+    await writeProposal(input.draftId ?? null, input, 'new', input.organiserPublicId);
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'proposals');
   }
-  await linkContact({ name: input.firstName, phone: input.phone, purpose: 'proposal' });
+  await linkContact({ name: input.firstName, phone: input.phone, email: input.email, purpose: 'proposal' });
 };
 
 export interface VenueOfferInput {
@@ -355,10 +394,8 @@ export const submitVenueOffer = async (input: VenueOfferInput) => {
 
 // --- Seeding ---
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /**
- * Writes the 33 seed events to events/{slug}. Safe to re-run:
+ * Writes the seed events to events/{slug}. Safe to re-run:
  *  - existing events get their *content* refreshed (title, copy, price, costs, emoji…);
  *  - counters, status, images, dates and createdAt are only set when the event is new, so a
  *    re-seed never wipes real signups or an admin's manual status/photo changes.
@@ -369,7 +406,6 @@ export const seedEvents = async (): Promise<{ created: number; updated: number }
     const batch = writeBatch(db);
     let created = 0;
     let updated = 0;
-    const now = Date.now();
 
     for (const s of SEED_EVENTS) {
       const ref = doc(db, 'events', s.slug);
@@ -401,8 +437,8 @@ export const seedEvents = async (): Promise<{ created: number; updated: number }
             status: 'Pending',
             organizerId: 'agorax',
             imageUrls: [],
-            deadline: new Date(now + 21 * DAY_MS).toISOString(),
-            startTime: new Date(now + 28 * DAY_MS).toISOString(),
+            // No deadline or start time: these are proposals, and a date is only shown once
+            // an admin confirms a real one (data/schedule.ts).
             createdAt: serverTimestamp(),
             participantsCount: 0,
             impressions: 0,

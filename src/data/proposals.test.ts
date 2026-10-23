@@ -9,6 +9,7 @@ const form = {
   minPeople: '8',
   firstName: 'Anna',
   phone: '06 12345678',
+  email: '',
   needs: 'A café that opens early',
   consent: true,
 };
@@ -36,10 +37,17 @@ describe('validateProposal (APP_CHANGES §9)', () => {
     expect(validateProposal({ ...form, minPeople: '7.5' })).toMatch(/people/i);
   });
 
-  it('needs a first name, a WhatsApp number and consent', () => {
+  it('needs a first name, an email or WhatsApp number, and consent', () => {
     expect(validateProposal({ ...form, firstName: '' })).toMatch(/first name/i);
-    expect(validateProposal({ ...form, phone: '0612' })).toMatch(/whatsapp/i);
+    expect(validateProposal({ ...form, phone: '' })).toMatch(/email or a whatsapp/i);
+    expect(validateProposal({ ...form, phone: '', email: 'anna@rug.nl' })).toBeNull();
+    expect(validateProposal({ ...form, phone: '0612' })).toMatch(/number/i);
     expect(validateProposal({ ...form, consent: false })).toMatch(/tick/i);
+  });
+
+  it('lets a draft be saved before the contact details are filled in', () => {
+    expect(validateProposal({ ...form, firstName: '', phone: '', consent: false }, 'draft')).toBeNull();
+    expect(validateProposal({ ...form, title: 'Go' }, 'draft')).toMatch(/what/i);
   });
 
   it('only allows the public categories', () => {
@@ -75,8 +83,16 @@ describe('eventFromProposal', () => {
     });
   });
 
-  it('closes 21 days after approval', () => {
-    expect(new Date(eventFromProposal(p, now).deadline).getTime() - now).toBe(21 * 24 * 60 * 60 * 1000);
+  it('gets no date: proposals show "Date to be confirmed" until an admin sets a real one', () => {
+    const e = eventFromProposal(p, now);
+    expect(e.deadline).toBeUndefined();
+    expect(e.startTime).toBeUndefined();
+    expect(e.dateConfirmed).toBeFalsy();
+  });
+
+  it("carries the organiser's public profile id, never their uid", () => {
+    expect(eventFromProposal({ ...p, organiserPublicId: 'CaraPublicId00000001' }, now)).toMatchObject({ organiserPublicId: 'CaraPublicId00000001' });
+    expect(JSON.stringify(eventFromProposal(p, now))).not.toContain('u1');
   });
 
   it('never uses the ticket emoji', () => {

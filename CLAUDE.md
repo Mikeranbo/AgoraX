@@ -12,7 +12,10 @@ Product context: PRODUCT.md.
 ## Hard rules
 
 - No login screen, ever. Anonymous Firebase auth only.
-- Never double-count a participant. Everything is keyed by uid.
+- Never double-count a participant. Everything is keyed by uid. Counters move only in the same
+  write as the document they count (firestore.rules); run `npm run test:rules` after any rules change.
+- No self-service admin claim, no contact-hash lookups, no account linking from a typed
+  email/phone or a client-reported uid (docs/SECURITY.md).
 - Do not take payments. Do not promise dates for events that do not exist yet.
 - Keep the dark theme: `glass`, `brand-primary`, rounded-3xl cards.
 - src/data/seedEvents.ts is the source of truth for the 33 events. Do not invent

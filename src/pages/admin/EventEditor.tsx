@@ -4,7 +4,6 @@ import { Event, EventCategory, EventStatus, PUBLIC_CATEGORIES, LEGACY_CATEGORIES
 import { EventFormData, saveEvent } from '../../services/adminService';
 import { ImagePicker, PickedImage } from '../../components/ImagePicker';
 
-const DAY = 24 * 60 * 60 * 1000;
 
 const input =
   'w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary';
@@ -18,9 +17,11 @@ function toLocalInput(iso?: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function fromLocalInput(value: string, fallbackDays: number): string {
-  const d = value ? new Date(value) : new Date(Date.now() + fallbackDays * DAY);
-  return (Number.isNaN(d.getTime()) ? new Date(Date.now() + fallbackDays * DAY) : d).toISOString();
+/** An empty or broken input means "no date" — never a made-up one. */
+function fromLocalInput(value: string): string | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
 interface FormState {
@@ -32,6 +33,8 @@ interface FormState {
   status: EventStatus;
   deadline: string;
   startTime: string;
+  dateConfirmed: boolean;
+  city: string;
   photo: PickedImage | null;
   emoji: string;
   accent: string;
@@ -52,8 +55,10 @@ function initial(event: Event | null): FormState {
     price: String(event?.price ?? 0),
     minParticipants: String(event?.minParticipants ?? 10),
     status: event?.status ?? 'Pending',
-    deadline: toLocalInput(event?.deadline ?? new Date(Date.now() + 21 * DAY).toISOString()),
-    startTime: toLocalInput(event?.startTime ?? new Date(Date.now() + 28 * DAY).toISOString()),
+    deadline: event?.deadline ? toLocalInput(event.deadline) : '',
+    startTime: event?.startTime ? toLocalInput(event.startTime) : '',
+    dateConfirmed: event?.dateConfirmed === true,
+    city: event?.city ?? '',
     photo: event?.imageUrls?.[0] ? { image: event.imageUrls[0], credit: event.imageCredit } : null,
     emoji: event?.emoji ?? '💡',
     accent: event?.accent ?? '#818cf8',
@@ -79,7 +84,7 @@ interface EventEditorProps {
   onSaved: (message: string) => void;
 }
 
-/** Every editable field on one screen: price, minimum, deadline, category, copy, emoji, accent, costs. */
+/** Every editable field on one screen: price, minimum, dates, city, category, copy, emoji, accent, costs. */
 export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
   const [f, setF] = useState<FormState>(() => initial(event));
   const [busy, setBusy] = useState(false);
@@ -94,6 +99,8 @@ export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
     if (!f.title.trim()) return setError('Title is required.');
     if (minParticipants < 1) return setError('Minimum participants must be at least 1.');
     if (toNumber(f.price) < 0) return setError('Price cannot be negative.');
+    const startTime = fromLocalInput(f.startTime);
+    if (f.dateConfirmed && !startTime) return setError('Set the start time before ticking "Date confirmed".');
 
     const data: EventFormData = {
       title: f.title.trim(),
@@ -102,8 +109,10 @@ export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
       price: toNumber(f.price),
       minParticipants,
       status: f.status,
-      deadline: fromLocalInput(f.deadline, 21),
-      startTime: fromLocalInput(f.startTime, 28),
+      deadline: fromLocalInput(f.deadline),
+      startTime,
+      dateConfirmed: f.dateConfirmed && !!startTime,
+      city: f.city.trim(),
       imageUrls: f.photo ? [f.photo.image] : [],
       imageCredit: f.photo?.credit ?? '',
       emoji: f.emoji.trim() || '💡',
@@ -180,12 +189,25 @@ export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
           </div>
 
           <div>
-            <label className={label}>Deadline</label>
-            <input className={input} type="datetime-local" value={f.deadline} onChange={(e) => set('deadline', e.target.value)} />
+            <label className={label}>Start time (your local time)</label>
+            <input className={input} type="datetime-local" value={f.startTime} onChange={(e) => set('startTime', e.target.value)} />
           </div>
           <div>
-            <label className={label}>Start time</label>
-            <input className={input} type="datetime-local" value={f.startTime} onChange={(e) => set('startTime', e.target.value)} />
+            <label className={label}>Sign-up deadline (optional, not shown publicly)</label>
+            <input className={input} type="datetime-local" value={f.deadline} onChange={(e) => set('deadline', e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="flex items-start gap-2 text-xs text-slate-200">
+              <input type="checkbox" checked={f.dateConfirmed} onChange={(e) => set('dateConfirmed', e.target.checked)} className="mt-0.5" />
+              <span>
+                Date confirmed. Only then, and only when the status is Confirmed, does the public page show the date and list it under
+                Scheduled. Dates written at seeding are placeholders: leave this unticked until a real date is agreed.
+              </span>
+            </label>
+          </div>
+          <div>
+            <label className={label}>City (empty = Groningen)</label>
+            <input className={input} value={f.city} maxLength={60} onChange={(e) => set('city', e.target.value)} />
           </div>
 
           <div>

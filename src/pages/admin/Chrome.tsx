@@ -23,9 +23,17 @@ export function Header() {
 }
 
 export function Banners() {
-  const { errors, notice, clearErrors } = useAdmin().state;
+  const {
+    state: { errors, notice, clearErrors },
+    meta: { canEdit },
+  } = useAdmin();
   return (
     <>
+      {!canEdit && (
+        <div className="mb-5 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
+          Viewer access shows event totals only. Visitor counts, price answers, names and contact details need editor access.
+        </div>
+      )}
       {errors.length > 0 && (
         <div role="alert" className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">
           <p className="font-bold mb-1">Some data could not be loaded or saved:</p>

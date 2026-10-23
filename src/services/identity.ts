@@ -5,15 +5,19 @@ import { once } from './session';
 import { acceptReferrer, resolveSource, shareCodeFor } from '../data/share';
 import { contactKeyFor, normaliseEmail, normalisePhone } from '../data/contact';
 import { CONSENT_VERSION, ConsentPurpose } from '../data/consent';
+import { NOTICE_VERSION } from '../config/pilot';
 
 /**
  * Identity model: nobody signs in. Every visitor is a Firebase *anonymous* user and the
  * uid is the only identity key. Contact details are stored as plain fields on users/{uid},
  * never as the key — so the anonymous account can later be upgraded with
  * linkWithCredential (see upgradeAnonymousAccount) and keep the same uid and all its data.
+ *
+ * Accounts are never linked or flagged as "the same person" from a typed email/phone or a
+ * uid the browser reports: neither proves ownership. Linking waits for a verified flow
+ * (docs/SECURITY.md).
  */
 
-const UID_KEY = 'agorax_uid';
 const SRC_KEY = 'agorax_src';
 const REF_KEY = 'agorax_ref';
 
@@ -42,9 +46,7 @@ export function ensureAnonymousAuth(): Promise<User> {
       // currentUser is null until Firebase has restored the persisted session; signing in
       // before this resolves would mint a brand-new uid on every page load.
       await auth.authStateReady();
-      const user = auth.currentUser ?? (await signInAnonymously(auth)).user;
-      await reconcileStoredUid(user);
-      return user;
+      return auth.currentUser ?? (await signInAnonymously(auth)).user;
     })().catch((err) => {
       authPromise = null;
       throw err;
@@ -91,30 +93,6 @@ export function getReferrer(uid: string): string | null {
   return ref;
 }
 
-/** Secondary check: if the stored uid differs from the one Firebase gave us, flag it for review. */
-async function reconcileStoredUid(user: User) {
-  const stored = safeGet(UID_KEY);
-  if (stored && stored !== user.uid) {
-    await writeMergeRequest(user.uid, stored, 'localStorage');
-  }
-  safeSet(UID_KEY, user.uid);
-}
-
-/** Never merged client-side — an admin reviews these. */
-async function writeMergeRequest(uid: string, otherUid: string, matchedOn: string) {
-  try {
-    await setDoc(doc(db, 'mergeRequests', uid), {
-      uid,
-      otherUid,
-      matchedOn,
-      ts: serverTimestamp(),
-    });
-  } catch (err) {
-    // Create-only collection: a second attempt for the same uid is denied, which is fine.
-    console.warn('mergeRequest not written', err);
-  }
-}
-
 /** Creates users/{uid} on first sight, otherwise bumps lastSeenAt. Once per session. */
 export async function touchUser(): Promise<void> {
   if (!once('touch_user')) return;
@@ -149,44 +127,23 @@ export interface ContactInput {
   phone?: string;
   /** What this consent is for — recorded separately per purpose, never bundled. */
   purpose: ConsentPurpose;
+  /** Optional extra purposes the person ticked themselves (e.g. 'launch'); unticked by default. */
+  alsoConsent?: ConsentPurpose[];
   wantsToOrganise?: boolean;
   hasSpace?: boolean;
 }
 
+/** What is stored for one consent: wording version, notice version, server time. */
+const consentEntry = () => ({ version: CONSENT_VERSION, notice: NOTICE_VERSION, at: serverTimestamp() });
+
 export { normaliseEmail, normalisePhone };
 
 /**
- * Security rules stop one visitor from reading another's users document, so duplicates can't
- * be found by querying users. Instead every email/phone gets an opaque lookup document
- * (contactKeys/{hash} → { uid }). If the key already belongs to a different uid, we file a
- * mergeRequest for an admin to review.
+ * Attaches contact details to this visitor's uid. A typed email or phone is never looked up
+ * against other visitors and never used to link accounts: it proves nothing about ownership,
+ * and the old hash lookup let anyone check whether a given person had signed up.
  */
-async function detectDuplicateContact(uid: string, email: string, phone: string) {
-  const matches: { kind: 'email' | 'phone'; otherUid: string }[] = [];
-  const candidates: { kind: 'email' | 'phone'; value: string }[] = [];
-  if (email) candidates.push({ kind: 'email', value: email });
-  if (phone) candidates.push({ kind: 'phone', value: phone });
-
-  for (const { kind, value } of candidates) {
-    const keyRef = doc(db, 'contactKeys', await contactKeyFor(kind, value));
-    const snap = await getDoc(keyRef);
-    if (!snap.exists()) {
-      await setDoc(keyRef, { uid, kind, ts: serverTimestamp() });
-    } else if (snap.data().uid !== uid) {
-      matches.push({ kind, otherUid: snap.data().uid as string });
-    }
-  }
-
-  if (matches.length > 0) {
-    const other = matches[0].otherUid;
-    const kinds = matches.filter((m) => m.otherUid === other).map((m) => m.kind);
-    await writeMergeRequest(uid, other, kinds.join('+'));
-  }
-  return matches.length > 0;
-}
-
-/** Attaches contact details to this visitor's uid. Never merges accounts client-side. */
-export async function linkContact(input: ContactInput): Promise<{ possibleDuplicate: boolean }> {
+export async function linkContact(input: ContactInput): Promise<void> {
   const user = await ensureAnonymousAuth();
   const email = normaliseEmail(input.email);
   const phone = normalisePhone(input.phone);
@@ -198,7 +155,7 @@ export async function linkContact(input: ContactInput): Promise<{ possibleDuplic
     lastSeenAt: serverTimestamp(),
     source: getSource(),
     hasContact: true,
-    consents: { [input.purpose]: { version: CONSENT_VERSION, at: serverTimestamp() } },
+    consents: Object.fromEntries([input.purpose, ...(input.alsoConsent ?? [])].map((p) => [p, consentEntry()])),
   };
   if (!existing.exists()) payload.createdAt = serverTimestamp();
   if (input.name?.trim()) payload.name = input.name.trim();
@@ -207,15 +164,6 @@ export async function linkContact(input: ContactInput): Promise<{ possibleDuplic
   if (input.wantsToOrganise) payload.wantsToOrganise = true;
   if (input.hasSpace) payload.hasSpace = true;
   await setDoc(ref, payload, { merge: true });
-
-  let possibleDuplicate = false;
-  try {
-    possibleDuplicate = await detectDuplicateContact(user.uid, email, phone);
-  } catch (err) {
-    // The contact itself is saved; duplicate detection is best-effort.
-    console.warn('duplicate check failed', err);
-  }
-  return { possibleDuplicate };
 }
 
 /** A private display name for the sidebar and profile. Nobody else sees it. */
@@ -228,13 +176,13 @@ export async function saveDisplayName(displayName: string): Promise<void> {
 export async function setConsent(purpose: ConsentPurpose, on: boolean): Promise<void> {
   const user = await ensureAnonymousAuth();
   await updateDoc(doc(db, 'users', user.uid), {
-    [`consents.${purpose}`]: on ? { version: CONSENT_VERSION, at: serverTimestamp() } : deleteField(),
+    [`consents.${purpose}`]: on ? consentEntry() : deleteField(),
   });
 }
 
 /**
  * Self-service erasure (GDPR Art. 17): removes every contact detail and consent from
- * users/{uid} and the lookup keys that point at this uid. Joins and price answers stay —
+ * users/{uid} and any lookup keys older versions created for this uid. Joins and price answers stay —
  * without contact details they no longer identify anyone.
  */
 export async function deleteMyContact(): Promise<void> {

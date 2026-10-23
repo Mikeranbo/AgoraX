@@ -20,7 +20,10 @@ interface AdminContextValue {
 const AdminContext = createContext<AdminContextValue | null>(null);
 
 export function AdminProvider({ uid, admin, children }: { uid: string; admin: AdminDoc; children: React.ReactNode }) {
-  const data = useAdminData();
+  const canEdit = admin.role === 'owner' || admin.role === 'editor';
+  const isOwner = admin.role === 'owner';
+  // Viewers see aggregates only: no names, contact details or admin list (the rules agree).
+  const data = useAdminData({ people: canEdit, admins: isOwner });
   const { addError } = data;
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState<Event | 'new' | null>(null);
@@ -41,12 +44,7 @@ export function AdminProvider({ uid, admin, children }: { uid: string; admin: Ad
   const value: AdminContextValue = {
     state: { ...data, notice, editing },
     actions: { run, setNotice, edit: setEditing },
-    meta: {
-      uid,
-      admin,
-      canEdit: admin.role === 'owner' || admin.role === 'editor',
-      isOwner: admin.role === 'owner',
-    },
+    meta: { uid, admin, canEdit, isOwner },
   };
 
   return <AdminContext value={value}>{children}</AdminContext>;

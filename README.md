@@ -31,12 +31,10 @@ identity key:
 - Contact details (WhatsApp / email) are plain fields on `users/{uid}`, never the key. That means
   the anonymous account can later be upgraded with `linkWithCredential` and keep the same uid
   (`upgradeAnonymousAccount` in `src/services/identity.ts` — there is intentionally no UI yet).
-- If the same email or phone turns up under a different uid, a `mergeRequests/{uid}` document is
-  written for a human to review. Accounts are **never merged client-side**. (Because rules stop one
-  visitor reading another's `users` document, matches are found through opaque hashed lookup
-  documents in `contactKeys`.)
-- The uid is also kept in `localStorage` (`agorax_uid`); if Firebase hands back a different uid
-  while a stored one exists, a merge request is written too.
+- Accounts are **never linked or flagged as the same person** from a typed email/phone or a uid
+  the browser reports — neither proves ownership. The old hashed `contactKeys` lookup and the
+  `mergeRequests` it produced are retired (the lookup let anyone check whether a given person had
+  signed up). Linking devices needs a verified flow first; see `docs/SECURITY.md`.
 
 ## The `?src=` QR parameter
 
@@ -61,8 +59,9 @@ Do these in the Firebase console for the project in `firebase-applet-config.json
    Without this the site shows "Anonymous sign-in is not enabled" and nothing works.
 2. **Publish the security rules.** Firestore Database → Rules → paste the contents of
    `firestore.rules` → Publish. (Or `firebase deploy --only firestore:rules`.)
-3. **Create the first admin by hand.** Nobody can grant themselves `owner`, so the first one has
-   to be written in the console:
+3. **Create the first admin by hand.** Nobody can grant themselves any admin role, and there is
+   no "claim owner" button, so the first owner has to be written in the console (full procedure
+   and checks in `docs/SECURITY.md`):
    1. Open `/admin` in the browser you'll use for admin work. You'll see **Not authorised** and
       your uid — copy it.
    2. Firestore Database → Start collection (or open it) → collection `admins` → document ID =
@@ -74,6 +73,9 @@ Do these in the Firebase console for the project in `firebase-applet-config.json
    The uid belongs to that browser profile. Clearing site data creates a new uid (and a new
    "Not authorised" page) — grant the new one from an owner account, or upgrade the account first.
 4. **Seed the events.** Sign in to `/admin` as an `owner` or `editor` → **Seed events**.
+   Seeding writes no dates: proposals show "Date to be confirmed". To schedule an event, edit it,
+   set the start time, tick **Date confirmed** and set the status to Confirmed; only then does it
+   appear under Scheduled with its date.
    It writes `events/{slug}` for the 33 events in `src/data/seedEvents.ts` and is safe to re-run:
    existing events get their copy/price/cost fields refreshed, but signups, counters, status,
    photos and dates are left alone. Seeding never happens on page load.
@@ -82,9 +84,9 @@ Do these in the Firebase console for the project in `firebase-applet-config.json
 
 | Role     | Can do                                                                  |
 | -------- | ----------------------------------------------------------------------- |
-| `viewer` | Read everything on `/admin`.                                            |
-| `editor` | Everything a viewer can, plus create / edit / delete events, set status, seed, export. |
-| `owner`  | Everything an editor can, plus grant and revoke admins.                 |
+| `viewer` | Event totals, joins, helper offers, proposals, suggestions on `/admin`. No names, contact details, visitor counts or price answers. |
+| `editor` | Everything a viewer can, plus contact details, create / edit / delete events, set status, seed, fix counts, export. |
+| `owner`  | Everything an editor can, plus see, grant and revoke other admins (never their own entry). |
 
 Roles are enforced by the Firestore rules, not just hidden in the UI.
 
@@ -117,28 +119,58 @@ module-level `Set`, mirrored to `sessionStorage`). Each event document also carr
 aggregate counters — `impressions`, `opens`, `joins`, `organiserInterest` (and `participantsCount`)
 — so the admin page never has to scan `analytics`.
 
-> **Write volume:** one visitor who scrolls past all 33 cards causes ~66 writes (an analytics
-> document plus a counter bump per card). The Firebase free (Spark) plan allows 20,000 writes/day,
-> i.e. roughly 300 such visitors. Switch the project to Blaze before a busy poster campaign.
+> **Write volume:** a visitor's first scroll past all 33 cards causes ~99 writes (an analytics
+> document, a seen marker and a counter bump per card); later visits from the same device add only
+> the analytics documents. The Firebase free (Spark) plan allows 20,000 writes/day, i.e. roughly
+> 200 first-time visitors. Switch the project to Blaze before a busy poster campaign.
 
 ## Collections
 
 | Collection                          | Written by                  | Read by              |
 | ----------------------------------- | --------------------------- | -------------------- |
-| `events`, `venues`                  | admins (editor/owner); counters by anyone | anyone signed in |
-| `events/{id}/participants/{uid}`    | that user only              | that user, admins    |
-| `events/{id}/comments`              | any signed-in user          | anyone signed in     |
-| `users/{uid}`                       | that user only              | that user, admins    |
-| `analytics`, `suggestions`, `venueOffers`, `mergeRequests` | create-only, `uid` must be the caller | admins |
-| `contactKeys`                       | create-only                 | single-key lookup; admins can list |
-| `admins/{uid}`                      | owners only                 | anyone signed in     |
+| `events`, `venues`                  | admins (editor/owner); counters only by the steps below | anyone signed in |
+| `events/{id}/participants/{uid}`    | that user, together with participantsCount ±1 | that user, admins |
+| `events/{id}/helpers/{uid}`         | that user, together with organiserInterest ±1 | that user, admins |
+| `events/{id}/seen/{uid}`            | that user, together with impressions/opens +1 (once each) | nobody |
+| `events/{id}/comments`              | nobody (switched off)       | admins               |
+| `users/{uid}`                       | that user only, field-by-field checks | that user, editors/owners |
+| `analytics`, `suggestions`, `venueOffers` | create-only, `uid` must be the caller, field allowlists | admins |
+| `proposals`                         | the author: create, edit and delete while `draft`, send once (`new`); editors approve/reject | the author, admins |
+| `profiles/{publicId}`               | its owner (random id, never the uid), field allowlist, no verified/registered flags | anyone signed in who has the id; admins can list |
+| `profileOwners/{publicId}`          | claimed once by the owner; released on delete | nobody |
+| `mergeRequests`, `contactKeys`      | retired: no new writes (own contact keys can still be erased) | editors (`mergeRequests`), nobody (`contactKeys`) |
+| `admins/{uid}`                      | owners, for other uids only | that user (own doc), owners |
+
+`npm run test:rules` checks all of this against the Firestore emulator (needs JDK 21+).
 
 ## Privacy
 
-Contact details are only collected behind an explicit consent checkbox ("We'll only use this to
-tell you when an event you picked is happening. Nothing else, and you can ask us to delete it any
-time."). The rules do not let admins delete `users` documents from the app, so a deletion request
-is handled by hand in the Firebase console (delete `users/{uid}` and its `contactKeys` entries).
+- The draft privacy notice is `docs/PRIVACY_NOTICE_DRAFT.md` (same text as the in-app page,
+  `src/data/privacyNotice.ts`). It is **not final**: open facts are listed at its top.
+- Contact details (email *or* WhatsApp, either is enough) are only collected behind a consent box
+  per purpose; each consent stores its purpose, wording version, notice version and server time.
+  Launch news and invitations are separate, unticked, email-only opt-ins.
+- People switch messages off under Notification preferences, delete contact details under Privacy
+  & my data, and delete everything (interests withdrawn, account deleted) under Account &
+  security. Messages are sent by hand: there is no email provider, so no unsubscribe links.
+- While the notice is a draft the build leaves out new collection (public profile text/pictures,
+  organiser identity, launch/invitation opt-ins). Set `VITE_PRIVACY_NOTICE_FINAL=true` only once it
+  is final.
+- Admins can't delete `users` documents from the app; a deletion request by email is handled in
+  the Firebase console (delete `users/{uid}`, any `contactKeys` whose `uid` is that uid, and the
+  person's `profiles/{publicId}` and `profileOwners/{publicId}`).
+
+## Environment variables
+
+All public build-time configuration (none is a secret):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `VITE_PRIVACY_NOTICE_FINAL` | unset (off) | `true` turns on public profiles, organiser identity and launch/invitation opt-ins. Only after the privacy notice is final. |
+| `VITE_FIREBASE_EMULATORS` | unset | `1` points the app at the local emulators under `demo-agorax` (browser tests only). Never set it on Vercel. |
+| `PW_CHROMIUM_PATH` | unset | Test-only: a preinstalled Chromium for Playwright. |
+
+`GEMINI_API_KEY` and `APP_URL` in `.env.example` are AI Studio leftovers that nothing uses.
 
 ## Run locally
 
@@ -147,7 +179,13 @@ npm install
 npm run dev        # http://localhost:3000
 npm run lint       # tsc --noEmit
 npm run build
+npm test           # unit tests (vitest)
+npm run test:rules # security rules + real client flows on the Firestore emulator (JDK 21+)
+npm run test:e2e   # browser tests (Playwright) on the Firestore + Auth emulators
 ```
+
+The emulator and browser tests only ever use the `demo-agorax` project id, so they cannot touch
+the real project.
 
 The old email/password `AuthHero`, the create-event form, the venues marketplace and the owner
 dashboard are still in `src/App.tsx` but are not reachable from the public build.

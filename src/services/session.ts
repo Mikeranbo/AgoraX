@@ -18,6 +18,30 @@ function hydrate() {
   }
 }
 
+const DEVICE_KEY = 'agorax_counted';
+
+/**
+ * Like once(), but remembered across sessions on this device (localStorage). Used for the
+ * per-visitor view counters, which the rules accept only once per uid anyway.
+ */
+export function onceOnDevice(key: string): boolean {
+  let counted: string[] = [];
+  try {
+    counted = JSON.parse(localStorage.getItem(DEVICE_KEY) ?? '[]');
+  } catch {
+    /* unavailable or corrupt: fall back to the session guard */
+  }
+  if (!Array.isArray(counted)) counted = [];
+  if (counted.includes(key)) return false;
+  if (!once(`device:${key}`)) return false;
+  try {
+    localStorage.setItem(DEVICE_KEY, JSON.stringify([...counted, key]));
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
 /** Returns true the first time `key` is seen in this session, false afterwards. */
 export function once(key: string): boolean {
   hydrate();

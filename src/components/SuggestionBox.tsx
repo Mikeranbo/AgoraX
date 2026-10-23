@@ -44,6 +44,7 @@ export const SuggestionBox = () => {
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
+          <p className="text-[13px] text-slate-400">Sent without your name. Please don't include contact details here.</p>
           {state === 'error' && <p role="alert" className={errorClass}>That didn't send. Try again in a moment.</p>}
           <button
             type="submit"

@@ -28,8 +28,9 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 /**
- * Opaque id of the contactKeys/{id} lookup document for an email or phone. The detail is
- * normalised first, so "06 1234 5678" and "+31612345678" are the same person.
+ * Id of the retired contactKeys/{id} lookup document for an email or phone, kept only so
+ * erasure can delete keys older versions wrote. The detail is normalised first, so
+ * "06 1234 5678" and "+31612345678" give the same key.
  */
 export function contactKeyFor(kind: 'email' | 'phone', raw: string): Promise<string> {
   const value = kind === 'email' ? normaliseEmail(raw) : normalisePhone(raw);

@@ -13,6 +13,16 @@ export function hasValidEmail(email: string): boolean {
   return EMAIL.test(email.trim());
 }
 
+/** Email or WhatsApp, either is enough; whichever is filled in must look right. */
+export function contactProblem(email: string, phone: string): string | null {
+  const e = email.trim();
+  const p = phone.trim();
+  if (!e && !p) return 'Add an email or a WhatsApp number.';
+  if (e && !hasValidEmail(e)) return "That email doesn't look right.";
+  if (p && !hasValidPhone(p)) return "That number doesn't look right. For example 06 12345678.";
+  return null;
+}
+
 export interface HelperFormValues {
   firstName: string;
   phone: string;
@@ -24,8 +34,8 @@ export interface HelperFormValues {
 /** First problem with the "help run this" form, or null when it can be sent. */
 export function validateHelperForm(v: HelperFormValues): string | null {
   if (!v.firstName.trim()) return 'Add your first name.';
-  if (!hasValidPhone(v.phone)) return 'Add your WhatsApp number, for example 06 12345678.';
-  if (v.email.trim() && !hasValidEmail(v.email)) return "That email doesn't look right.";
+  const contact = contactProblem(v.email, v.phone);
+  if (contact) return contact;
   if (!v.ranBefore) return 'Say whether you have run something like this before.';
   if (!v.consent) return 'Tick the box so we can message you about it.';
   return null;

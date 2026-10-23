@@ -1,47 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Copy } from 'lucide-react';
-import { claimOwner, subscribeToClaimable } from '../../services/adminService';
-import { seedEvents } from '../../services/firebaseService';
 
-/** Shown only while nobody owns AgoraX yet. Claims the owner seat, then loads the 33 events. */
-const ClaimOwner = ({ uid }: { uid: string }) => {
-  const [claimable, setClaimable] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => subscribeToClaimable(setClaimable, () => setClaimable(false)), []);
-
-  if (!claimable) return null;
-
-  const claim = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      await claimOwner(uid);
-      // The page switches to the dashboard as soon as the admin doc lands; the seed keeps going.
-      await seedEvents();
-    } catch (err) {
-      console.error(err);
-      setError('That did not work. Someone may have claimed it first, or the rules are not published yet.');
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="mb-5">
-      <p className="text-sm text-slate-300 mb-3">Nobody owns AgoraX yet. The first person to claim it becomes the owner.</p>
-      <button
-        onClick={claim}
-        disabled={busy}
-        className="w-full min-h-11 rounded-lg bg-brand-action text-white font-bold disabled:opacity-60"
-      >
-        {busy ? 'Claiming…' : 'Claim owner'}
-      </button>
-      {error && <p className="text-xs text-red-300 mt-2">{error}</p>}
-    </div>
-  );
-};
+// There is no "claim owner" button: the first owner is provisioned by hand (docs/SECURITY.md).
 
 export const Spinner = () => (
   <div className="min-h-screen bg-[#0f172a] flex items-center justify-center" role="status" aria-label="Loading">
@@ -65,7 +26,6 @@ export const NotAuthorised = ({ uid, detail }: { uid: string; detail?: string })
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6">
       <div className="glass rounded-2xl p-8 max-w-md w-full text-center">
         <h1 className="font-display text-2xl font-black text-white mb-2">Not authorised</h1>
-        {uid && <ClaimOwner uid={uid} />}
         <p className="text-sm text-slate-400 mb-5">
           This page is for AgoraX admins. If you should have access, send an owner this ID so they can grant it:
         </p>

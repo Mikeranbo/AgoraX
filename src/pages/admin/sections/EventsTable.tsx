@@ -1,22 +1,34 @@
 import React, { useState } from 'react';
-import { Eraser, Pencil, Plus, Sprout, Trash2 } from 'lucide-react';
+import { Eraser, Pencil, Plus, RefreshCw, Sprout, Trash2 } from 'lucide-react';
 import { useAdmin } from '../AdminContext';
 import { Bar, Section, Table, Td, pct } from '../ui';
 import { downloadCsv } from '../../../lib/csv';
 import { seedEvents } from '../../../services/firebaseService';
-import { deleteEvent, purgeNonSeedEvents, setEventStatus } from '../../../services/adminService';
+import { applyCounterFixes, deleteEvent, purgeNonSeedEvents, setEventStatus } from '../../../services/adminService';
 import { Event, EventStatus } from '../../../types';
 
 const STATUS_OPTIONS: EventStatus[] = ['Pending', 'Confirmed', 'Cancelled'];
 
 export function EventsTable() {
   const {
-    state: { eventRows },
+    state: { eventRows, counterFixes },
     actions: { run, setNotice, edit },
     meta: { canEdit },
   } = useAdmin();
   const [seeding, setSeeding] = useState(false);
   const [purging, setPurging] = useState(false);
+  const [recounting, setRecounting] = useState(false);
+
+  const handleRecount = async () => {
+    const list = counterFixes.map((f) => `• ${f.title}: ${f.participantsCount} joined, ${f.organiserInterest} offered to help`).join('\n');
+    if (!window.confirm(`Set the public counts of ${counterFixes.length} events to their real sign-ups?\n\n${list}\n\nBest done while nobody is joining.`)) return;
+    setRecounting(true);
+    await run('Fix counts', async () => {
+      await applyCounterFixes(counterFixes);
+      setNotice(`Fixed the counts of ${counterFixes.length} events.`);
+    });
+    setRecounting(false);
+  };
 
   const handlePurge = async () => {
     if (!window.confirm('Delete every event that is not one of the 33 seed events, with its joins, comments and helpers? Events you approved from proposals are kept. This cannot be undone.')) return;
@@ -70,6 +82,11 @@ export function EventsTable() {
             <button onClick={handlePurge} disabled={purging} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg glass text-xs font-bold text-red-300 hover:text-red-200 disabled:opacity-50">
               <Eraser size={12} /> {purging ? 'Removing…' : 'Remove events not in the list'}
             </button>
+            {counterFixes.length > 0 && (
+              <button onClick={handleRecount} disabled={recounting} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg glass text-xs font-bold text-amber-200 hover:text-white disabled:opacity-50">
+                <RefreshCw size={12} /> {recounting ? 'Fixing…' : `Fix counts (${counterFixes.length})`}
+              </button>
+            )}
           </>
         )
       }

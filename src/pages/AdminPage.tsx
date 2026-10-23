@@ -10,6 +10,7 @@ import { Funnel } from './admin/sections/Funnel';
 import { EventsTable } from './admin/sections/EventsTable';
 import { BySource } from './admin/sections/BySource';
 import { PriceAnswers } from './admin/sections/PriceAnswers';
+import { TimingPreferences } from './admin/sections/TimingPreferences';
 import { Helpers } from './admin/sections/Helpers';
 import { Proposals } from './admin/sections/Proposals';
 import { SpaceOffers } from './admin/sections/SpaceOffers';
@@ -75,12 +76,13 @@ function Dashboard({ uid, admin }: { uid: string; admin: AdminDoc }) {
           <EventsTable />
           <BySource />
           <PriceAnswers />
+          <TimingPreferences />
           <Proposals />
           <Helpers />
           <SpaceOffers />
           <Suggestions />
           <MostWanted />
-          <Admins />
+          {admin.role === 'owner' && <Admins />}
         </main>
         <Editor />
       </div>

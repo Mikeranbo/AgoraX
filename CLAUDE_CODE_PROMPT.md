@@ -1,5 +1,11 @@
 # Claude Code prompt — AgoraX demand-validation build
 
+> **Superseded in part (2026-10-23, see `docs/SECURITY.md`).** Do not re-implement these parts of
+> the spec below: `mergeRequests` written from a matching email/phone or a stored `agorax_uid`;
+> `contactKeys` lookups; "any signed-in user may change the counter fields"; `admins` readable by
+> any signed-in user. They allowed account confusion, a contact-hash oracle, counter inflation and
+> admin enumeration. `firestore.rules` and `npm run test:rules` are the source of truth.
+
 Paste everything below the line into Claude Code, from inside `code/code 3`.
 
 ---

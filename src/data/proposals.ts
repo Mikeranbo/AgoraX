@@ -1,9 +1,7 @@
-import { hasValidPhone } from './forms';
+import { contactProblem } from './forms';
 import { PUBLIC_CATEGORIES } from '../types';
 import type { EventCategory, Proposal } from '../types';
 import type { EventFormData } from '../services/adminService';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface ProposalFormValues {
   title: string;
@@ -12,12 +10,16 @@ export interface ProposalFormValues {
   minPeople: string;
   firstName: string;
   phone: string;
+  email: string;
   needs: string;
   consent: boolean;
 }
 
-/** First problem with the Propose form, or null when it can be sent. */
-export function validateProposal(v: ProposalFormValues): string | null {
+/**
+ * First problem with the Propose form, or null when it can be sent. A draft only needs the
+ * event itself; the contact details and consent are asked for when it is sent for review.
+ */
+export function validateProposal(v: ProposalFormValues, mode: 'send' | 'draft' = 'send'): string | null {
   const title = v.title.trim();
   const price = Number(v.price);
   const minPeople = Number(v.minPeople);
@@ -30,15 +32,20 @@ export function validateProposal(v: ProposalFormValues): string | null {
   if (!Number.isInteger(minPeople) || minPeople < 2 || minPeople > 200) {
     return 'Say how many people it needs, between 2 and 200.';
   }
-  if (!v.firstName.trim()) return 'Add your first name.';
-  if (!hasValidPhone(v.phone)) return 'Add your WhatsApp number, for example 06 12345678.';
   if (v.needs.trim().length > 500) return 'Keep the last answer under 500 characters.';
+  if (mode === 'draft') return null;
+  if (!v.firstName.trim()) return 'Add your first name.';
+  const contact = contactProblem(v.email, v.phone);
+  if (contact) return contact;
   if (!v.consent) return 'Tick the box so we can message you about it.';
   return null;
 }
 
-/** The pending event an approved proposal becomes. Counters are added by the writer. */
-export function eventFromProposal(p: Proposal, now: number): EventFormData & { origin: 'proposal'; proposalId: string } {
+/**
+ * The pending event an approved proposal becomes. Counters are added by the writer. It gets no
+ * date: an admin sets a real one and ticks "date confirmed" when the event is agreed.
+ */
+export function eventFromProposal(p: Proposal, _now: number): EventFormData & { origin: 'proposal'; proposalId: string; organiserPublicId?: string } {
   return {
     title: p.title,
     description: p.title,
@@ -46,8 +53,6 @@ export function eventFromProposal(p: Proposal, now: number): EventFormData & { o
     price: p.price,
     minParticipants: p.minPeople,
     status: 'Pending',
-    deadline: new Date(now + 21 * DAY_MS).toISOString(),
-    startTime: new Date(now + 28 * DAY_MS).toISOString(),
     imageUrls: p.image ? [p.image] : [],
     ...(p.imageCredit ? { imageCredit: p.imageCredit } : {}),
     emoji: '💡',
@@ -61,5 +66,6 @@ export function eventFromProposal(p: Proposal, now: number): EventFormData & { o
     season: 'any',
     origin: 'proposal',
     proposalId: p.id,
+    ...(p.organiserPublicId ? { organiserPublicId: p.organiserPublicId } : {}),
   };
 }

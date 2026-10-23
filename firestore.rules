@@ -24,23 +24,67 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Admins live in admins/{uid}. The first one is created by hand in the console.
+    // Admins live in admins/{uid}. There is no self-service claim: the first owner is
+    // provisioned by hand (docs/SECURITY.md) and owners grant everyone else.
+    function myAdminDoc() {
+      return /databases/$(database)/documents/admins/$(request.auth.uid);
+    }
+
     function isAdmin() {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && exists(myAdminDoc());
     }
 
     function adminRole() {
-      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role;
+      return get(myAdminDoc()).data.role;
     }
 
-    // owner + editor may change content; viewer is read-only.
+    // owner + editor may change content and see contact details; viewer sees aggregates only.
     function isEditor() {
       return isAdmin() && adminRole() in ['owner', 'editor'];
     }
 
     function isAdminOwner() {
       return isAdmin() && adminRole() == 'owner';
+    }
+
+    // Fields this write adds, changes or removes. Field checks look only at these, so
+    // documents written by older clients keep working until the field is touched.
+    function changedKeys() {
+      return resource == null ? incoming().keys().toSet() : incoming().diff(existing()).affectedKeys();
+    }
+
+    function before() {
+      return resource == null ? {} : existing();
+    }
+
+    function okString(ch, f, max) {
+      let d = incoming();
+      return !(f in ch) || !(f in d) || (d[f] is string && d[f].size() <= max);
+    }
+
+    function okBool(ch, f) {
+      let d = incoming();
+      return !(f in ch) || !(f in d) || d[f] is bool;
+    }
+
+    function okNow(ch, f) {
+      let d = incoming();
+      return !(f in ch) || !(f in d) || d[f] == request.time;
+    }
+
+    function okList(ch, f, max) {
+      let d = incoming();
+      return !(f in ch) || !(f in d) || (d[f] is list && d[f].size() <= max);
+    }
+
+    function okEnum(ch, f, values) {
+      let d = incoming();
+      return !(f in ch) || !(f in d) || d[f] in values;
+    }
+
+    // Fields only older clients wrote: they may be removed, never set again.
+    function removedOnly(ch, f) {
+      return !(f in ch) || !(f in incoming());
     }
 
     // --- Schemas ---
@@ -60,7 +104,9 @@ service cloud.firestore {
 
     function isValidParticipant(data) {
       return data.keys().hasOnly(['joinedAt', 'priceSeen', 'source']) &&
-             data.priceSeen is number &&
+             data.keys().hasAll(['joinedAt', 'priceSeen', 'source']) &&
+             data.joinedAt == request.time &&
+             data.priceSeen is number && data.priceSeen >= 0 && data.priceSeen <= 1000 &&
              data.source is string && data.source.size() <= 40;
     }
 
@@ -70,35 +116,170 @@ service cloud.firestore {
              data.ts == request.time;
     }
 
+    function isValidAdmin() {
+      let d = incoming();
+      return d.keys().hasOnly(['role', 'label', 'grantedBy', 'grantedAt']) &&
+             d.keys().hasAll(['role', 'grantedBy', 'grantedAt']) &&
+             d.role in ['owner', 'editor', 'viewer'] &&
+             d.get('label', '') is string && d.get('label', '').size() <= 80 &&
+             d.grantedBy == request.auth.uid &&
+             d.grantedAt == request.time;
+    }
+
+    // --- users/{uid} ---
+    // Share codes are the first 8 characters of the uid (data/share.ts), set once.
+    function shareCodeOf(userId) {
+      return userId.size() <= 8 ? userId : userId[0:8];
+    }
+
+    function okShareCode(ch, userId) {
+      return !('shareCode' in ch) ||
+             (!('shareCode' in before()) && incoming().get('shareCode', '') == shareCodeOf(userId));
+    }
+
+    // First-touch referrer from a shared link: set once, on the first write, well-formed.
+    function okReferrer(ch, userId) {
+      let r = incoming().get('referredBy', null);
+      return !('referredBy' in ch) ||
+             (!('referredBy' in before()) &&
+              (r == null || (r is string && r.matches('^[A-Za-z0-9]{4,40}$') && r != shareCodeOf(userId))));
+    }
+
+    // One consent per purpose, stamped by the server, with the wording version and the
+    // privacy notice version it was given under. A write may add, renew or drop one.
+    function okConsentEntry(c) {
+      return c is map && c.keys().hasOnly(['version', 'notice', 'at']) &&
+             c.version is string && c.version.size() <= 10 &&
+             c.get('notice', '') is string && c.get('notice', '').size() <= 40 &&
+             c.at == request.time;
+    }
+
+    function okConsentFor(c, cc, p) {
+      return !(p in cc) || !(p in c) || okConsentEntry(c[p]);
+    }
+
+    function okConsents(ch) {
+      let d = incoming();
+      let c = d.get('consents', {});
+      let cc = (c is map) ? c.diff(before().get('consents', {})).affectedKeys() : [].toSet();
+      return !('consents' in ch) || !('consents' in d) || (
+               c is map &&
+               c.keys().hasOnly(['updates', 'organising', 'proposal', 'space', 'launch', 'invites']) &&
+               okConsentFor(c, cc, 'updates') && okConsentFor(c, cc, 'organising') &&
+               okConsentFor(c, cc, 'proposal') && okConsentFor(c, cc, 'space') &&
+               okConsentFor(c, cc, 'launch') && okConsentFor(c, cc, 'invites'));
+    }
+
+    // --- Public profiles ---
+    // profiles/{publicId} is public; publicId is a random id, never the uid, so a profile
+    // cannot be joined to anything keyed by uid (initials, participants). Who owns a publicId
+    // is recorded in profileOwners/{publicId}, which nobody can read.
+    function ownerDoc(publicId) {
+      return /databases/$(database)/documents/profileOwners/$(publicId);
+    }
+
+    function ownsProfileAfter(publicId) {
+      return isSignedIn() && existsAfter(ownerDoc(publicId)) &&
+             getAfter(ownerDoc(publicId)).data.uid == request.auth.uid;
+    }
+
+    // Set once to an id this user has claimed; may be removed when the profile is deleted.
+    function okPublicId(ch, userId) {
+      let p = incoming().get('publicId', '');
+      return !('publicId' in ch) || !('publicId' in incoming()) ||
+             (!('publicId' in before()) && p is string &&
+              existsAfter(ownerDoc(p)) && getAfter(ownerDoc(p)).data.uid == userId);
+    }
+
+    function ownsProfileBefore(publicId) {
+      return isSignedIn() && exists(ownerDoc(publicId)) &&
+             get(ownerDoc(publicId)).data.uid == request.auth.uid;
+    }
+
+    // Uploaded pictures only, as compressed JPEG/WebP data URLs (no links, no SVG).
+    function okPicture(p, f, max) {
+      return !(f in p) || (p[f] is string && p[f].size() <= max &&
+                           p[f].matches('^data:image/(jpeg|webp);base64,[A-Za-z0-9+/=]+$'));
+    }
+
+    // Self-described organiser identity. There is deliberately no "verified" or
+    // "registered" field: the app never claims either.
+    function okOrganiser(p) {
+      let o = p.get('organiser', {});
+      return !('organiser' in p) || (
+               o is map && o.keys().hasOnly(['enabled', 'kind', 'name', 'about']) &&
+               o.enabled is bool && o.kind in ['individual', 'organisation'] &&
+               o.name is string && o.name.size() <= 80 &&
+               o.get('about', '') is string && o.get('about', '').size() <= 500);
+    }
+
+    function isValidProfile() {
+      let p = incoming();
+      return p.keys().hasOnly(['displayName', 'bio', 'interests', 'area', 'avatar', 'cover', 'coverY', 'organiser', 'updatedAt']) &&
+             p.displayName is string && p.displayName.size() >= 1 && p.displayName.size() <= 40 &&
+             p.get('bio', '') is string && p.get('bio', '').size() <= 280 &&
+             p.get('interests', '') is string && p.get('interests', '').size() <= 160 &&
+             p.get('area', '') is string && p.get('area', '').size() <= 60 &&
+             okPicture(p, 'avatar', 60000) && okPicture(p, 'cover', 200000) &&
+             p.get('coverY', 50) is number && p.get('coverY', 50) >= 0 && p.get('coverY', 50) <= 100 &&
+             okOrganiser(p) &&
+             p.updatedAt == request.time;
+    }
+
+    function okPriceAnswer(a) {
+      return a is map && a.keys().hasOnly(['answer', 'priceAsked', 'priceSeen', 'ts']) &&
+             a.answer in ['yes', 'no', 'depends'] &&
+             a.priceAsked is number && a.priceAsked >= 0 && a.priceAsked <= 1000 &&
+             a.priceSeen is number && a.priceSeen >= 0 && a.priceSeen <= 1000 &&
+             a.ts == request.time;
+    }
+
+    // Rules cannot list a map's changed keys, so the client names the one event it answered
+    // in lastPriceAnswer and only that entry may change.
+    function okPriceAnswers(ch) {
+      let d = incoming();
+      let a = d.get('priceAnswers', {});
+      let k = d.get('lastPriceAnswer', '');
+      let ac = (a is map) ? a.diff(before().get('priceAnswers', {})).affectedKeys() : [].toSet();
+      return !('priceAnswers' in ch) || !('priceAnswers' in d) || (
+               a is map && a.size() <= 100 &&
+               k is string && ac.hasOnly([k]) && k in a && okPriceAnswer(a[k]));
+    }
+
     // Mass-assignment guard: a visitor may write only these fields on their own users doc.
-    function isValidUser(userId, data) {
-      return data.keys().hasOnly([
+    function isValidUser(userId) {
+      let d = incoming();
+      let ch = changedKeys();
+      return d.keys().hasOnly([
                'uid', 'createdAt', 'lastSeenAt', 'source', 'shareCode', 'referredBy',
                'hasContact', 'name', 'email', 'phone', 'wantsToOrganise', 'hasSpace',
                'consents', 'consent', 'consentAt', 'joinedEvents', 'organiserEvents', 'priceAnswers',
-               'displayName'
+               'lastPriceAnswer', 'displayName', 'mode', 'savedEvents', 'preferredTiming', 'publicId'
              ]) &&
-             data.get('uid', userId) == userId &&
-             data.get('name', '').size() <= 80 &&
-             data.get('email', '').size() <= 254 &&
-             data.get('phone', '').size() <= 32 &&
-             data.get('displayName', '').size() <= 40;
+             d.get('uid', userId) == userId &&
+             okString(ch, 'name', 80) && okString(ch, 'email', 254) && okString(ch, 'phone', 32) &&
+             okString(ch, 'displayName', 40) && okString(ch, 'source', 40) && okString(ch, 'lastPriceAnswer', 200) &&
+             okBool(ch, 'hasContact') && okBool(ch, 'wantsToOrganise') && okBool(ch, 'hasSpace') &&
+             okNow(ch, 'createdAt') && okNow(ch, 'lastSeenAt') &&
+             okList(ch, 'joinedEvents', 100) && okList(ch, 'organiserEvents', 100) && okList(ch, 'savedEvents', 100) &&
+             okEnum(ch, 'mode', ['attend', 'organise', 'both']) &&
+             okEnum(ch, 'preferredTiming', ['weekday-evening', 'weekend', 'flexible']) &&
+             removedOnly(ch, 'consent') && removedOnly(ch, 'consentAt') &&
+             okShareCode(ch, userId) && okReferrer(ch, userId) && okPublicId(ch, userId) &&
+             okConsents(ch) && okPriceAnswers(ch);
     }
 
     // --- Event counters ---
-    // Anyone signed in may move the counters on an event, and nothing else. Every step is
-    // tied to something real, so a script cannot inflate or wipe the numbers this test
-    // exists to measure:
+    // Signed-in visitors may move the counters on an event, and nothing else. Every step is
+    // tied to the document it counts, written in the same batch, so the totals equal the
+    // number of active participants / helpers and a script cannot inflate them:
     //  - participantsCount and joins move together: +1 only when the caller's own
-    //    participant doc is created in the same write, -1 only when it is deleted;
-    //  - organiserInterest moves +1 only when the caller's helper doc is created;
-    //  - impressions and opens only go up, one at a time.
-    function counterFields() {
-      return ['participantsCount', 'impressions', 'opens', 'joins', 'organiserInterest'];
-    }
-
-    function delta(field) {
-      return incoming().get(field, 0) - existing().get(field, 0);
+    //    participant doc is created, -1 only when it is deleted;
+    //  - organiserInterest: +1 / -1 only with the caller's helper doc;
+    //  - impressions and opens are analytics: +1 once per visitor per event, via the
+    //    visitor's seen marker, and never in the same write as a participation change.
+    function eventPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId);
     }
 
     function participantDoc(eventId) {
@@ -109,30 +290,70 @@ service cloud.firestore {
       return /databases/$(database)/documents/events/$(eventId)/helpers/$(request.auth.uid);
     }
 
-    function joinStepOk(eventId) {
-      return delta('joins') == delta('participantsCount') && (
-               delta('participantsCount') == 0 ||
+    function seenDoc(eventId) {
+      return /databases/$(database)/documents/events/$(eventId)/seen/$(request.auth.uid);
+    }
+
+    function delta(field) {
+      return incoming().get(field, 0) - existing().get(field, 0);
+    }
+
+    function onlyChanged(fields) {
+      return incoming().diff(existing()).affectedKeys().hasOnly(fields);
+    }
+
+    function joinStep(eventId) {
+      return onlyChanged(['participantsCount', 'joins']) &&
+             delta('joins') == delta('participantsCount') && (
                (delta('participantsCount') == 1 &&
                   !exists(participantDoc(eventId)) && existsAfter(participantDoc(eventId))) ||
-               (delta('participantsCount') == -1 &&
+               (delta('participantsCount') == -1 && incoming().get('participantsCount', 0) >= 0 &&
                   exists(participantDoc(eventId)) && !existsAfter(participantDoc(eventId)))
              );
     }
 
-    function interestStepOk(eventId) {
-      return delta('organiserInterest') == 0 ||
-             (delta('organiserInterest') == 1 &&
-                !exists(helperDoc(eventId)) && existsAfter(helperDoc(eventId)));
+    function interestStep(eventId) {
+      return onlyChanged(['organiserInterest']) && (
+               (delta('organiserInterest') == 1 &&
+                  !exists(helperDoc(eventId)) && existsAfter(helperDoc(eventId))) ||
+               (delta('organiserInterest') == -1 && incoming().get('organiserInterest', 0) >= 0 &&
+                  exists(helperDoc(eventId)) && !existsAfter(helperDoc(eventId)))
+             );
     }
 
-    function viewStepOk() {
-      return delta('impressions') >= 0 && delta('impressions') <= 1 &&
-             delta('opens') >= 0 && delta('opens') <= 1;
+    function seenBefore(eventId) {
+      return exists(seenDoc(eventId)) ? get(seenDoc(eventId)).data : {};
     }
 
-    function isCounterOnlyUpdate(eventId) {
-      return incoming().diff(existing()).affectedKeys().hasOnly(counterFields()) &&
-             viewStepOk() && joinStepOk(eventId) && interestStepOk(eventId);
+    function viewStep(eventId, f) {
+      return onlyChanged([f]) && delta(f) == 1 &&
+             !(f in seenBefore(eventId)) &&
+             existsAfter(seenDoc(eventId)) && f in getAfter(seenDoc(eventId)).data;
+    }
+
+    // The other side of each step: a participant / helper / seen doc may only appear or
+    // disappear while the event counter moves by exactly `step` in the same write.
+    function counterMoves(eventId, f, step) {
+      return exists(eventPath(eventId)) && existsAfter(eventPath(eventId)) &&
+             getAfter(eventPath(eventId)).data.get(f, 0) == get(eventPath(eventId)).data.get(f, 0) + step;
+    }
+
+    // A counter that drifted to 0 under the old rules must not stop someone from leaving.
+    function counterStaysAtZero(eventId, f) {
+      return exists(eventPath(eventId)) && get(eventPath(eventId)).data.get(f, 0) <= 0 &&
+             getAfter(eventPath(eventId)).data.get(f, 0) == get(eventPath(eventId)).data.get(f, 0);
+    }
+
+    function canLeave(eventId, f) {
+      return !exists(eventPath(eventId)) || counterMoves(eventId, f, -1) || counterStaysAtZero(eventId, f);
+    }
+
+    function okSeenWrite(eventId) {
+      let ch = changedKeys();
+      let f = ch.hasAny(['impressions']) ? 'impressions' : 'opens';
+      return incoming().keys().hasOnly(['impressions', 'opens']) &&
+             ch.size() == 1 && f in incoming() && incoming()[f] == request.time &&
+             counterMoves(eventId, f, 1);
     }
 
     // Create-only collections: the writer must stamp their own uid.
@@ -142,46 +363,30 @@ service cloud.firestore {
 
     // --- Rules ---
 
-    // First owner, once: the claimer writes admins/{own uid} and meta/bootstrap in one batch.
-    // meta/bootstrap can never be updated or deleted, so after the first claim nobody can claim.
-    function bootstrapDoc() {
-      return /databases/$(database)/documents/meta/bootstrap;
-    }
-
-    function isBootstrapClaim(adminUid) {
-      return isSignedIn() && adminUid == request.auth.uid &&
-             incoming().role == 'owner' &&
-             !exists(bootstrapDoc()) && existsAfter(bootstrapDoc());
-    }
-
     match /admins/{adminUid} {
-      // Readable by any signed-in user so the UI can check its own access.
-      allow read: if isSignedIn();
-      allow create: if isAdminOwner() || isBootstrapClaim(adminUid);
-      allow update, delete: if isAdminOwner();
+      // Everyone may check their own access; only owners see or change the list.
+      allow get: if isOwner(adminUid) || isAdminOwner();
+      allow list: if isAdminOwner();
+      // Owners grant and revoke others, never themselves, so an owner cannot lock the
+      // project out by accident and existing owners stay as provisioned.
+      allow create, update: if isAdminOwner() && adminUid != request.auth.uid && isValidAdmin();
+      allow delete: if isAdminOwner() && adminUid != request.auth.uid;
     }
 
-    match /meta/bootstrap {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() &&
-                       !exists(bootstrapDoc()) &&
-                       existsAfter(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
-                       incoming().keys().hasOnly(['claimedBy', 'ts']) &&
-                       incoming().claimedBy == request.auth.uid &&
-                       incoming().ts == request.time;
-    }
+    // meta/bootstrap (the old first-owner lock) is no longer read or written: the safety net denies it.
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create, update: if isOwner(userId) && isValidUser(userId, incoming());
+      allow read: if isOwner(userId) || isEditor();
+      allow create, update: if isOwner(userId) && isValidUser(userId);
       allow delete: if isOwner(userId);
     }
 
     match /events/{eventId} {
       allow read: if isSignedIn();
-      // The counter path is listed first so ordinary visitors never trigger an admin lookup.
       allow create: if isEditor() && isValidEvent(incoming());
-      allow update: if (isSignedIn() && isCounterOnlyUpdate(eventId)) ||
+      // The counter steps are listed first so ordinary visitors never trigger an admin lookup.
+      allow update: if (isSignedIn() && (joinStep(eventId) || interestStep(eventId) ||
+                                         viewStep(eventId, 'impressions') || viewStep(eventId, 'opens'))) ||
                        (isEditor() && isValidEvent(incoming()));
       allow delete: if isEditor();
 
@@ -192,12 +397,13 @@ service cloud.firestore {
         allow delete: if isEditor();
       }
 
-      // A person may create, update and delete only their own participant document.
-      // Editors may delete any, so an admin can purge an event completely.
+      // One document per person per event. Joining and leaving must move participantsCount
+      // in the same write. Editors may delete any, so an admin can purge an event.
       match /participants/{userId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create, update: if isOwner(userId) && isValidParticipant(incoming());
-        allow delete: if isOwner(userId) || isEditor();
+        allow create: if isOwner(userId) && isValidParticipant(incoming()) &&
+                         counterMoves(eventId, 'participantsCount', 1);
+        allow delete: if isEditor() || (isOwner(userId) && canLeave(eventId, 'participantsCount'));
       }
 
       // Opt-in: a joiner's first initial, shown on the event's list. Only people who joined
@@ -213,10 +419,18 @@ service cloud.firestore {
       }
 
       // "I'd help run this", saved against the event. No contact details in here.
+      // Sending the offer again updates the answer without counting twice.
       match /helpers/{userId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create, update: if isOwner(userId) && isValidHelper(incoming());
-        allow delete: if isOwner(userId) || isEditor();
+        allow create: if isOwner(userId) && isValidHelper(incoming()) &&
+                         counterMoves(eventId, 'organiserInterest', 1);
+        allow update: if isOwner(userId) && isValidHelper(incoming());
+        allow delete: if isEditor() || (isOwner(userId) && canLeave(eventId, 'organiserInterest'));
+      }
+
+      // Which view counters this visitor has already moved on this event. Write-only.
+      match /seen/{userId} {
+        allow create, update: if isOwner(userId) && okSeenWrite(eventId);
       }
     }
 
@@ -239,39 +453,92 @@ service cloud.firestore {
       allow delete: if isEditor();
     }
 
-    // Student proposals: hidden from everyone but admins, approved into events by editors.
+    // Write-only record of who owns a public id. Claimed once; released by its owner.
+    match /profileOwners/{publicId} {
+      allow create: if isSignedIn() && publicId.matches('^[A-Za-z0-9]{20}$') &&
+                       incoming().keys().hasOnly(['uid']) && incoming().uid == request.auth.uid;
+      allow delete: if isSignedIn() && existing().uid == request.auth.uid;
+    }
+
+    match /profiles/{publicId} {
+      // Public to anyone signed in who has the id; never listable except by admins.
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update: if ownsProfileAfter(publicId) && isValidProfile();
+      allow delete: if ownsProfileBefore(publicId);
+    }
+
+    // An organiser may name their own public profile on a proposal, nobody else's.
+    function okOrganiserLink(data) {
+      return !('organiserPublicId' in data) ||
+             (data.organiserPublicId is string && exists(ownerDoc(data.organiserPublicId)) &&
+              get(ownerDoc(data.organiserPublicId)).data.uid == request.auth.uid);
+    }
+
+    function isValidProposal(data) {
+      return data.keys().hasOnly(['uid', 'title', 'category', 'price', 'minPeople', 'needs', 'image',
+                                  'imageCredit', 'status', 'source', 'ts', 'organiserPublicId']) &&
+             // A photo is an https link or a small compressed picture (data/images.ts).
+             data.get('image', 'https://') is string &&
+             data.get('image', 'https://').size() <= 200000 &&
+             data.get('image', 'https://').matches('^(https://|data:image/).*') &&
+             data.get('imageCredit', '') is string &&
+             data.get('imageCredit', '').size() <= 200 &&
+             data.title is string &&
+             data.title.size() >= 3 && data.title.size() <= 120 &&
+             data.category in ['Sports', 'Games', 'Creative', 'Social', 'Study', 'Tech & Ideas', 'Outdoor'] &&
+             data.price is number && data.price >= 0 && data.price <= 200 &&
+             data.minPeople is int && data.minPeople >= 2 && data.minPeople <= 200 &&
+             data.needs is string && data.needs.size() <= 500 &&
+             data.source is string && data.source.size() <= 40 &&
+             data.ts == request.time &&
+             okOrganiserLink(data);
+    }
+
+    // Student proposals: visible to their author and admins. The author can keep editing
+    // while it is a draft and send it once ('new'); after that only editors change it.
     match /proposals/{proposalId} {
-      allow create: if isOwnRecord(incoming()) &&
-                       incoming().keys().hasOnly(['uid', 'title', 'category', 'price', 'minPeople',
-                                                  'needs', 'image', 'imageCredit', 'status', 'source', 'ts']) &&
-                       // A photo is an https link or a small compressed picture (data/images.ts).
-                       incoming().get('image', 'https://') is string &&
-                       incoming().get('image', 'https://').size() <= 200000 &&
-                       incoming().get('image', 'https://').matches('^(https://|data:image/).*') &&
-                       incoming().get('imageCredit', '') is string &&
-                       incoming().get('imageCredit', '').size() <= 200 &&
-                       incoming().status == 'new' &&
-                       incoming().title is string &&
-                       incoming().title.size() >= 3 && incoming().title.size() <= 120 &&
-                       incoming().category in ['Sports', 'Games', 'Creative', 'Social', 'Study',
-                                               'Tech & Ideas', 'Outdoor'] &&
-                       incoming().price is number && incoming().price >= 0 && incoming().price <= 200 &&
-                       incoming().minPeople is int &&
-                       incoming().minPeople >= 2 && incoming().minPeople <= 200 &&
-                       incoming().needs is string && incoming().needs.size() <= 500 &&
-                       incoming().source is string && incoming().source.size() <= 40 &&
-                       incoming().ts == request.time;
-      allow read: if isAdmin();
-      allow update: if isEditor() && incoming().status in ['new', 'approved', 'rejected'];
+      allow create: if isOwnRecord(incoming()) && incoming().status in ['draft', 'new'] &&
+                       isValidProposal(incoming());
+      allow read: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow update: if (isEditor() && incoming().status in ['new', 'approved', 'rejected']) ||
+                       (isOwnRecord(existing()) && existing().status == 'draft' &&
+                        incoming().uid == existing().uid && incoming().status in ['draft', 'new'] &&
+                        isValidProposal(incoming()));
+      allow delete: if isOwnRecord(existing()) && existing().status == 'draft';
     }
 
     // --- Create-only collections (no read, update or delete for visitors) ---
 
+    // Event names and payload keys the client sends (services/analytics.ts). Payload values
+    // are short scalars, so no contact detail or blob can ride along.
+    function okPayloadValue(p, k) {
+      return !(k in p) || (p[k] is string && p[k].size() <= 200) || p[k] is number || p[k] is bool;
+    }
+
+    function isValidAnalytics(data) {
+      let p = data.payload;
+      return data.keys().hasOnly(['uid', 'name', 'payload', 'source', 'ts']) &&
+             data.name in ['page_view', 'card_impression', 'card_open', 'join_click', 'leave_click',
+                           'organiser_panel_open', 'organiser_interest_click', 'venue_offer_submit',
+                           'contact_submit', 'suggestion_submit', 'price_ladder_answer', 'proposal_submit',
+                           'share_click', 'scroll_depth_25', 'scroll_depth_50', 'scroll_depth_75',
+                           'scroll_depth_100', 'invite_click', 'locked_feature_click', 'feature_vote'] &&
+             p is map &&
+             p.keys().hasOnly(['path', 'eventId', 'price', 'ranBefore', 'spaceType', 'capacity', 'via',
+                               'hasPhone', 'hasEmail', 'length', 'answer', 'priceAsked', 'priceSeen',
+                               'category', 'feature']) &&
+             okPayloadValue(p, 'path') && okPayloadValue(p, 'eventId') && okPayloadValue(p, 'price') &&
+             okPayloadValue(p, 'ranBefore') && okPayloadValue(p, 'spaceType') && okPayloadValue(p, 'capacity') &&
+             okPayloadValue(p, 'via') && okPayloadValue(p, 'hasPhone') && okPayloadValue(p, 'hasEmail') &&
+             okPayloadValue(p, 'length') && okPayloadValue(p, 'answer') && okPayloadValue(p, 'priceAsked') &&
+             okPayloadValue(p, 'priceSeen') && okPayloadValue(p, 'category') && okPayloadValue(p, 'feature') &&
+             data.get('source', '') is string && data.get('source', '').size() <= 40 &&
+             data.ts == request.time;
+    }
+
     match /analytics/{docId} {
-      allow create: if isOwnRecord(incoming()) &&
-                       incoming().name is string && incoming().name.size() <= 64 &&
-                       incoming().payload is map && incoming().payload.size() <= 12 &&
-                       incoming().ts == request.time;
+      allow create: if isOwnRecord(incoming()) && isValidAnalytics(incoming());
       allow read: if isAdmin();
     }
 
@@ -298,21 +565,16 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // Retired: account linking by a claimed email/phone or a client-supplied uid is unsafe
+    // without verified ownership (docs/SECURITY.md). Old requests stay readable for review.
     match /mergeRequests/{docId} {
-      allow create: if isOwnRecord(incoming()) &&
-                       incoming().otherUid is string &&
-                       incoming().ts == request.time;
-      allow read: if isAdmin();
+      allow read: if isEditor();
     }
 
-    // Opaque lookup keys (hash of an email/phone → uid) used to spot the same person
-    // arriving on a second device. A visitor can check one key but never list them, and
-    // can delete only their own (self-service erasure).
+    // Retired lookup keys (hash of an email/phone → uid). Nobody can read or add them any
+    // more; a person can still delete the ones pointing at their own uid (erasure).
     match /contactKeys/{keyId} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create: if isOwnRecord(incoming());
-      allow delete: if isSignedIn() && existing().uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource != null && existing().uid == request.auth.uid;
     }
   }
 }
