@@ -2,7 +2,7 @@
 // Run: npx firebase-tools emulators:exec --only firestore "node scripts/test-bootstrap-rules.mjs"
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, writeBatch, setDoc, updateDoc, deleteDoc, getDoc, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
+import { doc, writeBatch, setDoc, updateDoc, deleteDoc, getDoc, getDocs, addDoc, collection, collectionGroup, query, where, serverTimestamp } from 'firebase/firestore';
 
 const env = await initializeTestEnvironment({
   projectId: 'agorax-a8d07',
@@ -49,6 +49,18 @@ await check('cannot show an initial for someone else', assertFails(face(bob, 'al
 await check('anyone signed in can read initials', assertSucceeds(getDocs(collectionGroup(bob, 'faces'))));
 await check('signed-out cannot read initials', assertFails(getDocs(collectionGroup(anon, 'faces'))));
 await check('joiner can hide it again', assertSucceeds(deleteDoc(doc(alice, 'events', 'board-games', 'faces', 'alice'))));
+
+await check('display name up to 40 chars', assertSucceeds(setDoc(doc(bob, 'users', 'bob'), { uid: 'bob', displayName: 'B'.repeat(40) }, { merge: true })));
+await check('display name over 40 denied', assertFails(setDoc(doc(bob, 'users', 'bob'), { displayName: 'B'.repeat(41) }, { merge: true })));
+const proposal = (extra) => ({ uid: 'bob', title: 'Salsa night', category: 'Social', price: 5, minPeople: 10, needs: '', status: 'new', source: 'test', ts: serverTimestamp(), ...extra });
+await check('proposal without photo', assertSucceeds(addDoc(collection(bob, 'proposals'), proposal({}))));
+await check('proposal with photo link', assertSucceeds(addDoc(collection(bob, 'proposals'), proposal({ image: 'https://example.com/a.jpg' }))));
+await check('proposal with uploaded photo', assertSucceeds(addDoc(collection(bob, 'proposals'), proposal({ image: 'data:image/jpeg;base64,' + 'A'.repeat(150000), imageCredit: 'Photo: X, CC BY' }))));
+await check('proposal with http photo denied', assertFails(addDoc(collection(bob, 'proposals'), proposal({ image: 'http://example.com/a.jpg' }))));
+await check('proposal photo over 200k denied', assertFails(addDoc(collection(bob, 'proposals'), proposal({ image: 'data:image/jpeg;base64,' + 'A'.repeat(200001) }))));
+await check('visitor can vote for a feature', assertSucceeds(addDoc(collection(bob, 'analytics'), { uid: 'bob', name: 'feature_vote', payload: { feature: 'map' }, source: 'test', ts: serverTimestamp() })));
+await check('owner can read feature votes', assertSucceeds(getDocs(query(collection(alice, 'analytics'), where('name', 'in', ['locked_feature_click', 'feature_vote'])))));
+await check('visitor cannot read feature votes', assertFails(getDocs(query(collection(env.authenticatedContext('carol').firestore(), 'analytics'), where('name', 'in', ['feature_vote'])))));
 
 await env.cleanup();
 console.log(failed ? `${failed} failed` : 'all passed');

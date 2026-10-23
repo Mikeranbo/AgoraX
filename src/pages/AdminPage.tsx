@@ -15,6 +15,7 @@ import { Proposals } from './admin/sections/Proposals';
 import { SpaceOffers } from './admin/sections/SpaceOffers';
 import { Suggestions } from './admin/sections/Suggestions';
 import { Admins } from './admin/sections/Admins';
+import { MostWanted } from './admin/sections/MostWanted';
 
 export default function AdminPage() {
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -78,6 +79,7 @@ function Dashboard({ uid, admin }: { uid: string; admin: AdminDoc }) {
           <Helpers />
           <SpaceOffers />
           <Suggestions />
+          <MostWanted />
           <Admins />
         </main>
         <Editor />

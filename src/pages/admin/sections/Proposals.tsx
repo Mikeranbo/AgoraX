@@ -39,10 +39,17 @@ export function Proposals() {
 
   return (
     <Section title="Proposals" subtitle="Ideas from students — not in the feed until approved" onExport={exportProposals}>
-      <Table head={['When', 'Idea', 'Category', '€', 'People', 'What they need', 'Name', 'WhatsApp', 'Status', ...(canEdit ? [''] : [])]} empty="No proposals yet.">
+      <Table head={['When', 'Photo', 'Idea', 'Category', '€', 'People', 'What they need', 'Name', 'WhatsApp', 'Status', ...(canEdit ? [''] : [])]} empty="No proposals yet.">
         {proposalRows.map(({ proposal: p, name, phone }) => (
           <tr key={p.id} className={p.status === 'rejected' ? 'opacity-50' : ''}>
             <Td className="whitespace-nowrap">{formatTs(p.ts)}</Td>
+            <Td>
+              {p.image ? (
+                <img src={p.image} alt="" title={p.imageCredit} className="h-12 w-20 rounded object-cover" />
+              ) : (
+                <span className="text-slate-600">—</span>
+              )}
+            </Td>
             <Td className="text-white font-bold min-w-[10rem]">{p.title}</Td>
             <Td>{p.category}</Td>
             <Td className="tabular-nums">{p.price === 0 ? 'Free' : p.price}</Td>

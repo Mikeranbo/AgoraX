@@ -1,13 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { EventCategory, LEGACY_CATEGORIES, PUBLIC_CATEGORIES } from '../types';
-import { useVisitor } from '../state/VisitorProvider';
+import { LEGACY_CATEGORIES, PUBLIC_CATEGORIES } from '../types';
+import { Filter, useVisitor } from '../state/VisitorProvider';
 import { EventCard } from '../components/EventCard';
 import { SuggestionBox } from '../components/SuggestionBox';
 import { OpeningHero } from '../components/OpeningHero';
 import { LIST_ID } from '../components/ui';
 
-type Filter = EventCategory | 'All';
 const CHIPS: Filter[] = ['All', ...PUBLIC_CATEGORIES];
 
 /** Sticky under the header: category chips, or the search field in their place. */
@@ -24,7 +23,7 @@ const FilterBar = ({ filter, setFilter, query, setQuery }: {
   };
 
   return (
-    <div className="sheet sticky top-2 z-30 rounded-sheet p-1.5">
+    <div className="sheet sticky top-2 z-30 ml-12 rounded-sheet p-1.5 lg:ml-0">
       {searching ? (
         <div className="flex items-center gap-2">
           <label htmlFor="event-search" className="sr-only">Search events</label>
@@ -78,7 +77,8 @@ const Empty = ({ children }: { children: React.ReactNode }) => (
 
 export const EventsScreen = () => {
   const { state, actions } = useVisitor();
-  const [filter, setFilter] = useState<Filter>('All');
+  const { filter } = state;
+  const setFilter = actions.setFilter;
   const [query, setQuery] = useState('');
 
   // Cancelled events are withdrawn from the public page; admins still see them at /admin.
@@ -152,9 +152,6 @@ export const EventsScreen = () => {
           <p className="flex flex-wrap gap-x-5">
             <button onClick={() => actions.openSheet('space')} className="min-h-11 font-semibold text-brand-secondary underline underline-offset-4">
               I have a space
-            </button>
-            <button onClick={() => actions.openSheet('privacy')} className="min-h-11 font-semibold text-slate-300 underline underline-offset-4">
-              Your details
             </button>
           </p>
         </footer>

@@ -66,6 +66,8 @@ export interface Event {
   season?: 'any' | 'spring';
   emoji?: string;
   accent?: string;
+  /** "Photo: Jane Doe, CC BY" for pictures whose licence asks for credit. */
+  imageCredit?: string;
 }
 
 export interface Venue {
@@ -113,6 +115,9 @@ export interface Proposal {
   price: number;
   minPeople: number;
   needs: string;
+  /** https link or a compressed data:image URL (see data/images.ts). */
+  image?: string;
+  imageCredit?: string;
   status: 'new' | 'approved' | 'rejected';
   eventId?: string;
   source: string;
@@ -138,6 +143,8 @@ export interface UserDoc {
   /** Share code of whoever's link brought this visitor here, if any. */
   referredBy?: string | null;
   hasContact?: boolean;
+  /** Private name shown only to this visitor, in the sidebar and profile. */
+  displayName?: string;
   name?: string;
   email?: string;
   phone?: string;
@@ -145,6 +152,8 @@ export interface UserDoc {
   hasSpace?: boolean;
   consent?: boolean;
   consentAt?: any;
+  /** One entry per purpose the person agreed to (see data/consent.ts). */
+  consents?: Partial<Record<'updates' | 'organising' | 'proposal' | 'space', { version: string; at: any }>>;
   /** Event ids the person has joined — mirrors events/{id}/participants/{uid}. */
   joinedEvents?: string[];
   /** Event ids the person tapped "help run this" on. */

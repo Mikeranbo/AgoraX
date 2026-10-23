@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { ensureAnonymousAuth, getSource, linkContact } from './identity';
+import { statsOff } from './analytics';
 import { Event, EventCategory, Venue, UserDoc, PriceAnswer, RanBefore, SpaceType } from '../types';
 import { splitContact } from '../data/forms';
 import { SEED_EVENTS } from '../data/seedEvents';
@@ -153,6 +154,14 @@ export const leaveEvent = async (eventId: string, userId: string): Promise<boole
   }
 };
 
+/** True while admins/{uid} exists, so the sidebar can show the Admin link. */
+export const subscribeIsAdmin = (userId: string, callback: (isAdmin: boolean) => void) =>
+  onSnapshot(
+    doc(db, 'admins', userId),
+    (snap) => callback(snap.exists()),
+    () => callback(false),
+  );
+
 /** A joiner who chose to show their initial on an event's list. */
 export interface Face {
   eventId: string;
@@ -185,6 +194,7 @@ export const hideMyInitial = (eventId: string, userId: string) => deleteDoc(doc(
 
 /** Cheap aggregate counters on the event document, so the admin page never scans analytics. */
 export const bumpEventCounter = async (eventId: string, field: 'impressions' | 'opens') => {
+  if (statsOff()) return;
   try {
     await ensureAnonymousAuth();
     await updateDoc(doc(db, 'events', eventId), { [field]: increment(1) });
@@ -285,6 +295,8 @@ export interface ProposalInput {
   needs: string;
   firstName: string;
   phone: string;
+  image?: string;
+  imageCredit?: string;
 }
 
 /**
@@ -301,6 +313,8 @@ export const submitProposal = async (input: ProposalInput) => {
       price: input.price,
       minPeople: input.minPeople,
       needs: input.needs.trim(),
+      ...(input.image ? { image: input.image } : {}),
+      ...(input.imageCredit ? { imageCredit: input.imageCredit } : {}),
       status: 'new',
       source: getSource(),
       ts: serverTimestamp(),

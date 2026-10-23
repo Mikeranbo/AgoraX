@@ -7,21 +7,36 @@ import {
   recordPriceAnswer,
   subscribeToMyUser,
   subscribeToFaces,
+  subscribeIsAdmin,
   showMyInitial,
   hideMyInitial,
   Face,
 } from '../services/firebaseService';
-import { ensureAnonymousAuth, touchUser, linkContact, deleteMyContact, getSource, describeAuthError } from '../services/identity';
-import { track, AnalyticsName } from '../services/analytics';
+import {
+  ensureAnonymousAuth,
+  touchUser,
+  linkContact,
+  deleteMyContact,
+  getSource,
+  describeAuthError,
+  saveDisplayName,
+  setConsent,
+} from '../services/identity';
+import { track, AnalyticsName, statsOff, setStatsOff } from '../services/analytics';
 import { once } from '../services/session';
 import { nextPriceFor } from '../data/priceLadder';
-import type { Event, PriceAnswer, UserDoc } from '../types';
+import type { Event, EventCategory, PriceAnswer, UserDoc } from '../types';
+import type { ConsentPurpose } from '../data/consent';
+import type { LockedFeature } from '../data/features';
+import { shareCodeFor } from '../data/share';
 import type { LadderPrompt } from '../components/PriceLadderSheet';
 import type { ContactValues } from '../components/ContactForm';
 import { LIST_ID } from '../components/ui';
 
-export type Tab = 'events' | 'propose' | 'picks';
-export type Sheet = 'contact' | 'space' | 'privacy' | 'initial' | null;
+/** The three bottom-bar tabs, plus the screens reached from the sidebar. */
+export type Tab = 'events' | 'propose' | 'picks' | 'profile' | 'data' | 'how' | 'faq';
+export type Sheet = 'contact' | 'space' | 'privacy' | 'initial' | 'profile' | 'locked' | null;
+export type Filter = EventCategory | 'All';
 
 interface VisitorState {
   phase: 'loading' | 'ready' | 'error';
@@ -32,7 +47,13 @@ interface VisitorState {
   eventsError: boolean;
   me: UserDoc | null;
   tab: Tab;
+  /** Category shown in the event list; the sidebar sets it too. */
+  filter: Filter;
   selected: Event | null;
+  isAdmin: boolean;
+  drawerOpen: boolean;
+  lockedFeature: LockedFeature | null;
+  statsOff: boolean;
   pending: Set<string>;
   organiserEvent: Event | null;
   ladder: LadderPrompt | null;
@@ -49,11 +70,22 @@ interface VisitorActions {
   open: (e: Event) => void;
   back: () => void;
   setTab: (tab: Tab) => void;
+  showCategory: (filter: Filter) => void;
+  setFilter: (filter: Filter) => void;
+  openDrawer: () => void;
+  closeDrawer: () => void;
+  openLocked: (feature: LockedFeature) => void;
+  voteFeature: (feature: LockedFeature) => void;
+  saveProfile: (displayName: string) => Promise<void>;
+  setConsent: (purpose: ConsentPurpose, on: boolean) => Promise<void>;
+  setStatsOff: (off: boolean) => void;
+  hideAllInitials: () => Promise<void>;
+  invite: () => Promise<void>;
   helpRun: (e: Event) => void;
   closeOrganiser: () => void;
   answerLadder: (prompt: LadderPrompt, answer: PriceAnswer) => void;
   skipLadder: () => void;
-  openSheet: (sheet: Exclude<Sheet, null | 'initial'>) => void;
+  openSheet: (sheet: Exclude<Sheet, null | 'initial' | 'locked'>) => void;
   askInitial: (e: Event) => void;
   showInitial: (e: Event, initial: string) => Promise<void>;
   hideInitial: (e: Event) => Promise<void>;
@@ -104,6 +136,11 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   const [eventsError, setEventsError] = useState(false);
   const [me, setMe] = useState<UserDoc | null>(null);
   const [tab, setTabState] = useState<Tab>('events');
+  const [filter, setFilter] = useState<Filter>('All');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [lockedFeature, setLockedFeature] = useState<LockedFeature | null>(null);
+  const [statsAreOff, setStatsAreOff] = useState(statsOff);
   const [selectedId, setSelectedId] = useState<string | null>(urlEventId);
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [organiserEvent, setOrganiserEvent] = useState<Event | null>(null);
@@ -148,6 +185,7 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
         );
         unsubscribers.push(subscribeToMyUser(user.uid, setMe));
         unsubscribers.push(subscribeToFaces(setFaces));
+        unsubscribers.push(subscribeIsAdmin(user.uid, setIsAdmin));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -266,6 +304,7 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     },
     setTab: (next) => {
       if (selectedId) actions.back();
+      setDrawerOpen(false);
       setTabState(next);
       // The opening view is for arriving on the site; from the tab bar, go straight to the list.
       setTimeout(() => {
@@ -273,6 +312,61 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
         if (list) list.scrollIntoView();
         else window.scrollTo(0, 0);
       }, 0);
+    },
+    showCategory: (next) => {
+      setFilter(next);
+      actions.setTab('events');
+    },
+    setFilter,
+    openDrawer: () => setDrawerOpen(true),
+    closeDrawer: () => setDrawerOpen(false),
+    openLocked: (feature) => {
+      track('locked_feature_click', { feature });
+      setLockedFeature(feature);
+      setDrawerOpen(false);
+      setSheet('locked');
+    },
+    voteFeature: (feature) => {
+      // One vote per feature per visit; /admin also counts each person once.
+      if (once(`vote:${feature}`)) track('feature_vote', { feature });
+      setSheet(null);
+      showToast("Noted. We'll build the most wanted ones first.");
+    },
+    saveProfile: async (displayName) => {
+      await saveDisplayName(displayName);
+      setSheet(null);
+    },
+    setConsent: async (purpose, on) => {
+      try {
+        await setConsent(purpose, on);
+      } catch (err) {
+        console.error(err);
+        showToast("That didn't save. Check your connection and try again.");
+      }
+    },
+    setStatsOff: (off) => {
+      setStatsOff(off);
+      setStatsAreOff(off);
+    },
+    hideAllInitials: async () => {
+      if (!uid) return;
+      const mine = [...faces.values()].flat().filter((f) => f.uid === uid);
+      await Promise.all(mine.map((f) => hideMyInitial(f.eventId, uid)));
+    },
+    invite: async () => {
+      const code = me?.shareCode ?? (uid ? shareCodeFor(uid) : '');
+      const url = `${window.location.origin}/?ref=${encodeURIComponent(code)}`;
+      track('invite_click');
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'AgoraX', text: "Pick the events you'd actually go to in Groningen.", url });
+          return;
+        }
+        await navigator.clipboard.writeText(url);
+        showToast('Invite link copied.');
+      } catch {
+        /* the share sheet was closed */
+      }
     },
     helpRun: (event) => {
       setOrganiserEvent(event);
@@ -293,7 +387,10 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
       );
     },
     skipLadder: () => setLadder(null),
-    openSheet: (next) => setSheet(next),
+    openSheet: (next) => {
+      setDrawerOpen(false);
+      setSheet(next);
+    },
     askInitial: (event) => {
       setInitialEvent(event);
       setSheet('initial');
@@ -351,7 +448,12 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     eventsError,
     me,
     tab,
+    filter,
     selected,
+    isAdmin,
+    drawerOpen,
+    lockedFeature,
+    statsOff: statsAreOff,
     pending,
     organiserEvent,
     ladder,

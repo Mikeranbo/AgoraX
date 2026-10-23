@@ -37,6 +37,7 @@ export const EventDetailScreen = ({ event }: { event: Event }) => {
           </h1>
         </PhotoBackdrop>
         <div className="space-y-5 p-4 sm:p-6">
+          {event.imageCredit && <p className="-mt-2 text-[12px] text-slate-400">{event.imageCredit}</p>}
           <PeopleLine event={event} />
           <p className="max-w-[60ch] whitespace-pre-wrap text-[16px] leading-relaxed text-pretty text-slate-200">{event.description}</p>
           <dl>
@@ -57,7 +58,7 @@ export const EventDetailScreen = ({ event }: { event: Event }) => {
         </div>
       </article>
 
-      <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-2xl">
+      <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-2xl lg:left-[calc(20rem+0.75rem)]">
         <div className="sheet rounded-sheet px-4 py-3">
           <PriceAndAction event={event} size="large" />
         </div>

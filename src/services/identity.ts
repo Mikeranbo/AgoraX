@@ -218,6 +218,20 @@ export async function linkContact(input: ContactInput): Promise<{ possibleDuplic
   return { possibleDuplicate };
 }
 
+/** A private display name for the sidebar and profile. Nobody else sees it. */
+export async function saveDisplayName(displayName: string): Promise<void> {
+  const user = await ensureAnonymousAuth();
+  await setDoc(doc(db, 'users', user.uid), { uid: user.uid, displayName: displayName.trim().slice(0, 40) }, { merge: true });
+}
+
+/** Turns one consent purpose on or off (withdrawing consent must be as easy as giving it). */
+export async function setConsent(purpose: ConsentPurpose, on: boolean): Promise<void> {
+  const user = await ensureAnonymousAuth();
+  await updateDoc(doc(db, 'users', user.uid), {
+    [`consents.${purpose}`]: on ? { version: CONSENT_VERSION, at: serverTimestamp() } : deleteField(),
+  });
+}
+
 /**
  * Self-service erasure (GDPR Art. 17): removes every contact detail and consent from
  * users/{uid} and the lookup keys that point at this uid. Joins and price answers stay —

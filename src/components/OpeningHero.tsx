@@ -8,7 +8,7 @@ export function scrollToList() {
 }
 
 const Wordmark = () => (
-  <p className="font-display text-[17px] font-extrabold tracking-tight text-white">
+  <p className="pt-2.5 pl-12 font-display text-[17px] font-extrabold tracking-tight text-white lg:pt-0 lg:pl-0">
     Agora<span className="text-brand-secondary">X</span>
   </p>
 );

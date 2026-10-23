@@ -75,12 +75,14 @@ service cloud.firestore {
       return data.keys().hasOnly([
                'uid', 'createdAt', 'lastSeenAt', 'source', 'shareCode', 'referredBy',
                'hasContact', 'name', 'email', 'phone', 'wantsToOrganise', 'hasSpace',
-               'consents', 'consent', 'consentAt', 'joinedEvents', 'organiserEvents', 'priceAnswers'
+               'consents', 'consent', 'consentAt', 'joinedEvents', 'organiserEvents', 'priceAnswers',
+               'displayName'
              ]) &&
              data.get('uid', userId) == userId &&
              data.get('name', '').size() <= 80 &&
              data.get('email', '').size() <= 254 &&
-             data.get('phone', '').size() <= 32;
+             data.get('phone', '').size() <= 32 &&
+             data.get('displayName', '').size() <= 40;
     }
 
     // --- Event counters ---
@@ -241,7 +243,13 @@ service cloud.firestore {
     match /proposals/{proposalId} {
       allow create: if isOwnRecord(incoming()) &&
                        incoming().keys().hasOnly(['uid', 'title', 'category', 'price', 'minPeople',
-                                                  'needs', 'status', 'source', 'ts']) &&
+                                                  'needs', 'image', 'imageCredit', 'status', 'source', 'ts']) &&
+                       // A photo is an https link or a small compressed picture (data/images.ts).
+                       incoming().get('image', 'https://') is string &&
+                       incoming().get('image', 'https://').size() <= 200000 &&
+                       incoming().get('image', 'https://').matches('^(https://|data:image/).*') &&
+                       incoming().get('imageCredit', '') is string &&
+                       incoming().get('imageCredit', '').size() <= 200 &&
                        incoming().status == 'new' &&
                        incoming().title is string &&
                        incoming().title.size() >= 3 && incoming().title.size() <= 120 &&

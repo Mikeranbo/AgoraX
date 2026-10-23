@@ -12,6 +12,9 @@ import { PriceLadderSheet } from './components/PriceLadderSheet';
 import { VenueOfferModal } from './components/VenueOfferModal';
 import { PrivacyNote } from './components/PrivacyNote';
 import { InitialSheet } from './components/InitialSheet';
+import { LockedSheet, ProfileSheet } from './components/AccountSheets';
+import { DesktopSidebar, MenuButton, SidebarDrawer } from './components/Sidebar';
+import { FaqScreen, HowItWorksScreen, MyDataScreen, ProfileScreen } from './screens/AccountScreens';
 import { ContactForm } from './components/ContactForm';
 import { Modal } from './components/Modal';
 
@@ -49,6 +52,8 @@ const Sheets = () => {
       <VenueOfferModal isOpen={state.sheet === 'space'} onClose={actions.closeSheet} />
       <PrivacyNote isOpen={state.sheet === 'privacy'} onClose={actions.closeSheet} />
       <InitialSheet />
+      <LockedSheet />
+      <ProfileSheet />
     </>
   );
 };
@@ -58,6 +63,10 @@ const Screen = () => {
   if (state.selected) return <EventDetailScreen event={state.selected} />;
   if (state.tab === 'propose') return <ProposeScreen />;
   if (state.tab === 'picks') return <MyPicksScreen />;
+  if (state.tab === 'profile') return <ProfileScreen />;
+  if (state.tab === 'data') return <MyDataScreen />;
+  if (state.tab === 'how') return <HowItWorksScreen />;
+  if (state.tab === 'faq') return <FaqScreen />;
   return <EventsScreen />;
 };
 
@@ -68,7 +77,10 @@ const Shell = () => {
 
   return (
     <div className="min-h-dvh">
-      <main className="pb-40">
+      <DesktopSidebar />
+      <SidebarDrawer />
+      <MenuButton />
+      <main className="pb-40 lg:pl-80">
         <Screen />
       </main>
       {!state.selected && (
@@ -79,7 +91,7 @@ const Shell = () => {
       )}
       <Sheets />
       {state.toast && (
-        <div role="status" className="sheet fixed bottom-28 left-1/2 z-[80] -translate-x-1/2 rounded-sheet px-4 py-2.5 text-[15px] text-white">
+        <div role="status" className="sheet fixed bottom-28 left-1/2 z-[80] -translate-x-1/2 lg:bottom-8 lg:ml-40 rounded-sheet px-4 py-2.5 text-[15px] text-white">
           {state.toast}
         </div>
       )}

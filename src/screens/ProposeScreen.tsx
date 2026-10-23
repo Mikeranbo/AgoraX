@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { EventCategory, PUBLIC_CATEGORIES } from '../types';
 import { ProposalFormValues, validateProposal } from '../data/proposals';
 import { CONSENT_TEXTS } from '../data/consent';
@@ -6,6 +7,7 @@ import { submitProposal } from '../services/firebaseService';
 import { track } from '../services/analytics';
 import { useVisitor } from '../state/VisitorProvider';
 import { errorClass, fieldClass, labelClass, primaryButtonClass } from '../components/ui';
+import { ImagePicker, PickedImage } from '../components/ImagePicker';
 
 const EMPTY: ProposalFormValues = {
   title: '',
@@ -22,6 +24,7 @@ const EMPTY: ProposalFormValues = {
 export const ProposeScreen = () => {
   const { actions } = useVisitor();
   const [v, setV] = useState<ProposalFormValues>(EMPTY);
+  const [photo, setPhoto] = useState<PickedImage | null>(null);
   const [error, setError] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle');
   const set = <K extends keyof ProposalFormValues>(key: K, value: ProposalFormValues[K]) => setV((prev) => ({ ...prev, [key]: value }));
@@ -41,6 +44,8 @@ export const ProposeScreen = () => {
         needs: v.needs.trim(),
         firstName: v.firstName.trim(),
         phone: v.phone.trim(),
+        image: photo?.image,
+        imageCredit: photo?.credit,
       });
       track('proposal_submit', { category: v.category });
       setState('done');
@@ -52,8 +57,13 @@ export const ProposeScreen = () => {
   };
 
   return (
-    <div className="mx-auto max-w-xl px-4 pt-5 sm:px-6">
-      <h1 className="font-display text-[30px] font-bold leading-tight text-white">Propose an event</h1>
+    <div className="mx-auto max-w-xl px-4 pt-16 sm:px-6 lg:pt-8">
+      <button onClick={() => actions.setTab('events')} className="-ml-2 mb-2 inline-flex min-h-11 items-center gap-2 px-2 text-[15px] font-semibold text-slate-200 hover:text-white">
+        <ArrowLeft size={18} /> Back to events
+      </button>
+      <h1 className="font-display leading-[0.95] font-extrabold tracking-[-0.025em] text-white" style={{ fontSize: 'clamp(36px, 8vw, 56px)' }}>
+        Propose an event
+      </h1>
 
       {state === 'done' ? (
         <div className="sheet mt-5 space-y-4 rounded-sheet p-5">
@@ -64,6 +74,7 @@ export const ProposeScreen = () => {
           <button
             onClick={() => {
               setV(EMPTY);
+              setPhoto(null);
               setState('idle');
               actions.setTab('events');
             }}
@@ -99,6 +110,7 @@ export const ProposeScreen = () => {
                 <input id="p-min" type="number" inputMode="numeric" min={2} max={200} placeholder="10" className={fieldClass} value={v.minPeople} onChange={(e) => set('minPeople', e.target.value)} />
               </div>
             </div>
+            <ImagePicker value={photo} onChange={setPhoto} title={v.title} category={v.category} />
             <div>
               <label className={labelClass} htmlFor="p-needs">What would you need to make it happen?</label>
               <textarea id="p-needs" maxLength={500} placeholder="A room for 15, a projector, someone who knows the route…" className={`${fieldClass} min-h-[88px]`} value={v.needs} onChange={(e) => set('needs', e.target.value)} />

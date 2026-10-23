@@ -11,6 +11,7 @@ import { closesLabel } from '../data/dates';
 import { photoFor } from '../data/photos';
 import { useVisitor } from '../state/VisitorProvider';
 import { quietLinkClass } from './ui';
+import { colourFor } from './Avatar';
 
 const DEFAULT_ACCENT = '#818cf8';
 
@@ -92,14 +93,6 @@ export const EventPhoto = ({ event, className = '' }: { event: Event; className?
     </PhotoBackdrop>
   );
 };
-
-const AVATAR_COLOURS = ['#818cf8', '#22d3ee', '#c084fc', '#a5b4fc', '#67e8f9'];
-
-function colourFor(uid: string): string {
-  let h = 0;
-  for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) >>> 0;
-  return AVATAR_COLOURS[h % AVATAR_COLOURS.length];
-}
 
 /** Initials of joiners who chose to show them. Never more than five circles. */
 const Avatars = ({ faces }: { faces: Face[] }) => {

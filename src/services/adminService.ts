@@ -10,6 +10,8 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  query,
+  where,
   DocumentReference,
   Unsubscribe,
 } from 'firebase/firestore';
@@ -195,6 +197,29 @@ export async function purgeNonSeedEvents(): Promise<PurgeResult> {
     result.events++;
   }
   return result;
+}
+
+// ---------------------------------------------------------------- feature demand
+
+export interface FeatureSignal {
+  name: 'locked_feature_click' | 'feature_vote';
+  uid: string;
+  feature: string;
+}
+
+/** Taps on locked sidebar items and "I want this" votes, for the Most wanted ranking. */
+export function subscribeFeatureSignals(callback: (items: FeatureSignal[]) => void, onError?: OnError): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, 'analytics'), where('name', 'in', ['locked_feature_click', 'feature_vote'])),
+    (snap) =>
+      callback(
+        snap.docs.map((d) => {
+          const data = d.data();
+          return { name: data.name, uid: data.uid, feature: String(data.payload?.feature ?? '') };
+        }),
+      ),
+    (err) => onError?.(err),
+  );
 }
 
 // ---------------------------------------------------------------- admins

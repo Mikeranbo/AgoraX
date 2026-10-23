@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Event } from '../types';
 import { useVisitor } from '../state/VisitorProvider';
 import { EventCard } from '../components/EventCard';
@@ -41,7 +41,6 @@ const ShareRow = ({ event }: { event: Event }) => {
 
 const ContactStatus = () => {
   const { state, actions } = useVisitor();
-  const [confirming, setConfirming] = useState(false);
   const me = state.me;
 
   if (!me?.hasContact) {
@@ -60,27 +59,9 @@ const ContactStatus = () => {
       <p className="text-[15px] text-slate-200">
         {me.phone ? `We'll message you on ${maskPhone(me.phone)}` : "We'll email you"} when one of your events is happening.
       </p>
-      {confirming ? (
-        <p className="flex flex-wrap items-center gap-x-4 text-[15px] text-slate-300">
-          Delete your number, email and name?
-          <button
-            onClick={async () => {
-              await actions.deleteContact();
-              setConfirming(false);
-            }}
-            className="min-h-11 font-bold text-red-300 underline underline-offset-4"
-          >
-            Delete
-          </button>
-          <button onClick={() => setConfirming(false)} className="min-h-11 font-semibold text-slate-300 underline underline-offset-4">
-            Keep them
-          </button>
-        </p>
-      ) : (
-        <button onClick={() => setConfirming(true)} className="min-h-11 text-[15px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white">
-          Delete my details
-        </button>
-      )}
+      <button onClick={() => actions.setTab('data')} className="min-h-11 text-[15px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white">
+        Privacy & my data
+      </button>
     </div>
   );
 };
@@ -89,7 +70,7 @@ export const MyPicksScreen = () => {
   const { actions, meta } = useVisitor();
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-5 sm:px-6">
+    <div className="mx-auto max-w-2xl px-4 pt-16 sm:px-6 lg:pt-8">
       <h1 className="mb-4 font-display text-[30px] font-bold leading-tight text-white">My picks</h1>
 
       {meta.picks.length === 0 ? (

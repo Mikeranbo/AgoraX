@@ -19,10 +19,34 @@ export type AnalyticsName =
   | 'scroll_depth_25'
   | 'scroll_depth_50'
   | 'scroll_depth_75'
-  | 'scroll_depth_100';
+  | 'scroll_depth_100'
+  | 'invite_click'
+  | 'locked_feature_click'
+  | 'feature_vote';
+
+const STATS_OFF_KEY = 'agorax_no_stats';
+
+/** "Count my visits in AgoraX statistics" switch, kept per device. Joins are never affected. */
+export function statsOff(): boolean {
+  try {
+    return localStorage.getItem(STATS_OFF_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setStatsOff(off: boolean) {
+  try {
+    if (off) localStorage.setItem(STATS_OFF_KEY, '1');
+    else localStorage.removeItem(STATS_OFF_KEY);
+  } catch {
+    /* private mode: the switch lasts for this visit only */
+  }
+}
 
 /** Fire-and-forget: analytics must never block or break the UI. */
 export function track(name: AnalyticsName, payload: Record<string, unknown> = {}): void {
+  if (statsOff()) return;
   void (async () => {
     try {
       const user = await ensureAnonymousAuth();
