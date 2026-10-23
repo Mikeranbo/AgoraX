@@ -100,6 +100,7 @@ export type EventFormData = Pick<
   | 'bringYourOwn'
   | 'venueNote'
   | 'season'
+  | 'imageCredit'
 >;
 
 /** Creates (id = null) or edits an event. Edits never touch the counters. */

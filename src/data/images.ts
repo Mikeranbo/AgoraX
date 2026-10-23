@@ -68,23 +68,74 @@ export function photosForCategory(category: string): PhotoChoice[] {
     .map((u) => ({ thumb: u.replace('w=800', 'w=320'), src: u }));
 }
 
-const LICENCE_NAMES: Record<string, string> = { by: 'CC BY', cc0: 'CC0', pdm: 'public domain' };
+/** fetch() that gives up after `ms`, so one slow picture service can't freeze the picker. */
+async function fetchJson(url: string, ms = 8000): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`${res.status} from ${new URL(url).host}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const PER_PAGE = 9;
+const OPENVERSE_LICENCES: Record<string, string> = { by: 'CC BY', cc0: 'CC0', pdm: 'public domain' };
 
 /**
- * Free pictures from Openverse (openverse.org), matched to what the person is proposing.
- * Only licences that allow any use: public domain, CC0, and CC BY (credit kept with the picture).
+ * Free pictures from Openverse (openverse.org). Only public domain, CC0 and CC BY, so any use is
+ * allowed as long as the CC BY credit travels with the picture.
  */
-export async function searchOpenverse(query: string, page = 1): Promise<PhotoChoice[]> {
-  const q = query.trim();
-  if (q.length < 3) return [];
-  const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&license=by,cc0,pdm&aspect_ratio=wide&mature=false&page_size=9&page=${page}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`openverse ${res.status}`);
-  const data = (await res.json()) as { results?: { thumbnail: string; creator?: string; license: string }[] };
-  return (data.results ?? []).map((r) => ({
+async function searchOpenverse(query: string, page: number): Promise<PhotoChoice[]> {
+  const data = await fetchJson(
+    `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&license=by,cc0,pdm&aspect_ratio=wide&mature=false&page_size=${PER_PAGE}&page=${page}`,
+  );
+  return ((data.results ?? []) as { thumbnail: string; creator?: string; license: string }[]).map((r) => ({
     thumb: r.thumbnail,
     src: r.thumbnail,
     copy: true,
-    credit: r.license === 'by' ? `Photo: ${r.creator?.trim() || 'unknown'}, ${LICENCE_NAMES.by}` : undefined,
+    credit: r.license === 'by' ? `Photo: ${r.creator?.trim() || 'unknown'}, ${OPENVERSE_LICENCES.by}` : undefined,
   }));
+}
+
+const stripTags = (html: string) => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
+/** Free pictures from Wikimedia Commons, keeping only licences that allow any use with credit. */
+async function searchWikimedia(query: string, page: number): Promise<PhotoChoice[]> {
+  const params = new URLSearchParams({
+    action: 'query',
+    generator: 'search',
+    gsrsearch: `${query} filetype:bitmap`,
+    gsrnamespace: '6',
+    gsrlimit: String(PER_PAGE),
+    gsroffset: String((page - 1) * PER_PAGE),
+    prop: 'imageinfo',
+    iiprop: 'url|extmetadata',
+    iiextmetadatafilter: 'Artist|LicenseShortName',
+    iiurlwidth: '500',
+    format: 'json',
+    origin: '*',
+  });
+  const data = await fetchJson(`https://commons.wikimedia.org/w/api.php?${params}`);
+  const pages = Object.values(data.query?.pages ?? {}) as { index?: number; imageinfo?: any[] }[];
+  return pages
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    .map((p) => p.imageinfo?.[0])
+    .filter((info) => info?.thumburl)
+    .flatMap((info) => {
+      const licence: string = info.extmetadata?.LicenseShortName?.value ?? '';
+      if (!/^(CC0|Public domain|CC BY(-SA)? [\d.]+)$/i.test(licence)) return [];
+      const artist = stripTags(info.extmetadata?.Artist?.value ?? '').slice(0, 60) || 'unknown';
+      const needsCredit = /^CC BY/i.test(licence);
+      return [{ thumb: info.thumburl, src: info.thumburl, copy: true, credit: needsCredit ? `Photo: ${artist}, ${licence}` : undefined }];
+    });
+}
+
+/** Both free sources, as separate promises, so the picker can show whichever answers first. */
+export function freePhotoSources(query: string, page = 1): Promise<PhotoChoice[]>[] {
+  const q = query.trim();
+  if (q.length < 3) return [];
+  return [searchWikimedia(q, page), searchOpenverse(q, page)];
 }

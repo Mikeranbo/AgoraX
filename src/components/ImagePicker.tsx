@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, ImagePlus, Link2, X } from 'lucide-react';
-import { PhotoChoice, checkImageLink, compressToDataUrl, photosForCategory, searchOpenverse } from '../data/images';
+import { PhotoChoice, checkImageLink, compressToDataUrl, freePhotoSources, photosForCategory } from '../data/images';
 import { errorClass, fieldClass, labelClass } from './ui';
 
 export interface PickedImage {
@@ -32,35 +32,54 @@ export const ImagePicker = ({ value, onChange, title, category }: {
   const [ideasState, setIdeasState] = useState<'idle' | 'loading' | 'error'>('idle');
   const query = title.trim().length >= 3 ? title.trim() : category;
 
+  // Ask both free sources and show each one's pictures as soon as it answers; a slow or
+  // broken source just means fewer ideas.
+  const search = (q: string, nextPage: number, isCancelled: () => boolean) => {
+    const sources = freePhotoSources(q, nextPage);
+    if (sources.length === 0) return;
+    setIdeasState('loading');
+    let pending = sources.length;
+    let answered = false;
+    for (const source of sources) {
+      source
+        .then((found) => {
+          if (isCancelled()) return;
+          answered = true;
+          setIdeas((prev) => [...prev, ...found.filter((f) => !prev.some((p) => p.thumb === f.thumb))]);
+        })
+        .catch((err) => console.warn('photo ideas', err))
+        .finally(() => {
+          if (isCancelled() || --pending > 0) return;
+          setIdeasState(answered ? 'idle' : 'error');
+        });
+    }
+  };
+
   // Ideas follow the title (after a pause in typing) and the category.
   useEffect(() => {
     let cancelled = false;
-    const own = category ? photosForCategory(category).slice(0, 3) : [];
-    setIdeas(own);
+    setIdeas(category ? photosForCategory(category).slice(0, 3) : []);
     setPage(1);
+    setIdeasState('idle');
     if (!query) return;
-    setIdeasState('loading');
-    const timer = setTimeout(() => {
-      searchOpenverse(query, 1)
-        .then((found) => !cancelled && (setIdeas([...own, ...found]), setIdeasState('idle')))
-        .catch(() => !cancelled && setIdeasState('error'));
-    }, 700);
+    const timer = setTimeout(() => search(query, 1, () => cancelled), 700);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
   }, [query, category]);
 
-  const more = async () => {
-    setIdeasState('loading');
-    try {
-      const found = await searchOpenverse(query, page + 1);
-      setIdeas((prev) => [...prev, ...found]);
-      setPage(page + 1);
-      setIdeasState('idle');
-    } catch {
-      setIdeasState('error');
-    }
+  const more = () => {
+    setPage(page + 1);
+    search(query, page + 1, () => false);
+  };
+
+  const dropped = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    if (file?.type.startsWith('image/')) void run(async () => ({ image: await compressToDataUrl(file) }), "That file isn't a picture we can read.");
+    else if (url) void run(async () => (await checkImageLink(url), { image: url.trim() }), 'That link is not a picture we can show.');
   };
 
   const run = async (job: () => Promise<PickedImage>, failure: string) => {
@@ -87,7 +106,11 @@ export const ImagePicker = ({ value, onChange, title, category }: {
   return (
     <div>
       <p className={labelClass}>Photo (optional)</p>
-      <div className="relative mb-3 aspect-[16/9] overflow-hidden rounded-sheet border border-dashed border-sheet-line bg-brand-dark">
+      <div
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={dropped}
+        className="relative mb-3 aspect-[16/9] overflow-hidden rounded-sheet border border-dashed border-sheet-line bg-brand-dark"
+      >
         {value ? (
           <>
             <img src={value.image} alt="Chosen photo" className="h-full w-full object-cover" />
@@ -103,7 +126,7 @@ export const ImagePicker = ({ value, onChange, title, category }: {
           </>
         ) : (
           <p className="grid h-full place-items-center px-6 text-center text-[14px] text-slate-400">
-            {busy ? 'Getting the picture ready…' : 'No photo yet. Events with a photo get picked more.'}
+            {busy ? 'Getting the picture ready…' : 'Upload a photo, paste a link, drop one here, or pick an idea below.'}
           </p>
         )}
       </div>
@@ -186,7 +209,7 @@ export const ImagePicker = ({ value, onChange, title, category }: {
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-[13px] text-slate-400">
             <span>
-              {ideasState === 'loading' ? 'Looking for pictures…' : ideasState === 'error' ? "Couldn't load more ideas right now." : 'Free pictures from Openverse.'}
+              {ideasState === 'loading' ? 'Looking for pictures…' : ideasState === 'error' ? "Couldn't load more ideas right now." : 'Free pictures from Wikimedia Commons and Openverse.'}
             </span>
             {query && ideasState !== 'loading' && (
               <button type="button" onClick={() => void more()} className="min-h-11 font-semibold text-brand-secondary underline underline-offset-4">

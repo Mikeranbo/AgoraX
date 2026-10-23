@@ -93,3 +93,20 @@ The progress bar fills the first time it is on screen in a visit (0.8s,
 - No countdowns, "N people viewing", or a hidden price.
 - No blur or glass; depth comes from the shadow under flat sheets.
 - Don't use the action gradient for anything but actions.
+
+## Navigation
+
+Laptop (≥1024px): a permanent 320px sidebar on the left; the bottom bar is hidden. Phone: the bottom
+bar (Events · Propose · My picks) stays, and the avatar button top left slides the same sidebar in.
+Sidebar groups: Me, Social, Discover, Create, Settings, Help, Admin (admins only). Items that are not
+built yet are muted with a lock and "Coming soon"; tapping one opens "Not available yet — we're
+building it." with "I want this". Taps (`locked_feature_click`) and votes (`feature_vote`) rank them
+under "Most wanted features" on /admin.
+
+## Event photos
+
+Proposals and the admin editor share one picker (`src/components/ImagePicker.tsx`): upload (or drop)
+a file, paste an https link, or pick an idea. Ideas are our own photos of the same category, then free
+pictures from Wikimedia Commons and Openverse matched to the title, each source with an 8 s limit.
+Uploads and picked ideas are shrunk to a ≤180 KB JPEG stored with the proposal, so nothing depends on
+a third-party link. CC BY / BY-SA credits travel with the picture and show on the event page.

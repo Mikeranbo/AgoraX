@@ -29,7 +29,8 @@ export const PrivacyNote = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
         <p>
           Only if you fill in a form: your WhatsApp number, email and first name, plus what you wrote about
           running an event, your idea for one, or your space. If you choose to show your initial on an
-          event, that one letter is visible to everyone who opens AgoraX.
+          event, that one letter is visible to everyone who opens AgoraX. A display name you set in your
+          profile is seen only by you. A photo you add to an event idea is shown with that event if we run it.
         </p>
       </Section>
       <Section title="Why">
@@ -48,7 +49,8 @@ export const PrivacyNote = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
       </Section>
       <Section title="Deleting it">
         <p>
-          My picks → "Delete my details" removes your number, email, name and any initials you showed straight away. You can also email
+          Menu → Privacy & my data → "Delete my details" removes your number, email, name and any initials you
+          showed straight away. The same page has switches to stop messages or visit statistics. You can also email
           us to see, correct or delete anything we have; we answer within 30 days. If you're unhappy with how
           we handle it, you can complain to the Autoriteit Persoonsgegevens.
         </p>

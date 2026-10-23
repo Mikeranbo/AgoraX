@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Event, EventCategory, EventStatus, PUBLIC_CATEGORIES, LEGACY_CATEGORIES } from '../../types';
 import { EventFormData, saveEvent } from '../../services/adminService';
+import { ImagePicker, PickedImage } from '../../components/ImagePicker';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -31,7 +32,7 @@ interface FormState {
   status: EventStatus;
   deadline: string;
   startTime: string;
-  imageUrls: string;
+  photo: PickedImage | null;
   emoji: string;
   accent: string;
   durationHours: string;
@@ -53,7 +54,7 @@ function initial(event: Event | null): FormState {
     status: event?.status ?? 'Pending',
     deadline: toLocalInput(event?.deadline ?? new Date(Date.now() + 21 * DAY).toISOString()),
     startTime: toLocalInput(event?.startTime ?? new Date(Date.now() + 28 * DAY).toISOString()),
-    imageUrls: (event?.imageUrls ?? []).join('\n'),
+    photo: event?.imageUrls?.[0] ? { image: event.imageUrls[0], credit: event.imageCredit } : null,
     emoji: event?.emoji ?? '💡',
     accent: event?.accent ?? '#818cf8',
     durationHours: String(event?.durationHours ?? 2),
@@ -103,10 +104,8 @@ export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
       status: f.status,
       deadline: fromLocalInput(f.deadline, 21),
       startTime: fromLocalInput(f.startTime, 28),
-      imageUrls: f.imageUrls
-        .split('\n')
-        .map((u) => u.trim())
-        .filter(Boolean),
+      imageUrls: f.photo ? [f.photo.image] : [],
+      imageCredit: f.photo?.credit ?? '',
       emoji: f.emoji.trim() || '💡',
       accent: f.accent,
       durationHours: toNumber(f.durationHours),
@@ -236,8 +235,8 @@ export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
             <input className={input} value={f.bringYourOwn} onChange={(e) => set('bringYourOwn', e.target.value)} />
           </div>
           <div className="sm:col-span-2">
-            <label className={label}>Photo URLs (one per line — leave empty for the emoji cover)</label>
-            <textarea className={`${input} min-h-[60px] font-mono text-xs`} value={f.imageUrls} onChange={(e) => set('imageUrls', e.target.value)} />
+            <ImagePicker value={f.photo} onChange={(v) => set('photo', v)} title={f.title} category={f.category} />
+            <p className="mt-1 text-[11px] text-slate-500">No photo: seed events use their default photo, others the emoji cover.</p>
           </div>
         </div>
 
