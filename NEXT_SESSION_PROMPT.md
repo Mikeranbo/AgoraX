@@ -17,14 +17,12 @@ Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Fi
 
 ## Still to do (ask me before anything that touches production)
 
-1. **Owner access.** The only owner, `admins/Z0l8tHn15BZHUPTLKzqxguqo17k2` (grantedBy `bootstrap`,
-   22 Oct), was claimed in the Claude app's built-in browser pane, whose profile is gone. Nobody can
-   open the /admin dashboard. Ask me for the ID shown at https://agora-x.vercel.app/admin in my own
-   browser, then (with my OK) create `admins/{that uid}` with `role` "owner", `label` "Mike (founder)",
-   `grantedBy` "console", `grantedAt` now (console, or REST with the firebase-tools login), and delete
-   the orphaned `admins/Z0l8…` document. See docs/SECURITY.md, "Trusted admin provisioning".
-2. Then on /admin as owner: check there is no error banner, and run **Fix counts** in Events if the
-   button shows (docs/SECURITY.md, "Migration and compatibility").
+1. **Owner access: done (24 Oct).** `admins/0iWlXrItViTi0MWyWvJOLaApjfG3` (my own browser,
+   `grantedBy` "console") is the only owner; I confirmed /admin works. The orphaned Claude-pane owner
+   `admins/Z0l8tHn15BZHUPTLKzqxguqo17k2` (grantedBy `bootstrap`, 22 Oct) was deleted; its Auth user
+   and other records were left alone.
+2. **Fix counts** is a separate step: only when I ask, on /admin → Events, if the button shows
+   (docs/SECURITY.md, "Migration and compatibility"). Not run yet.
 3. Privacy notice: docs/PRIVACY_NOTICE_DRAFT.md lists open points (controller details, legal bases,
    processors). New personal-data features stay off until `VITE_PRIVACY_NOTICE_FINAL=true` is set in
    Vercel; only flip it when the notice is final.
