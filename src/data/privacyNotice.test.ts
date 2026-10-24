@@ -23,7 +23,8 @@ export function noticeMarkdown(): string {
 
 describe('privacy notice', () => {
   it('the review document carries the same text the app shows', () => {
-    const doc = readFileSync(DOC, 'utf8');
+    // Windows checkouts with core.autocrlf=true have CRLF line endings; compare as LF.
+    const doc = readFileSync(DOC, 'utf8').replace(/\r\n/g, '\n');
     const block = `${START}\n${noticeMarkdown()}\n${END}`;
     if (process.env.UPDATE_NOTICE) {
       const before = doc.slice(0, doc.indexOf(START));
