@@ -1,4 +1,6 @@
 @import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource-variable/plus-jakarta-sans/wght.css";
 @import "tailwindcss";
 @source not "../.claude";
 @source not "../.superpowers";
@@ -23,6 +25,16 @@
   --color-sheet-line: #2a3654;
 
   --radius-sheet: 14px; /* the one corner radius */
+
+  /* Entry flow and opened event (APP brand tokens, 2026-10-25). */
+  --font-entry: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-brand: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-x-cyan: #5ccfea;
+  --color-x-purple: #8a6be8;
+  --color-x-blue: #5b7be0;
+  --color-x-text: #e2e4f8;
+  --color-x-muted: #b9bedb;
+  --color-x-warn: #ff8a98;
 }
 
 @layer base {
@@ -35,62 +47,34 @@
   }
 
   /*
-   * The board, two fixed layers that stay put while the page scrolls:
-   *  1. base: navy into indigo (blue) and purple, with a faint cyan glow;
-   *  2. line art: the same palette run the other way (purple into indigo into cyan), one
-   *     gradient across the whole viewport, visible only through the hollow outlines of the
-   *     doodles and graffiti tiles, which are used as a mask. So the drawings read as a
-   *     reversed-colour layer showing through, never as separately coloured icons.
-   * Mixed this dark, white and slate text on the base stays above WCAG AA; cards, sheets and
-   * the opening explainer sit on solid surfaces above the line art.
+   * The board: one fixed gradient (blue-navy into purple, top to bottom). The drawings on top
+   * of it are <DoodleBackground />, coloured the opposite way. Both stay put while the page
+   * scrolls; cards and sheets sit on solid surfaces above them.
    */
-  body::before,
-  body::after {
+  body::before {
     content: '';
     position: fixed;
     inset: 0;
-    pointer-events: none;
-  }
-
-  body::before {
     z-index: -2;
-    background:
-      radial-gradient(40rem 32rem at 100% 0%, rgb(34 211 238 / 0.14), transparent 70%),
-      linear-gradient(
-        165deg,
-        #0f172a 0%,
-        color-mix(in srgb, #6366f1 30%, #0f172a) 55%,
-        color-mix(in srgb, #a855f7 30%, #0f172a) 100%
-      );
+    pointer-events: none;
+    background: linear-gradient(180deg, #171c36 0%, #1e2450 42%, #2a2b60 78%, #352a66 100%);
   }
 
-  /* Fallback for browsers without CSS masks: the doodles as faint light lines, as before. */
-  body::after {
-    z-index: -1;
-    background-image: url('./assets/doodles-a.svg'), url('./assets/doodles-b.svg');
-    background-size: 1400px 1400px, 1130px 1130px;
-    background-position: -180px -140px, 410px 530px;
-    opacity: 0.2;
-  }
-
-  /* Three tiles of unrelated sizes, offset, so the repeat never lines up. Doodles: generated
-     by scripts/make-doodles.py; graffiti outlines: src/assets/graffiti.svg. */
-  @supports (mask-image: none) or (-webkit-mask-image: none) {
-    body::after {
-      background: linear-gradient(345deg, #c084fc 0%, #a855f7 30%, #6366f1 65%, #22d3ee 100%);
-      -webkit-mask-image: url('./assets/doodles-a.svg'), url('./assets/doodles-b.svg'), url('./assets/graffiti.svg');
-      mask-image: url('./assets/doodles-a.svg'), url('./assets/doodles-b.svg'), url('./assets/graffiti.svg');
-      -webkit-mask-size: 1400px 1400px, 1130px 1130px, 1600px 1600px;
-      mask-size: 1400px 1400px, 1130px 1130px, 1600px 1600px;
-      -webkit-mask-position: -180px -140px, 410px 530px, 260px -90px;
-      mask-position: -180px -140px, 410px 530px, 260px -90px;
-      mask-mode: alpha;
-      opacity: 0.55;
-    }
-  }
-
+  /* No native scrollbar; <ScrollRail /> draws a decorative one. */
   html {
-    scroll-snap-type: y proximity;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* No italics anywhere, even where the browser would add them. */
+  em,
+  i,
+  cite,
+  address {
+    font-style: normal;
   }
 
   ::selection {
@@ -119,6 +103,34 @@
   box-shadow:
     0 12px 32px -14px rgb(2 6 23 / 0.75),
     0 2px 6px rgb(2 6 23 / 0.3);
+}
+
+/* Entry headlines: Archivo at 110% width, weight 800. */
+.entry-headline {
+  font-family: var(--font-entry);
+  font-weight: 800;
+  font-stretch: 110%;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+/* Highlighted words in the entry messages. */
+.entry-highlight {
+  background: linear-gradient(90deg, #8fb8ff, #b79cff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* The primary button gradient of the entry flow and the opened event. */
+.gradient-x {
+  background: linear-gradient(90deg, #6c62e7 0%, #9a55ec 100%);
+}
+
+/* Drawings keep a 1.8px line at any size. */
+.doodle-layer svg * {
+  vector-effect: non-scaling-stroke;
 }
 
 /* The pinned action gradient: "I'd join" and form submits only. */

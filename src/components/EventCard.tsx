@@ -8,7 +8,8 @@ import { once } from '../services/session';
 import { canOfferHosting, keepPerHost } from '../data/earnings';
 import { isConfirmed, progressLabel, progressPercent, targetReached } from '../data/progress';
 import { formatEventDate, isScheduled } from '../data/schedule';
-import { photoFor } from '../data/photos';
+import { ownPhoto, photoSet } from '../data/photos';
+import { Photo } from './Photo';
 import { useVisitor } from '../state/VisitorProvider';
 import { quietLinkClass } from './ui';
 import { colourFor } from './Avatar';
@@ -44,16 +45,23 @@ export const priceLabel = (event: Event) => (event.price === 0 ? 'Free' : `€${
 /** "Sat 14 Nov, 19:30 CET" for a scheduled event; proposals have no date yet. */
 export const dateLabel = (event: Event) => (isScheduled(event) ? formatEventDate(event.startTime) : 'Date to be confirmed');
 
+/** How wide a card photo is shown: one, two or three columns. */
+const CARD_SIZES = '(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw';
+
 /** The event's photo, or its emoji on its own colour when there is none or it fails to load. */
 export const PhotoBackdrop = ({ event, className = '', children }: { event: Event; className?: string; children?: React.ReactNode }) => {
-  const url = photoFor(event);
+  const own = ownPhoto(event);
+  const set = own ? undefined : photoSet(event.slug);
   const [failed, setFailed] = useState(false);
   const accent = event.accent || DEFAULT_ACCENT;
+  const fill = 'absolute inset-0 h-full w-full object-cover';
 
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ backgroundColor: `color-mix(in srgb, ${accent} 55%, #0f172a)` }}>
-      {url && !failed ? (
-        <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
+      {own && !failed ? (
+        <img src={own} alt="" loading="lazy" onError={() => setFailed(true)} className={fill} />
+      ) : set && !failed ? (
+        <Photo set={set} sizes={CARD_SIZES} onError={() => setFailed(true)} className={fill} />
       ) : (
         <span aria-hidden="true" className="absolute inset-0 grid place-items-center text-6xl">{event.emoji}</span>
       )}
@@ -243,15 +251,39 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
   );
 };
 
-/** Quiet links under the price row: help run it, and show or hide your initial once you're in. */
-export const QuietLinks = ({ event }: { event: Event }) => {
+/** "est. €84 for a host" when hosting pays something, else nothing. */
+export const hostEstimate = (event: Event): string => {
+  const keep = canOfferHosting(event) ? keepPerHost(event) : 0;
+  return keep >= 1 ? `est. €${keep}` : '';
+};
+
+/** Once you're interested: show or hide your first initial on this event. */
+export const InitialToggle = ({ event }: { event: Event }) => {
   const { state, actions, meta } = useVisitor();
-  const cancelled = event.status === 'Cancelled';
+  if (!meta.joined.has(event.id) || event.status === 'Cancelled') return null;
   const showsInitial = (meta.faces.get(event.id) ?? []).some((f) => f.uid === state.uid);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        if (showsInitial) void actions.hideInitial(event);
+        else actions.askInitial(event);
+      }}
+      className="inline-flex min-h-11 items-center text-[15px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white"
+    >
+      {showsInitial ? 'Hide my initial' : 'Show my initial'}
+    </button>
+  );
+};
+
+/** Quiet links under the price row: organize (opens the event page), and show or hide your initial. */
+export const QuietLinks = ({ event }: { event: Event }) => {
+  const { actions, meta } = useVisitor();
+  const cancelled = event.status === 'Cancelled';
   const canHost = canOfferHosting(event) && !cancelled;
   const joined = meta.joined.has(event.id) && !cancelled;
   if (!canHost && !joined) return null;
-  const keep = canHost ? keepPerHost(event) : 0;
+  const estimate = hostEstimate(event);
 
   return (
     <p className="flex flex-wrap gap-x-5">
@@ -259,25 +291,14 @@ export const QuietLinks = ({ event }: { event: Event }) => {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            actions.helpRun(event);
+            actions.open(event);
           }}
           className={quietLinkClass}
         >
-          {keep >= 1 ? `Help run this · est. €${keep} for a host` : 'Help run this'}
+          {estimate ? `Organize · ${estimate} for a host` : 'Organize'}
         </button>
       )}
-      {joined && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (showsInitial) void actions.hideInitial(event);
-            else actions.askInitial(event);
-          }}
-          className="inline-flex min-h-11 items-center text-[15px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white"
-        >
-          {showsInitial ? 'Hide my initial' : 'Show my initial'}
-        </button>
-      )}
+      <InitialToggle event={event} />
     </p>
   );
 };

@@ -1,19 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  BookOpen,
+  Bell,
   Bookmark,
+  Bug,
   Building2,
   CalendarCheck,
   CalendarDays,
   ChevronRight,
+  ChevronUp,
   CircleQuestionMark,
-  Cpu,
-  Dices,
   DoorOpen,
-  Dumbbell,
-  FilePen,
   FileText,
+  Info,
+  KeyRound,
   Inbox,
   Languages,
   LayoutGrid,
@@ -23,16 +23,15 @@ import {
   Map,
   Menu,
   MessageCircle,
-  Palette,
-  PartyPopper,
   Plus,
   ScrollText,
+  Shield,
   ShieldCheck,
   Smartphone,
   Sparkles,
   Star,
   SunMoon,
-  Trees,
+  User,
   UserPlus,
   UserRoundPen,
   Users,
@@ -40,21 +39,12 @@ import {
   X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { EventCategory, PUBLIC_CATEGORIES } from '../types';
 import { Tab, useVisitor } from '../state/VisitorProvider';
 import { LOCKED_FEATURES, LockedFeature } from '../data/features';
 import { CONTACT_EMAIL } from '../config/pilot';
 import { useWideScreen } from '../state/useWideScreen';
-
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  Sports: Dumbbell,
-  Games: Dices,
-  Creative: Palette,
-  Social: PartyPopper,
-  Study: BookOpen,
-  'Tech & Ideas': Cpu,
-  Outdoor: Trees,
-};
+import { Logo } from './Logo';
+import { ProfileAvatar, displayNameOf } from './Avatar';
 
 export const NAV_ID = 'site-menu';
 const rowClass = 'flex min-h-11 w-full items-center gap-3 rounded-sheet px-3 text-left text-[15px]';
@@ -103,64 +93,99 @@ const Group = ({ title, children }: { title: string; children: React.ReactNode }
   </section>
 );
 
+/** "Report a bug" opens an email with the questions we need answered. */
+const BUG_MAIL = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('AgoraX bug report')}&body=${encodeURIComponent(
+  'What went wrong?\n\nWhere did you find it (page, button)?\n\nPhone or laptop, and which browser?\n',
+)}`;
+
+/** Your profile at the bottom of the menu; it opens the personal settings. */
+const ProfileCard = () => {
+  const { state, actions } = useVisitor();
+  const [open, setOpen] = useState(false);
+  const go = (tab: Tab) => () => actions.setTab(tab);
+  return (
+    <div className="sheet sticky bottom-0 mt-6 rounded-sheet p-2">
+      {open && (
+        <div id="profile-settings" className="mb-1 space-y-0.5 border-b border-sheet-line pb-1">
+          <Item icon={User} label="Profile" onClick={go('profile')} />
+          <Item icon={Sparkles} label="Attend, organise or both" onClick={() => actions.openSheet('mode')} />
+          <Item icon={Bell} label="Notification preferences" onClick={go('notifications')} />
+          <Item icon={Shield} label="Privacy & my data" onClick={go('data')} />
+          <Item icon={KeyRound} label="Account & security" onClick={go('account')} />
+          <Item icon={FileText} label="Privacy notice" onClick={go('notice')} />
+        </div>
+      )}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="profile-settings"
+        className="flex min-h-14 w-full items-center gap-3 rounded-sheet px-2 text-left hover:bg-white/5"
+      >
+        <ProfileAvatar size={40} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-display text-[16px] font-bold text-white">{displayNameOf(state.profile?.displayName ?? state.me?.displayName)}</span>
+          <span className="block text-[13px] text-slate-300">Profile & settings</span>
+        </span>
+        <ChevronUp size={18} aria-hidden="true" className={`text-slate-400 transition-transform motion-reduce:transition-none ${open ? '' : 'rotate-180'}`} />
+      </button>
+    </div>
+  );
+};
+
 /**
- * Where to go: proposals, your own lists, requests and (for organisers) organiser tools.
- * Personal settings live in the account menu instead, so nothing appears twice.
+ * Where to go. The categories live only in the chips above the list, and personal settings only
+ * in the profile card at the bottom, so nothing appears twice.
  */
 export const SidebarContent = ({ onClose, closeLabel }: { onClose: () => void; closeLabel: string }) => {
   const { state, actions, meta } = useVisitor();
   const on = (tab: Tab) => !state.selected && state.tab === tab;
-  const onCategory = (c: EventCategory | 'All') => on('events') && state.view === 'proposals' && state.filter === c;
-  const closeRef = useRef<HTMLButtonElement>(null);
+  const showProposals = () => {
+    actions.setView('proposals');
+    actions.setTab('events');
+  };
 
   return (
-    <div className="px-3 pt-3 pb-10">
+    <div className="flex min-h-full flex-col px-3 pt-3 pb-3">
       <div className="flex items-center justify-between gap-3 pl-3">
-        <p className="font-display text-[17px] font-extrabold tracking-tight text-white">
-          Agora<span className="text-brand-secondary">X</span> <span className="font-sans text-[13px] font-semibold text-slate-300">pilot</span>
-        </p>
-        <button ref={closeRef} data-autofocus onClick={onClose} aria-label={closeLabel} className="grid size-11 place-items-center rounded-sheet text-slate-300 hover:bg-white/5 hover:text-white">
+        <Logo size={18} />
+        <button data-autofocus onClick={onClose} aria-label={closeLabel} className="grid size-11 place-items-center rounded-sheet text-slate-300 hover:bg-white/5 hover:text-white">
           <X size={22} aria-hidden="true" />
         </button>
       </div>
 
-      <Group title="Discover">
-        <Item icon={LayoutGrid} label="All proposals" active={onCategory('All')} onClick={() => actions.showCategory('All')} />
-        {PUBLIC_CATEGORIES.map((c) => (
-          <Item key={c} icon={CATEGORY_ICONS[c] ?? LayoutGrid} label={c} active={onCategory(c)} onClick={() => actions.showCategory(c)} />
-        ))}
+      <nav aria-label="Main" className="mt-5 space-y-0.5">
+        <Item icon={LayoutGrid} label="Proposals" active={on('events') && state.view === 'proposals'} onClick={showProposals} />
         <Item icon={CalendarCheck} label="Scheduled events" active={on('events') && state.view === 'scheduled'} onClick={actions.showScheduled} />
-      </Group>
-
-      <Group title="Mine">
         <Item icon={Star} label="My interests" active={on('picks')} onClick={() => actions.setTab('picks')} trailing={<Count n={meta.picks.length} />} />
         <Item icon={Bookmark} label="Saved events" active={on('saved')} onClick={() => actions.setTab('saved')} trailing={<Count n={meta.savedEvents.length} />} />
-      </Group>
-
-      <Group title="Requests">
-        <Item icon={Plus} label="Propose an event" active={on('propose')} onClick={() => actions.editProposal(null)} />
-        <Item icon={Inbox} label="My proposals" active={on('proposals')} onClick={() => actions.setTab('proposals')} trailing={<Count n={state.myProposals.length} />} />
-        <Item icon={DoorOpen} label="I have a space" onClick={() => actions.openSheet('space')} />
-        <Item icon={UserPlus} label="Invite friends" onClick={() => void actions.invite()} />
-        {!meta.organising && <Item icon={Sparkles} label="Want to organise?" onClick={() => actions.openSheet('mode')} />}
-      </Group>
-
-      {meta.organising && (
-        <Group title="Organiser tools">
-          <Item icon={FilePen} label="New draft" onClick={() => actions.editProposal(null)} />
-          <Item icon={UserRoundPen} label="Organiser profile" active={on('profile')} onClick={() => actions.setTab('profile')} />
-        </Group>
-      )}
-
-      <Group title="Help">
-        <Item icon={Lightbulb} label="How the pilot works" active={on('how')} onClick={() => actions.setTab('how')} />
-        <Item icon={CircleQuestionMark} label="FAQ" active={on('faq')} onClick={() => actions.setTab('faq')} />
-        <Item icon={FileText} label="Privacy notice" active={on('notice')} onClick={() => actions.setTab('notice')} />
-        <Item icon={Mail} label="Contact" href={`mailto:${CONTACT_EMAIL}`} />
-      </Group>
+        <Item icon={Bug} label="Report a bug" href={BUG_MAIL} />
+        <Item icon={Info} label="About the pilot" onClick={actions.openPilotNotice} />
+      </nav>
 
       <details className="group mt-5">
-        <summary className={`${rowClass} cursor-pointer list-none text-[13px] font-semibold text-slate-400 hover:text-white`}>
+        <summary className={`${rowClass} cursor-pointer list-none text-[13px] font-semibold text-slate-300 hover:text-white`}>
+          <span className="flex-1">More</span>
+          <ChevronRight size={16} aria-hidden="true" className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
+        </summary>
+        <div className="space-y-0.5">
+          <Item icon={Plus} label="Propose an event" active={on('propose')} onClick={() => actions.editProposal(null)} />
+          <Item icon={Inbox} label="My proposals" active={on('proposals')} onClick={() => actions.setTab('proposals')} trailing={<Count n={state.myProposals.length} />} />
+          <Item icon={DoorOpen} label="I have a space" onClick={() => actions.openSheet('space')} />
+          <Item icon={UserPlus} label="Invite friends" onClick={() => void actions.invite()} />
+          {meta.organising ? (
+            <Item icon={UserRoundPen} label="Organiser profile" active={on('profile')} onClick={() => actions.setTab('profile')} />
+          ) : (
+            <Item icon={Sparkles} label="Want to organise?" onClick={() => actions.openSheet('mode')} />
+          )}
+          <Item icon={Lightbulb} label="How the pilot works" active={on('how')} onClick={() => actions.setTab('how')} />
+          <Item icon={CircleQuestionMark} label="FAQ" active={on('faq')} onClick={() => actions.setTab('faq')} />
+          <Item icon={Mail} label="Contact" href={`mailto:${CONTACT_EMAIL}`} />
+          {state.isAdmin && <Item icon={ShieldCheck} label="Admin" href="/admin" />}
+        </div>
+      </details>
+
+      <details className="group mt-1">
+        <summary className={`${rowClass} cursor-pointer list-none text-[13px] font-semibold text-slate-300 hover:text-white`}>
           <span className="flex-1">Ideas we're considering</span>
           <ChevronRight size={16} aria-hidden="true" className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
         </summary>
@@ -178,11 +203,8 @@ export const SidebarContent = ({ onClose, closeLabel }: { onClose: () => void; c
         </div>
       </details>
 
-      {state.isAdmin && (
-        <Group title="Admin">
-          <Item icon={ShieldCheck} label="Admin" href="/admin" />
-        </Group>
-      )}
+      <div className="flex-1" />
+      <ProfileCard />
     </div>
   );
 };

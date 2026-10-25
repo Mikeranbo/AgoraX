@@ -1,9 +1,10 @@
 import React from 'react';
 import { MotionConfig } from 'motion/react';
-import { VisitorProvider, useVisitor } from './state/VisitorProvider';
+import { Tab, VisitorProvider, useVisitor } from './state/VisitorProvider';
 import { useWideScreen } from './state/useWideScreen';
 import { EventsScreen } from './screens/EventsScreen';
-import { EventDetailScreen } from './screens/EventDetailScreen';
+import { EventDetail } from './screens/EventDetail';
+import { LegalPlaceholderScreen } from './screens/LegalPlaceholderScreen';
 import { MyPicksScreen, SavedScreen } from './screens/MyPicksScreen';
 import { ProposeScreen } from './screens/ProposeScreen';
 import { MyProposalsScreen } from './screens/MyProposalsScreen';
@@ -19,7 +20,9 @@ import { VenueOfferModal } from './components/VenueOfferModal';
 import { InitialSheet } from './components/InitialSheet';
 import { LockedSheet, ModeSheet, ProfileSheet } from './components/AccountSheets';
 import { DesktopSidebar, MenuButton, SidebarDrawer } from './components/Sidebar';
-import { AccountMenu } from './components/AccountMenu';
+import { EntryFlow } from './components/entry/EntryFlow';
+import { DoodleBackground } from './components/DoodleBackground';
+import { ScrollRail } from './components/ScrollRail';
 import { SiteFooter } from './components/SiteFooter';
 import { ContactForm } from './components/ContactForm';
 import { Modal } from './components/Modal';
@@ -67,7 +70,7 @@ const Sheets = () => {
 
 const Screen = () => {
   const { state } = useVisitor();
-  if (state.selected) return <EventDetailScreen event={state.selected} />;
+  if (state.selected) return <EventDetail event={state.selected} />;
   switch (state.tab) {
     case 'propose':
       // A different draft (or a fresh form) starts from its own values.
@@ -92,6 +95,10 @@ const Screen = () => {
       return <HowItWorksScreen />;
     case 'faq':
       return <FaqScreen />;
+    case 'terms':
+    case 'cookies':
+    case 'imprint':
+      return <LegalPlaceholderScreen doc={state.tab} />;
     default:
       return <EventsScreen />;
   }
@@ -105,14 +112,19 @@ const Shell = () => {
 
   // The page and the bars fixed to it start where the open laptop sidebar ends.
   const navWidth = wide && state.sidebarOpen ? '20rem' : '0px';
+  // Behind the entry flow the page waits, slightly smaller, and grows to full size as it opens.
+  const entering = state.entry !== 'done';
 
   return (
-    <div className="min-h-dvh" style={{ '--nav-w': navWidth } as React.CSSProperties}>
+    <div className="min-h-dvh" inert={entering || undefined} style={{ '--nav-w': navWidth } as React.CSSProperties}>
       <DesktopSidebar />
       <SidebarDrawer />
       <MenuButton />
-      <AccountMenu />
-      <div inert={state.drawerOpen || undefined} className="lg:pl-[var(--nav-w)]">
+      <div
+        inert={state.drawerOpen || undefined}
+        className="origin-top transition-transform duration-[1100ms] ease-[cubic-bezier(.2,.7,.2,1)] motion-reduce:transition-none lg:pl-[var(--nav-w)]"
+        style={{ transform: entering ? 'scale(.97)' : undefined }}
+      >
         <main className="pb-16">
           <Screen />
         </main>
@@ -137,11 +149,15 @@ const Shell = () => {
   );
 };
 
-export default function App() {
+/** `initialTab` opens a direct link such as /privacy on its screen, without the entry flow. */
+export default function App({ initialTab }: { initialTab?: Tab }) {
   return (
     <MotionConfig reducedMotion="user">
-      <VisitorProvider>
+      <VisitorProvider initialTab={initialTab} skipEntry={!!initialTab}>
+        <DoodleBackground />
         <Shell />
+        <ScrollRail />
+        <EntryFlow />
       </VisitorProvider>
     </MotionConfig>
   );

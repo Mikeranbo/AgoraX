@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fromAccountMenu, openSite, seed } from './helpers';
+import { fromAccountMenu, openMenu, openSite, seed } from './helpers';
 
 test.beforeEach(async () => {
   await seed();
@@ -46,7 +46,8 @@ test('profile: cover and picture can be validated, previewed, repositioned, remo
 
   await expect(page.getByRole('heading', { name: 'Robin' })).toBeVisible();
   await expect(page.getByText('Board games and bouldering')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Account and settings' }).locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+  const menu = await openMenu(page);
+  await expect(menu.getByRole('button', { name: /Profile & settings/ }).locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
 });
 
 test('profile never shows private contact details', async ({ page }) => {

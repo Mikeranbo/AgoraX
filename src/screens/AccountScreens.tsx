@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { useVisitor } from '../state/VisitorProvider';
 import { maskPhone } from '../data/contact';
 import { CONTACT_EMAIL } from '../config/pilot';
-import { PilotExplainer } from '../components/OpeningHero';
+import { PilotExplainer } from '../components/PilotExplainer';
 import { Block, ScreenTitle, Switch } from './SettingsScreens';
 
 const Row = ({ label, value, onClick }: { label: string; value: React.ReactNode; onClick?: () => void }) => {

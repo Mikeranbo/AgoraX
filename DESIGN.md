@@ -36,26 +36,34 @@ components:
 
 ## Overview
 
-Event cards float on a sketchbook board made of two fixed layers. The base is a gradient from
-navy into the brand indigo (blue) and purple with a faint cyan glow. Above it, the same palette
-runs the other way (purple → indigo → cyan) as one viewport-wide gradient that shows only through
-the hollow outlines of three mask tiles: two hand-wobbled doodle tiles (1400px and 1130px,
-regenerate with `python scripts/make-doodles.py`) and a tile of graffiti-style outlines (stars, a
-crown, a bolt, a drip throw-up, speech bubble, sparkles; `src/assets/graffiti.svg`), all at
-unrelated sizes and offsets so the repeat never shows. The drawings read as a reversed-colour layer
-showing through, not as coloured icons; nothing is filled, nothing moves, and the layer never takes
-clicks. Browsers without CSS masks get the old faint doodles. Long text always sits on a `sheet`
-surface above it. Cards, sheets, the filter bar and the tab bar are flat `sheet` surfaces with a
-soft shadow. One corner radius, `rounded-sheet` (14px).
+Event cards float on a fixed board: a page gradient (#171C36 → #1E2450 → #2A2B60 → #352A66, top to
+bottom) under `<DoodleBackground />`, "Background 1 · Even scatter": about sixty lucide outline
+drawings (sports, music, food, travel, games, weather, hobbies) plus ~22% tiny filler shapes, spread
+by a seeded layout with no overlaps (12px apart), sizes 30–84px (fillers 16–26px), rotated ±25°,
+1.8px non-scaling strokes, coloured by height from purple at the top (rgb 133,96,216) to blue at
+the bottom (rgb 88,118,224), layer opacity .9. It is recalculated on resize (cached per size) and
+never takes clicks. The native scrollbar is hidden; `<ScrollRail />` draws a decorative 6px rail
+with a 12×48px gradient handle. Cards, sheets and the filter bar are flat `sheet` surfaces with a
+soft shadow. One corner radius for the event page, `rounded-sheet` (14px).
 
-## Opening view
+## Entry flow (`src/components/entry/`)
 
-Every visit to "/" starts with a full-screen view: "Help choose which events happen next." at
-clamp(48px, 11vw, 120px), then the pilot explainer on a sheet (16px, three short paragraphs: a
-pilot, not a booking service; ideas, prices and earnings are estimates; we aim to run 1–3 of the
-best-supported events; interest is no booking, no payment, no guarantee) and one button down to
-the list. Visitors who already said they're interested get a 64dvh version with their count and a
-one-line reminder. The variant is decided once per load, so an interest never makes it jump.
+1. **Opening messages** (`EntryFlow`, `CubeText`): full screen, no scroll. Three messages
+   ("Meet new, like-minded people." / "Have fun trying new activities." / "Earn money organising
+   events."), each a whole face of an invisible cube that rolls around the X axis every 5.2s
+   (1.35s, `cubic-bezier(.7,-0.2,.25,1.15)`); three messages on four faces. Headline Archivo 800 at
+   110% width, block width ÷ 7.8 (about 114px at 1440 wide); text Archivo 500, 28px. A photo per
+   message on the right third (top 40% on phones), crossfading in sync. Three message buttons top
+   right, a "Scroll to explore" cue bottom centre. Wheel (80+), swipe or drag (50px+), arrow/page
+   keys or the cue move on. Rolling pauses on hover/focus; reduced motion crossfades instead.
+2. **Pilot notice** (`PilotNotice`): frosted panel over the blurred events page; only "Got it —
+   explore" and "Got it — don’t show again" (`localStorage['agorax.pilotNotice.hidden']`) close it.
+   Scrolling, Escape or an outside tap can't. "About the pilot" in the menu reopens it.
+3. **The events page**, growing from 0.97 to full size as the notice closes.
+
+A reload in the same tab skips the opening (`sessionStorage['agorax.entry.done']`); a shared event
+link (`?e=`) skips the messages but still shows the notice on a first visit; /privacy, /terms,
+/cookies and /imprint open straight on their page.
 
 ## Colors
 
@@ -70,7 +78,9 @@ one-line reminder. The variant is decided once per load, so an interest never ma
 
 ## Typography
 
-Bricolage Grotesque for display, headings, prices and buttons; the system font for body text. The
+Entry flow and opened event: Archivo (variable, self-hosted; headlines 800 at 110% width, body 500),
+logo and buttons Plus Jakarta Sans 800. No thin weights, no italics anywhere. The events page keeps
+Bricolage Grotesque for display, headings, prices and buttons and the system font for body text. The
 scale jumps instead of stepping: opening headline 56–140px → category headings 32–56px bold → card
 titles 23px → body 14–16px → chips and facts 13px. Detail screen: title 40–76px over the photo,
 price 40px, facts 13–14px. Headlines run wider than the card column; body stays under 60ch.
@@ -87,9 +97,21 @@ price 40px, facts 13–14px. Headlines run wider than the card column; body stay
    to show them (opt-in, one letter, never more than five circles), and the bar underneath.
 4. Price large on the left with "indicative price" under it, "I'm interested" on the right;
    interested shows "Interested" and "Withdraw".
-5. Quiet links: "Help run this · est. €84 for a host", and "Show/Hide my initial" once interested.
+5. Quiet links: "Organize · est. €84 for a host" (opens the event page), and "Show/Hide my
+   initial" once interested. The photo, the title or Organize open the event page.
 
-The detail screen reuses the same parts with a taller photo and a floating price + join bar.
+## Opened event (`src/screens/EventDetail.tsx`, "Cinematic")
+
+Full-screen photo (object-position 72% 40%) with the soft-light purple/blue tint and fades into
+#07081A. Left column: "PROPOSAL · CATEGORY • DATE TO BE CONFIRMED", the title (Archivo 800, up to
+84px), a cyan→purple rule, the description (20px), pills for date, venue and duration, "I’m
+interested" (gradient pill; "✓ Interested — withdraw" once in) and "Organize · est. €X" (outline;
+opens the organiser sheet and shows "We’ll contact you about a possible collaboration. This doesn’t
+make you the organiser."), and "Prices and potential earnings are hypothetical — not promises."
+Bottom bar: interested / target, indicative price, est. host earnings in 54px numerals, and the
+shown initials plus dashed empty places with "X more to reach the target". Back, Save and Share at
+the top. Phones: photo across the top 62%, stats as a 3-column grid. Details (you bring, hosts,
+organiser, map link, photo credit) follow below.
 
 ## Motion
 
@@ -101,27 +123,40 @@ The progress bar fills the first time it is on screen in a visit (0.8s,
 
 - No countdowns, "N people viewing", invented popularity, scarcity, reviews or earnings, or a hidden price.
 - No booking language for proposals: "I'm interested", never "Buy ticket" or "Booking confirmed".
-- No blur or glass; depth comes from the shadow under flat sheets.
+- No blur or glass on the events page; depth comes from the shadow under flat sheets. The only
+  frosted surfaces are the pilot notice and its veil, and the entry cue.
 - Don't use the action gradient for anything but actions.
 
 ## Navigation
 
-A menu button top left opens the sidebar; the avatar top right opens the account menu.
+A menu button top left opens the sidebar. There is no avatar top right: the profile card at the
+bottom of the sidebar holds the personal settings.
 Laptop (≥1024px): the 320px sidebar sits beside the page while open and is fully hidden (no
 reserved width) when closed with its × or the menu button; the choice is remembered on the device.
 Phone: the bottom bar (Proposals · Propose · Interests) stays, and the sidebar is an overlay
 drawer that closes on Escape, a tap outside or a choice; focus moves into it and back to the menu
 button, and the page behind is inert.
-Sidebar (where to go): Discover (all proposals, categories, scheduled events), Mine (my
-interests, saved events), Requests (propose, my proposals, I have a space, invite), Organiser
-tools (only in Organise/Both mode), Help (how the pilot works, FAQ, privacy notice, contact), a
-collapsed "Ideas we're considering" with the locked feature votes (`locked_feature_click`,
-`feature_vote`, ranked on /admin), and Admin for admins.
-Account menu (about you): profile, Attend/Organise/Both, notification preferences, privacy & my
-data, account & security, privacy notice. Nothing appears in both. Every screen ends with a footer
-linking the privacy notice, how the pilot works, FAQ and contact.
+Sidebar: Proposals, Scheduled events, My interests (count), Saved events, Report a bug (an email
+with the questions we need) and About the pilot; then a collapsed "More" (propose, my proposals, I
+have a space, invite, organiser profile, how the pilot works, FAQ, contact, Admin for admins) and the
+collapsed "Ideas we're considering" with the locked feature votes. Categories live only in the chip
+bar above the list. The profile card at the bottom opens profile, Attend/Organise/Both,
+notification preferences, privacy & my data, account & security and the privacy notice.
+Every screen ends with the footer card (radius 28px): Company, Legal (Privacy Policy, Terms of Use,
+Cookie Policy, Imprint), Support, Contact, and © 2026 AgoraX with registration number and VAT ID.
+Company facts that aren't confirmed yet show "to be confirmed" (`src/config/legal.ts`); Terms,
+Cookie Policy and Imprint are placeholder pages that say they're not written yet.
 
 ## Event photos
+
+Every seed event and every entry message has a real, licensed photo served from this site
+(`public/images`, never hotlinked): Unsplash originals, each checked as "Free to use under the
+Unsplash License", listed with photographer and page in `scripts/photo-sources.json` and credited in
+`public/images/CREDITS.md`. `node scripts/build-photos.mjs` makes AVIF and WebP at 640, 1280, 1920
+and 2560px (never enlarged) and `src/data/photoManifest.ts`; `<Photo />` serves them as `<picture>`
+with srcset, sizes, width and height (entry photos eager with fetchpriority high, the rest lazy).
+Profiles use initials, no stock faces.
+
 
 Proposals and the admin editor share one picker (`src/components/ImagePicker.tsx`): upload (or drop)
 a file, paste an https link, or pick an idea. Ideas are our own photos of the same category, then free

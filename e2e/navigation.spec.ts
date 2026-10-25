@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fromAccountMenu, goToList, openSite, seed } from './helpers';
+import { fromAccountMenu, goToList, openMenu, openSite, seed } from './helpers';
 
 test.beforeEach(async () => {
   await seed();
@@ -55,8 +55,9 @@ test('laptop: the sidebar hides completely, the page widens, and the choice is r
   await expect(menuButton).toBeFocused();
   await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
 
+  // A reload in the same tab doesn't replay the entry flow.
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Help choose which events happen next.' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Proposals' })).toBeVisible();
   await expect(sidebar).toBeHidden();
 
   await page.getByRole('button', { name: 'Open menu' }).click();
@@ -65,11 +66,10 @@ test('laptop: the sidebar hides completely, the page widens, and the choice is r
   expect(await padding()).toBe('320px');
 });
 
-test('phone: a category picked in the menu stays picked after visiting another screen', async ({ page }, info) => {
+test('phone: a category picked in the chips stays picked after visiting another screen', async ({ page }, info) => {
   test.skip(info.project.name !== 'phone', 'the bottom bar returns to the list without changing filters');
   await openSite(page);
-  await page.getByRole('button', { name: 'Open menu' }).click();
-  await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name: 'Creative' }).click();
+  await page.getByRole('group', { name: 'Categories' }).getByRole('button', { name: 'Creative' }).click();
   await expect(page.getByRole('button', { name: 'Creative', pressed: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Chess café' })).toHaveCount(0);
 
@@ -80,25 +80,19 @@ test('phone: a category picked in the menu stays picked after visiting another s
   await expect(page.getByRole('heading', { name: 'Chess café' })).toHaveCount(0);
 });
 
-test('the account menu holds personal settings, and the sidebar does not', async ({ page }, info) => {
+test('personal settings live in the profile card; the menu has no category filters', async ({ page }) => {
   await openSite(page);
-  const account = page.getByRole('button', { name: 'Account and settings' });
-  await account.click();
-  const menu = page.getByRole('menu', { name: 'Account and settings' });
-  for (const item of ['Profile', 'Attend, organise or both', 'Notification preferences', 'Privacy & my data', 'Account & security', 'Privacy notice']) {
-    await expect(menu.getByRole('menuitem', { name: item })).toBeVisible();
+  const menu = await openMenu(page);
+  for (const item of ['Proposals', 'Scheduled events', 'My interests', 'Saved events', 'Report a bug', 'About the pilot']) {
+    await expect(menu.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: item }).or(menu.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: item }))).toBeVisible();
   }
-  await expect(menu.getByRole('menuitem').first()).toBeFocused();
-  await page.keyboard.press('ArrowDown');
-  await expect(menu.getByRole('menuitem', { name: 'Attend, organise or both' })).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(menu).toBeHidden();
-  await expect(account).toBeFocused();
-
-  if (info.project.name === 'phone') await page.getByRole('button', { name: 'Open menu' }).click();
-  const sidebar = info.project.name === 'phone' ? page.getByRole('dialog', { name: 'Menu' }) : page.locator('#site-menu-desktop');
-  await expect(sidebar.getByText('Notification preferences')).toHaveCount(0);
-  await expect(sidebar.getByText('Account & security')).toHaveCount(0);
+  for (const category of ['Sports', 'Creative', 'Outdoor']) await expect(menu.getByRole('button', { name: category, exact: true })).toHaveCount(0);
+  await expect(menu.getByRole('button', { name: 'Notification preferences' })).toHaveCount(0);
+  await menu.getByRole('button', { name: /Profile & settings/ }).click();
+  for (const item of ['Profile', 'Attend, organise or both', 'Notification preferences', 'Privacy & my data', 'Account & security', 'Privacy notice']) {
+    await expect(menu.getByRole('button', { name: item, exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole('button', { name: 'Account and settings' })).toHaveCount(0);
 });
 
 test('organiser tools stay out of the menu until someone chooses to organise', async ({ page }, info) => {
@@ -126,11 +120,11 @@ test('organiser tools stay out of the menu until someone chooses to organise', a
 test('footer links to privacy and help are on every screen', async ({ page }) => {
   await openSite(page);
   await goToList(page);
-  const footer = page.getByRole('navigation', { name: 'Footer' });
-  await expect(footer.getByRole('button', { name: 'Privacy notice' })).toBeVisible();
+  const footer = page.getByRole('contentinfo');
+  await expect(footer.getByRole('button', { name: 'Privacy Policy' })).toBeVisible();
   await footer.getByRole('button', { name: 'How the pilot works' }).click();
   await expect(page.getByRole('heading', { name: 'How the pilot works' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Footer' }).getByRole('button', { name: 'Privacy notice' })).toBeVisible();
+  await expect(page.getByRole('contentinfo').getByRole('button', { name: 'Privacy Policy' })).toBeVisible();
 });
 
 test('phone: with reduced motion the drawer still opens, takes focus and closes', async ({ page }, info) => {

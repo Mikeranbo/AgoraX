@@ -10,3 +10,4 @@ coverage/
 # Playwright output
 test-results/
 playwright-report/
+.cache/

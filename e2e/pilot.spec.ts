@@ -6,10 +6,13 @@ test.beforeEach(async () => {
 });
 
 test('the pilot is explained up front, without booking or popularity language', async ({ page }) => {
-  await openSite(page);
-  await expect(page.getByText('AgoraX is a pilot, not a booking service.')).toBeVisible();
-  await expect(page.getByText(/aim to run one to three of the most-supported/)).toBeVisible();
-  await expect(page.getByText(/doesn't guarantee the event will happen/)).toBeVisible();
+  await page.goto('/');
+  await page.keyboard.press('ArrowDown');
+  const notice = page.getByRole('dialog', { name: 'A quick note: this is a pilot' });
+  await expect(notice.getByText(/Events are not confirmed\. Prices and potential earnings are hypothetical/)).toBeVisible();
+  await expect(notice.getByText(/Showing interest is not a booking, and you won’t be charged/)).toBeVisible();
+  await expect(notice.getByText(/does not make you the organiser/)).toBeVisible();
+  await notice.getByRole('button', { name: 'Got it — explore' }).click();
   await goToList(page);
   await expect(page.getByText(/This is happening|Buy ticket|Booking confirmed|people viewing|left!/i)).toHaveCount(0);
 });
@@ -43,7 +46,6 @@ test('interest counts once per person: join, withdraw and rejoin, even when tapp
   await chess.getByRole('button', { name: "I'm interested" }).click();
   await expect(chess.getByText('1 interested')).toBeVisible();
   await page.reload();
-  await page.getByRole('button', { name: 'More events' }).click();
   await expect(card(page, 'Chess café').getByText('1 interested')).toBeVisible();
 });
 

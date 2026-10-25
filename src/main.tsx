@@ -12,6 +12,11 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />} />
+        {/* Direct links to the legal pages open on them, without the entry flow. */}
+        <Route path="/privacy" element={<App initialTab="notice" />} />
+        <Route path="/terms" element={<App initialTab="terms" />} />
+        <Route path="/cookies" element={<App initialTab="cookies" />} />
+        <Route path="/imprint" element={<App initialTab="imprint" />} />
         <Route
           path="/admin"
           element={

@@ -55,7 +55,12 @@ export type Tab =
   | 'account'
   | 'notice'
   | 'how'
-  | 'faq';
+  | 'faq'
+  | 'terms'
+  | 'cookies'
+  | 'imprint';
+/** The entry flow: the opening messages, the pilot notice, then the events page. */
+export type EntryStage = 'intro' | 'notice' | 'done';
 export type Sheet = 'contact' | 'space' | 'initial' | 'profile' | 'locked' | 'mode' | null;
 export type Filter = EventCategory | 'All';
 /** Proposals are ideas without a date; scheduled events are confirmed with a real date. */
@@ -86,7 +91,6 @@ interface VisitorState {
   drawerOpen: boolean;
   /** Laptop sidebar; remembered on this device. */
   sidebarOpen: boolean;
-  accountMenuOpen: boolean;
   lockedFeature: LockedFeature | null;
   statsOff: boolean;
   pending: Set<string>;
@@ -102,6 +106,7 @@ interface VisitorState {
   /** The draft open in the Propose screen, if any. */
   editing: Proposal | null;
   profile: PublicProfile | null;
+  entry: EntryStage;
 }
 
 interface VisitorActions {
@@ -123,7 +128,6 @@ interface VisitorActions {
   closeNav: () => void;
   openDrawer: () => void;
   closeDrawer: () => void;
-  setAccountMenu: (open: boolean) => void;
   openLocked: (feature: LockedFeature) => void;
   voteFeature: (feature: LockedFeature) => void;
   saveProfile: (displayName: string) => Promise<void>;
@@ -150,6 +154,12 @@ interface VisitorActions {
   editProposal: (p: Proposal | null) => void;
   dismissBanner: () => void;
   showToast: (message: string) => void;
+  /** From the opening messages: on to the pilot notice, or straight in if it was hidden for good. */
+  advanceEntry: () => void;
+  /** "Got it": closes the notice; `forGood` also hides it on later visits. */
+  closePilotNotice: (forGood: boolean) => void;
+  /** "About the pilot" in the sidebar. */
+  openPilotNotice: () => void;
 }
 
 interface VisitorMeta {
@@ -200,6 +210,25 @@ function writeString(key: string, value: string) {
   }
 }
 
+export const NOTICE_HIDDEN_KEY = 'agorax.pilotNotice.hidden';
+/** This tab already went through the entry, so a reload doesn't replay it (sessionStorage). */
+export const ENTRY_DONE_KEY = 'agorax.entry.done';
+
+function entryDoneThisTab(): boolean {
+  try {
+    return sessionStorage.getItem(ENTRY_DONE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Where a visit starts: the opening messages, or (for a shared event link) the notice or the page. */
+function firstEntryStage(skip: boolean): EntryStage {
+  if (skip || entryDoneThisTab()) return 'done';
+  if (urlEventId()) return readFlag(NOTICE_HIDDEN_KEY) ? 'done' : 'notice';
+  return 'intro';
+}
+
 function urlEventId(): string | null {
   return new URLSearchParams(window.location.search).get('e');
 }
@@ -210,7 +239,17 @@ export const isWideScreen = () => typeof window !== 'undefined' && window.matchM
 const DEFAULT_PLACE = (): PlaceFilter => ({ city: readString(CITY_KEY) || PILOT_CITY, scope: 'all' });
 
 /** The only place that knows how the public site talks to Firebase. Screens read state and call actions. */
-export function VisitorProvider({ children }: { children: React.ReactNode }) {
+export function VisitorProvider({
+  children,
+  initialTab = 'events',
+  skipEntry = false,
+}: {
+  children: React.ReactNode;
+  /** A direct link such as /privacy opens on that screen. */
+  initialTab?: Tab;
+  /** Pages reached by direct link skip the opening messages and the notice. */
+  skipEntry?: boolean;
+}) {
   const [phase, setPhase] = useState<VisitorState['phase']>('loading');
   const [authError, setAuthError] = useState('');
   const [uid, setUid] = useState<string | null>(null);
@@ -218,7 +257,8 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [eventsError, setEventsError] = useState(false);
   const [me, setMe] = useState<UserDoc | null>(null);
-  const [tab, setTabState] = useState<Tab>('events');
+  const [tab, setTabState] = useState<Tab>(initialTab);
+  const [entry, setEntry] = useState<EntryStage>(() => firstEntryStage(skipEntry));
   const [filter, setFilter] = useState<Filter>('All');
   const [view, setView] = useState<View>('proposals');
   const [dateFilter, setDateFilter] = useState<DateFilter>('any');
@@ -227,7 +267,6 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => readString(SIDEBAR_KEY) !== '0');
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [lockedFeature, setLockedFeature] = useState<LockedFeature | null>(null);
   const [statsAreOff, setStatsAreOff] = useState(statsOff);
   const [selectedId, setSelectedId] = useState<string | null>(urlEventId);
@@ -371,7 +410,28 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
 
+  const finishEntry = () => {
+    setEntry('done');
+    try {
+      sessionStorage.setItem(ENTRY_DONE_KEY, '1');
+    } catch {
+      /* the entry replays on reload; harmless */
+    }
+  };
+
   const actions: VisitorActions = {
+    advanceEntry: () => {
+      if (readFlag(NOTICE_HIDDEN_KEY)) finishEntry();
+      else setEntry('notice');
+    },
+    closePilotNotice: (forGood) => {
+      if (forGood) writeString(NOTICE_HIDDEN_KEY, '1');
+      finishEntry();
+    },
+    openPilotNotice: () => {
+      setDrawerOpen(false);
+      setEntry('notice');
+    },
     join: async (event) => {
       if (!uid || pending.has(event.id) || joined.has(event.id)) return;
       const joinsBefore = joined.size;
@@ -436,7 +496,6 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     setTab: (next) => {
       if (selectedId) actions.back();
       setDrawerOpen(false);
-      setAccountMenuOpen(false);
       setTabState(next);
       // The opening view is for arriving on the site; from the menus, go straight to the list.
       setTimeout(() => {
@@ -515,7 +574,6 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     },
     openDrawer: () => setDrawerOpen(true),
     closeDrawer: () => setDrawerOpen(false),
-    setAccountMenu: setAccountMenuOpen,
     openLocked: (feature) => {
       track('locked_feature_click', { feature });
       setLockedFeature(feature);
@@ -612,7 +670,6 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     skipLadder: () => setLadder(null),
     openSheet: (next) => {
       setDrawerOpen(false);
-      setAccountMenuOpen(false);
       // The privacy notice is a full page now; older links still ask for the "privacy" sheet.
       if (next === 'privacy') {
         actions.setTab('notice');
@@ -674,6 +731,7 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   };
 
   const state: VisitorState = {
+    entry,
     phase,
     authError,
     uid,
@@ -691,7 +749,6 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
     isAdmin,
     drawerOpen,
     sidebarOpen,
-    accountMenuOpen,
     lockedFeature,
     statsOff: statsAreOff,
     pending,

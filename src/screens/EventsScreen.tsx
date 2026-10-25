@@ -4,7 +4,6 @@ import { LEGACY_CATEGORIES, PUBLIC_CATEGORIES } from '../types';
 import { Filter, PlaceFilter, useVisitor } from '../state/VisitorProvider';
 import { EventCard } from '../components/EventCard';
 import { SuggestionBox } from '../components/SuggestionBox';
-import { OpeningHero } from '../components/OpeningHero';
 import { LIST_ID, fieldClass } from '../components/ui';
 import { filterEvents, hasActiveFilters } from '../data/eventFilters';
 import { CITIES, NEAR_KM } from '../data/location';
@@ -34,7 +33,7 @@ const ViewSwitch = () => {
     </button>
   );
   return (
-    <div role="radiogroup" aria-label="Show" className="flex gap-1 rounded-sheet border border-sheet-line p-1">
+    <div role="radiogroup" aria-label="Show" className="flex gap-1 rounded-sheet border border-sheet-line bg-sheet p-1">
       {option('proposals', 'Proposals')}
       {option('scheduled', 'Scheduled')}
     </div>
@@ -215,9 +214,9 @@ export const EventsScreen = () => {
 
   return (
     <div>
-      <OpeningHero />
+      <h1 className="sr-only">AgoraX proposals</h1>
 
-      <div id={LIST_ID} className="mx-auto max-w-6xl snap-start scroll-mt-0 px-4 pt-2 sm:px-6">
+      <div id={LIST_ID} className="mx-auto max-w-6xl scroll-mt-0 px-4 pt-3 sm:px-6">
         <div className="mx-12 mb-3 max-w-md">
           <ViewSwitch />
         </div>
@@ -234,7 +233,7 @@ export const EventsScreen = () => {
                 >
                   {g.title}
                 </h2>
-                <span className="shrink-0 text-[13px] text-slate-300 tabular-nums">
+                <span className="shrink-0 text-[13px] font-semibold text-white tabular-nums">
                   {g.events.length} {state.view === 'scheduled' ? (g.events.length === 1 ? 'event' : 'events') : g.events.length === 1 ? 'proposal' : 'proposals'}
                 </span>
               </div>
@@ -253,14 +252,6 @@ export const EventsScreen = () => {
           <SuggestionBox />
         </div>
 
-        <p className="mt-8 flex flex-wrap gap-x-5 text-[14px] text-slate-300">
-          <button onClick={() => actions.openSheet('space')} className="min-h-11 font-semibold text-brand-secondary underline underline-offset-4">
-            I have a space
-          </button>
-          <button onClick={() => actions.setTab('propose')} className="min-h-11 font-semibold text-brand-secondary underline underline-offset-4">
-            Propose an event
-          </button>
-        </p>
       </div>
     </div>
   );

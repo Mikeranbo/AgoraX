@@ -174,7 +174,7 @@ const PanelBody = ({ event, onClose }: { event: Event; onClose: () => void }) =>
   );
 };
 
-/** Opens from "Help run this". */
+/** Opens from "Organize" on the event page. */
 export const OrganiserPanel = () => {
   const { state, actions } = useVisitor();
   const event = state.organiserEvent;
@@ -184,7 +184,7 @@ export const OrganiserPanel = () => {
   const shown = event ?? last.current;
 
   return (
-    <Modal isOpen={!!event} onClose={actions.closeOrganiser} title="Help run this">
+    <Modal isOpen={!!event} onClose={actions.closeOrganiser} title="Organize this event">
       {shown && <PanelBody key={shown.id} event={shown} onClose={actions.closeOrganiser} />}
     </Modal>
   );

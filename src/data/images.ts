@@ -1,5 +1,5 @@
 import { SEED_EVENTS } from './seedEvents';
-import { seedPhoto } from './photos';
+import { photoSet, seedThumb } from './photos';
 
 /** A picture someone can pick for a proposed event. */
 export interface PhotoChoice {
@@ -97,10 +97,13 @@ export async function checkImageLink(url: string): Promise<void> {
 
 /** Our own photos of similar events, by category. */
 export function photosForCategory(category: string): PhotoChoice[] {
-  return SEED_EVENTS.filter((e) => e.category === category)
-    .map((e) => seedPhoto(e.slug, 800))
-    .filter((u): u is string => !!u)
-    .map((u) => ({ thumb: u.replace('w=800', 'w=320'), src: u }));
+  // Our own files are relative URLs, which a proposal can't store, so they're copied in like the
+  // free-source ideas (same origin, so no CORS question).
+  return SEED_EVENTS.filter((e) => e.category === category).flatMap((e) => {
+    const set = photoSet(e.slug);
+    const thumb = seedThumb(e.slug);
+    return set && thumb ? [{ thumb, src: set.fallback, copy: true }] : [];
+  });
 }
 
 /** fetch() that gives up after `ms`, so one slow picture service can't freeze the picker. */
