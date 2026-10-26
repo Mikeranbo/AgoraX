@@ -26,8 +26,9 @@ branches piling up.
 3. **Check what goes in.** `git status` and `git diff`: only files that belong to the task. Never
    commit secrets (`.env*`, keys, service-account JSON), caches (`.cache/`), scratch files or
    screenshots that aren't part of the site.
-4. **Commit** with a clear message: what changed and why (`commit` skill for the format), plus
-   any attribution lines the session requires.
+4. **Commit** with a clear message: a short summary line (imperative, 70 characters or fewer),
+   then what changed and why. No secrets or personal data in it. Add any attribution lines the
+   session requires.
 5. **Onto main and push.**
    - On `main`: `git pull --ff-only origin main`, then `git push origin main`.
    - On a branch: `git checkout main && git pull --ff-only origin main && git merge --ff-only <branch>`

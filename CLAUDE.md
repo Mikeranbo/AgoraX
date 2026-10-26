@@ -23,7 +23,7 @@ Product context: PRODUCT.md.
 
 ## Skills - always check them first
 
-This project has 49 skills in .claude/skills/. The full list with descriptions is in
+This project has 48 skills in .claude/skills/. The full list with descriptions is in
 .claude/skills/INDEX.md.
 
 Before any non-trivial task:

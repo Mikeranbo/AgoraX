@@ -107,10 +107,9 @@ digraph process {
 
 ## Setup
 
-Ensure the work happens in an isolated workspace: use
-superpowers:using-git-worktrees to create one or verify the existing one.
-Never start implementation on a main/master branch without your human
-partner's explicit consent.
+Work on `main`. The owner's standing rule (see `commit-to-main`) is that work
+happens on `main` and finished work is pushed there: don't create a worktree
+or a feature branch unless the user asks for one.
 
 Conversation memory does not survive compaction. An inline executor that
 loses its place re-implements tasks whose commits already exist — the same
@@ -325,7 +324,7 @@ Use superpowers:finishing-a-development-branch.
 ```
 You: I'm using the executing-plans skill to implement this plan inline.
 
-[Setup: worktree verified]
+[Setup: on main, working tree clean]
 [Read plan once: docs/superpowers/plans/feature-plan.md; spec read]
 [Resolve workspace: sdd-workspace docs/superpowers/plans/feature-plan.md — no ledger inside, fresh start]
 [Pre-flight scan: 2 shared-interface rows, 4 self-consistency rows, clean; written to ledger]
