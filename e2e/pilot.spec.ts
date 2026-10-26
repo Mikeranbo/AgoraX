@@ -73,12 +73,16 @@ test('the timing preference is labelled as a preference and saved', async ({ pag
   await goToList(page);
   await card(page, 'Chess café').getByRole('button', { name: "I'm interested" }).click();
   await page.getByRole('button', { name: 'Skip' }).click();
-  if (info.project.name === 'phone') await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Interests/ }).click();
-  else await page.locator('#site-menu-desktop').getByRole('button', { name: /My interests/ }).click();
+  const openInterests = async () => {
+    if (info.project.name === 'phone') await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /Interests/ }).click();
+    else await page.locator('#site-menu-desktop').getByRole('button', { name: /My interests/ }).click();
+  };
+  await openInterests();
   await expect(page.getByText('A preference to help us plan, not a promise of a date or of your availability.')).toBeVisible();
   await page.getByText('Weekends', { exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Weekends' })).toBeChecked();
+  // A reload in the same tab lands on the list (the entry flow doesn't replay).
   await page.reload();
-  await page.getByRole('button', { name: 'See my interests' }).click();
+  await openInterests();
   await expect(page.getByRole('radio', { name: 'Weekends' })).toBeChecked();
 });

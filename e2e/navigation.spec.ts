@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fromAccountMenu, goToList, openMenu, openSite, seed } from './helpers';
+import { fromAccountMenu, goToList, openMenu, openMore, openSite, seed } from './helpers';
 
 test.beforeEach(async () => {
   await seed();
@@ -84,7 +84,8 @@ test('personal settings live in the profile card; the menu has no category filte
   await openSite(page);
   const menu = await openMenu(page);
   for (const item of ['Proposals', 'Scheduled events', 'My interests', 'Saved events', 'Report a bug', 'About the pilot']) {
-    await expect(menu.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: item }).or(menu.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: item }))).toBeVisible();
+    const sections = menu.getByRole('navigation', { name: 'Sections' });
+    await expect(sections.getByRole('link', { name: item }).or(sections.getByRole('button', { name: item }))).toBeVisible();
   }
   for (const category of ['Sports', 'Creative', 'Outdoor']) await expect(menu.getByRole('button', { name: category, exact: true })).toHaveCount(0);
   await expect(menu.getByRole('button', { name: 'Notification preferences' })).toHaveCount(0);
@@ -95,15 +96,11 @@ test('personal settings live in the profile card; the menu has no category filte
   await expect(page.getByRole('button', { name: 'Account and settings' })).toHaveCount(0);
 });
 
-test('organiser tools stay out of the menu until someone chooses to organise', async ({ page }, info) => {
+test('organiser tools stay out of the menu until someone chooses to organise', async ({ page }) => {
   await openSite(page);
-  const isPhone = info.project.name === 'phone';
-  const openMenu = async () => {
-    if (isPhone) await page.getByRole('button', { name: 'Open menu' }).click();
-    return isPhone ? page.getByRole('dialog', { name: 'Menu' }) : page.locator('#site-menu-desktop');
-  };
-  let menu = await openMenu();
-  await expect(menu.getByRole('heading', { name: 'Organiser tools' })).toHaveCount(0);
+  let menu = await openMenu(page);
+  await openMore(menu);
+  await expect(menu.getByRole('button', { name: 'Organiser profile' })).toHaveCount(0);
   await menu.getByRole('button', { name: 'Want to organise?' }).click();
 
   const dialog = page.getByRole('dialog', { name: 'How will you use AgoraX?' });
@@ -111,10 +108,11 @@ test('organiser tools stay out of the menu until someone chooses to organise', a
   await dialog.getByRole('radio', { name: /Both/ }).click();
   await expect(dialog).toBeHidden();
 
-  menu = await openMenu();
-  await expect(menu.getByRole('heading', { name: 'Organiser tools' })).toBeVisible();
-  await expect(menu.getByRole('button', { name: 'New draft' })).toBeVisible();
-  await expect(menu.getByRole('button', { name: 'Admin' })).toHaveCount(0);
+  menu = await openMenu(page);
+  await openMore(menu);
+  await expect(menu.getByRole('button', { name: 'Organiser profile' })).toBeVisible();
+  await expect(menu.getByRole('button', { name: 'Want to organise?' })).toHaveCount(0);
+  await expect(menu.getByRole('link', { name: 'Admin' })).toHaveCount(0);
 });
 
 test('footer links to privacy and help are on every screen', async ({ page }) => {

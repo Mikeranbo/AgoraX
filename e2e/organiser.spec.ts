@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { fromAccountMenu, openSite, seed } from './helpers';
+import { fromAccountMenu, fromSidebar, openSite, seed } from './helpers';
 
 test.beforeEach(async () => {
   await seed();
@@ -12,7 +12,7 @@ async function chooseMode(page: Page, mode: 'Attend' | 'Organise' | 'Both') {
 
 async function openPropose(page: Page, isPhone: boolean) {
   if (isPhone) await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Propose' }).click();
-  else await page.locator('#site-menu-desktop').getByRole('button', { name: 'Propose an event' }).click();
+  else await fromSidebar(page, 'Propose an event');
   await expect(page.getByRole('heading', { name: 'Propose an event' })).toBeVisible();
 }
 

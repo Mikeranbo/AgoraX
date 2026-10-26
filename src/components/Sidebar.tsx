@@ -153,7 +153,8 @@ export const SidebarContent = ({ onClose, closeLabel }: { onClose: () => void; c
         </button>
       </div>
 
-      <nav aria-label="Main" className="mt-5 space-y-0.5">
+      {/* Not "Main": that is the phone's bottom bar, and two landmarks shouldn't share a name. */}
+      <nav aria-label="Sections" className="mt-5 space-y-0.5">
         <Item icon={LayoutGrid} label="Proposals" active={on('events') && state.view === 'proposals'} onClick={showProposals} />
         <Item icon={CalendarCheck} label="Scheduled events" active={on('events') && state.view === 'scheduled'} onClick={actions.showScheduled} />
         <Item icon={Star} label="My interests" active={on('picks')} onClick={() => actions.setTab('picks')} trailing={<Count n={meta.picks.length} />} />
