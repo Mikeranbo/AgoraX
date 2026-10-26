@@ -1,6 +1,6 @@
 # Skills index — AgoraX
 
-48 skills installed in this project at `.claude/skills/`.
+49 skills installed in this project at `.claude/skills/`.
 They load automatically when Claude Code runs from this folder.
 
 Pick 1–4 that fit the task before starting. Read the skill's `SKILL.md` and follow it.
@@ -49,6 +49,7 @@ Pick 1–4 that fit the task before starting. Read the skill's `SKILL.md` and fo
 | `code-simplifier` | Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Use when asked to "simplify code", "clean up code", "refactor for… |
 | `find-bugs` | Find bugs, security vulnerabilities, and code quality issues in local branch changes. Use when asked to review changes, find bugs, security review, or audit code on the current… |
 | `commit` | Use for every request to commit changes or draft a commit message. Creates Sentry-style conventional commits with issue references. |
+| `commit-to-main` | Use at the end of every task that changed files: verify, commit and push to main (it deploys), unless the user said not to or it would break the site; then say so explicitly and why. No feature branches. |
 
 ## Business, validation and the Innokite application
 

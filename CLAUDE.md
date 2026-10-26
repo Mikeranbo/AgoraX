@@ -23,7 +23,7 @@ Product context: PRODUCT.md.
 
 ## Skills - always check them first
 
-This project has 48 skills in .claude/skills/. The full list with descriptions is in
+This project has 49 skills in .claude/skills/. The full list with descriptions is in
 .claude/skills/INDEX.md.
 
 Before any non-trivial task:
@@ -32,6 +32,9 @@ Before any non-trivial task:
 3. Say in one sentence which skills you used. If none fit, continue normally.
 
 Always use:
+- commit-to-main when a task is finished: commit it, put it on main and push (that deploys).
+  Only skip it if the user said not to or it would break the site, and then say so plainly,
+  with the reason. Work on main; no feature branches unless asked.
 - writing-plans before any multi-file change, then executing-plans.
 - verification-before-completion before saying anything is done.
 - impeccable or ui-ux-pro-max for any visual work. Never ship default

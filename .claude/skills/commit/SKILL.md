@@ -11,9 +11,9 @@ description: Use for every request to commit changes or draft a commit message. 
 git branch --show-current
 ```
 
-If the branch is `main` or `master`, create a feature branch unless the user
-explicitly requested a direct commit. Re-check the branch and stop if it is
-still `main` or `master`.
+Commit on `main`. The owner's standing rule is that finished work goes straight
+to `main` and is pushed (see `commit-to-main`); don't create feature branches
+unless the user asks for one.
 
 Commit one coherent, independently reviewable change at a time.
 
