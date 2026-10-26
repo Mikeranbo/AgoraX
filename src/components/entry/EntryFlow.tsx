@@ -22,44 +22,71 @@ function useMobile(): boolean {
   return mobile;
 }
 
-/** The photo panel: one photo per message, crossfading with the cube. */
-const PhotoPanel = ({ active, mobile }: { active: number; mobile: boolean }) => (
-  <div
-    aria-hidden="true"
-    className={`pointer-events-none absolute ${mobile ? 'inset-x-0 top-0 h-[40%]' : 'top-0 right-0 bottom-0 w-[34%]'}`}
-    // The fades end in black; the edge facing the text also fades out, so the panel melts into
-    // the page's own dark gradient instead of meeting it in a line.
-    style={{
-      maskImage: mobile ? 'linear-gradient(180deg, #000 82%, transparent 100%)' : 'linear-gradient(90deg, transparent 0%, #000 14%)',
-      WebkitMaskImage: mobile ? 'linear-gradient(180deg, #000 82%, transparent 100%)' : 'linear-gradient(90deg, transparent 0%, #000 14%)',
-    }}
-  >
-    {ENTRY_MESSAGES.map((m, i) => {
-      const set = photoSet(m.photo);
-      if (!set) return null;
-      return (
-        <div key={m.photo} className="absolute inset-0 transition-opacity duration-[800ms]" style={{ opacity: i === active ? 1 : 0 }}>
-          <Photo
-            set={set}
-            sizes={`${MOBILE_QUERY} 100vw, 34vw`}
-            priority={i === 0}
-            className="h-full w-full object-cover"
-            style={{ objectPosition: (mobile ? set.mobilePosition : set.position) ?? '50% 50%' }}
-          />
-        </div>
-      );
-    })}
-    <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(124,92,246,.5), rgba(47,110,255,.35))', mixBlendMode: 'soft-light' }} />
-    <div
-      className="absolute inset-0"
-      style={{
-        background: mobile
-          ? 'linear-gradient(180deg, rgba(0,0,0,.85) 0%, transparent 35%, rgba(0,0,0,.25) 62%, #000 100%)'
-          : 'linear-gradient(90deg, #000 0%, rgba(0,0,0,.55) 22%, transparent 55%), linear-gradient(180deg, #000 0%, rgba(0,0,0,.85) 22%, transparent 40%, transparent 60%, rgba(0,0,0,.85) 76%, #000 100%)',
-      }}
-    />
-  </div>
-);
+/** The cube's roll curve, so the people move with the text. */
+const ROLL_EASE = [0.7, -0.2, 0.25, 1.15] as const;
+/** Phones: the cut-out ends in a short fade where the photo itself was cropped. */
+const PHONE_FADE = 'linear-gradient(180deg, #000 80%, transparent 100%)';
+
+/**
+ * One person per message, cut out on a transparent background, on the right (across the top on
+ * phones), never over the text. Behind each person is their own silhouette filled with the
+ * blue–purple gradient and offset down and to the right. On a roll the person rises (or drops)
+ * with the cube and the shape trails a beat behind. With reduced motion only opacity changes.
+ */
+const CutoutPanel = ({ active, direction, mobile }: { active: number; direction: 1 | -1; mobile: boolean }) => {
+  const offset = mobile ? 14 : 18;
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+      {ENTRY_MESSAGES.map((m, i) => {
+        const set = photoSet(m.photo);
+        if (!set) return null;
+        const on = i === active;
+        const place = m.flush ? 'right bottom' : 'center bottom';
+        const box: React.CSSProperties = mobile
+          ? { top: 72, height: 'calc(44dvh - 72px)', ...(m.flush ? { right: 0, width: '82vw' } : { left: '9vw', right: '9vw' }), maskImage: PHONE_FADE, WebkitMaskImage: PHONE_FADE }
+          : m.flush
+            ? { right: 0, bottom: 0, width: '31vw', height: '90vh' }
+            : { right: '3.5vw', bottom: '9vh', width: '28vw', height: '76vh' };
+        const mask = `url(${set.mask})`;
+        return (
+          <div key={m.photo} className="absolute" style={box}>
+            <motion.div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(150deg, var(--color-x-blue) 0%, var(--color-x-purple) 100%)',
+                maskImage: mask,
+                WebkitMaskImage: mask,
+                maskSize: 'contain',
+                WebkitMaskSize: 'contain',
+                maskPosition: place,
+                WebkitMaskPosition: place,
+                maskRepeat: 'no-repeat',
+                WebkitMaskRepeat: 'no-repeat',
+              }}
+              initial={false}
+              animate={on ? { x: [offset + 10, offset], y: [offset + direction * 120, offset], opacity: [0, 1] } : { x: offset, y: offset - direction * 80, opacity: 0 }}
+              transition={on ? { duration: 1.35, delay: 0.12, ease: ROLL_EASE } : { duration: 0.75, ease: [0.7, 0, 0.84, 0] }}
+            />
+            <motion.div
+              className="absolute inset-0"
+              initial={false}
+              animate={on ? { y: [direction * 70, 0], opacity: [0, 1] } : { y: -direction * 70, opacity: 0 }}
+              transition={on ? { duration: 1.35, ease: ROLL_EASE } : { duration: 0.75, ease: [0.7, 0, 0.84, 0] }}
+            >
+              <Photo
+                set={set}
+                sizes={mobile ? '82vw' : '31vw'}
+                priority={i === 0}
+                className="h-full w-full"
+                style={{ objectFit: 'contain', objectPosition: place }}
+              />
+            </motion.div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 /** After a scroll step, input is ignored until it has been quiet this long (trackpad inertia)… */
 const QUIET_MS = 220;
@@ -75,6 +102,8 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
   const mobile = useMobile();
   const reduced = !!useReducedMotion();
   const [step, setStep] = useState(0);
+  // Which way the last roll went: the people enter from below going forward, from above going back.
+  const [direction, setDirection] = useState<1 | -1>(1);
   const [paused, setPaused] = useState(false);
   const block = useRef<HTMLDivElement>(null);
   const [blockWidth, setBlockWidth] = useState(0);
@@ -88,6 +117,7 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
     if (by === 0) return;
     stepRef.current += by;
     seen.current.add(messageAt(stepRef.current));
+    setDirection(by < 0 ? -1 : 1);
     setStep(stepRef.current);
   };
   /** Down: the next message, or on to the notice once all three have been shown. */
@@ -221,7 +251,7 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
         touchAction: 'none',
       }}
     >
-      <PhotoPanel active={active} mobile={mobile} />
+      <CutoutPanel active={active} direction={direction} mobile={mobile} />
 
       <header className={`absolute inset-x-0 top-8 z-10 flex items-center justify-between ${mobile ? 'px-5' : 'px-12'}`}>
         <p>

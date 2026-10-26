@@ -1,12 +1,12 @@
 # Photo credits
 
-All photos are from [Unsplash](https://unsplash.com) and used under the Unsplash License (https://unsplash.com/license). Each one was checked on its photo page on 2026-10-25 ("Free to use under the Unsplash License", not Unsplash+). They are downloaded and served from this site, not hotlinked. The list is kept in scripts/photo-sources.json; run `node scripts/build-photos.mjs` after changing it.
+All photos are from [Unsplash](https://unsplash.com) and used under the Unsplash License (https://unsplash.com/license). Each one was checked on its photo page on 2026-10-27 ("Free to use under the Unsplash License", not Unsplash+). They are downloaded and served from this site, not hotlinked. The list is kept in scripts/photo-sources.json; run `node scripts/build-photos.mjs` after changing it.
 
 | Files | Photographer | Source | Licence |
 | --- | --- | --- | --- |
-| `entry/entry-1-friends-*` | [NATHAN MULLET](https://unsplash.com/@nate072107) | [Unsplash photo page](https://unsplash.com/photos/woman-laughing-with-people-in-foreground-2OCbLK506hA) | Unsplash License |
-| `entry/entry-2-climbing-*` | [Beta Boulders](https://unsplash.com/@betaboulders) | [Unsplash photo page](https://unsplash.com/photos/young-woman-bouldering-on-an-indoor-climbing-wall-7luvAhiLVLc) | Unsplash License |
-| `entry/entry-3-organiser-*` | [Matthieu Jungfer](https://unsplash.com/@jungfish) | [Unsplash photo page](https://unsplash.com/photos/woman-in-gray-and-white-striped-long-sleeve-shirt-smiling-0tAYWIGtYTo) | Unsplash License |
+| `entry/entry-guitar.png, entry/entry-guitar-*` | [CALEB SHAVER](https://unsplash.com/@calebjshaver) | [Unsplash photo page](https://unsplash.com/photos/man-in-brown-coat-and-black-pants-sitting-on-brown-wooden-chair-playing-brown-acoustic-guitar-ovJJZc0NUcE) | Unsplash License (background removed) |
+| `entry/entry-climbing.png, entry/entry-climbing-*` | [Tofan Teodor](https://unsplash.com/@tofanteo) | [Unsplash photo page](https://unsplash.com/photos/a-man-climbing-up-the-side-of-a-climbing-wall-UA1qdFB4Ywk) | Unsplash License (background removed) |
+| `entry/entry-cooking.png, entry/entry-cooking-*` | [Le Creuset](https://unsplash.com/@lecreuset) | [Unsplash photo page](https://unsplash.com/photos/woman-holding-lid-of-cooking-pot-and-using-brown-spatula-XRCJXVwcBCo) | Unsplash License (background removed) |
 | `events/beginner-bouldering-*` | [Yns Plt](https://unsplash.com/@ynsplt) | [Unsplash photo page](https://unsplash.com/photos/woman-rock-climbing-inside-building-NY1D4Zni7fc) | Unsplash License |
 | `events/padel-cup-*` | [Manuel Pappacena](https://unsplash.com/@manupappa) | [Unsplash photo page](https://unsplash.com/photos/padel-racket-on-court-zTwzxr4BbTA) | Unsplash License |
 | `events/boxing-martial-arts-intro-*` | [Temple Noble Art](https://unsplash.com/@templenobleart) | [Unsplash photo page](https://unsplash.com/photos/a-boxing-ring-with-a-pair-of-boxing-gloves-hanging-from-the-ceiling-TeL4E6S5BQU) | Unsplash License |

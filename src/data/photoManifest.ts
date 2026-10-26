@@ -3,6 +3,8 @@
 
 export interface PhotoInfo {
   dir: 'entry' | 'events';
+  /** A transparent cut-out: also served as <key>.png, and kept transparent in AVIF/WebP. */
+  cutout?: boolean;
   width: number;
   height: number;
   widths: number[];
@@ -11,44 +13,38 @@ export interface PhotoInfo {
 }
 
 export const PHOTO_MANIFEST: Record<string, PhotoInfo> = {
-  "entry-1-friends": {
+  "entry-guitar": {
     "dir": "entry",
-    "width": 2560,
-    "height": 3840,
+    "cutout": true,
+    "width": 1200,
+    "height": 1696,
     "widths": [
-      640,
-      1280,
-      1920,
-      2560
-    ],
-    "position": "50% 30%",
-    "mobilePosition": "50% 18%"
+      480,
+      800,
+      1200
+    ]
   },
-  "entry-2-climbing": {
+  "entry-climbing": {
     "dir": "entry",
-    "width": 2560,
-    "height": 3841,
+    "cutout": true,
+    "width": 1200,
+    "height": 1426,
     "widths": [
-      640,
-      1280,
-      1920,
-      2560
-    ],
-    "position": "55% 45%",
-    "mobilePosition": "55% 38%"
+      480,
+      800,
+      1200
+    ]
   },
-  "entry-3-organiser": {
+  "entry-cooking": {
     "dir": "entry",
-    "width": 2000,
-    "height": 3000,
+    "cutout": true,
+    "width": 1200,
+    "height": 1990,
     "widths": [
-      640,
-      1280,
-      1920,
-      2000
-    ],
-    "position": "50% 40%",
-    "mobilePosition": "50% 22%"
+      480,
+      800,
+      1200
+    ]
   },
   "beginner-bouldering": {
     "dir": "events",

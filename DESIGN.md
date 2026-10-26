@@ -52,8 +52,13 @@ soft shadow. One corner radius for the event page, `rounded-sheet` (14px).
    ("Meet new, like-minded people." / "Have fun trying new activities." / "Earn money organising
    events."), each a whole face of an invisible cube that rolls around the X axis every 5.2s
    (1.35s, `cubic-bezier(.7,-0.2,.25,1.15)`); three messages on four faces. Headline Archivo 800 at
-   110% width, block width ÷ 7.8 (about 114px at 1440 wide); text Archivo 500, 28px. A photo per
-   message on the right third (top 40% on phones), crossfading in sync. Three message dashes top
+   110% width, block width ÷ 7.8 (about 114px at 1440 wide); text Archivo 500, 28px. One person per
+   message (guitar, climbing, cooking), cut out on a transparent background (no rectangle, no
+   overlay) on the right, never over the text; across the top on phones, ending in a short fade.
+   Photos cropped by their original frame sit flush in the bottom-right corner. Behind each person
+   is their own silhouette in the x-blue → x-purple gradient, offset 18px down and right (14px on
+   phones). On a roll the person moves with the cube (same 1.35s curve) and the shape trails 0.12s
+   behind; with reduced motion they only fade. Three message dashes top
    right (clickable), a "Scroll to explore" cue bottom centre. The cube rolls on its own, and
    scrolling down (wheel, trackpad, swipe up, mouse drag, ↓/PageDown/Space or the cue) rolls it to
    the next message instead of moving the page; up goes back a message, and does nothing on the
@@ -170,7 +175,10 @@ Every seed event and every entry message has a real, licensed photo served from 
 Unsplash License", listed with photographer and page in `scripts/photo-sources.json` and credited in
 `public/images/CREDITS.md`. `node scripts/build-photos.mjs` makes AVIF and WebP at 640, 1280, 1920
 and 2560px (never enlarged) and `src/data/photoManifest.ts`; `<Photo />` serves them as `<picture>`
-with srcset, sizes, width and height (entry photos eager with fetchpriority high, the rest lazy).
+with srcset, sizes, width and height (the first entry cut-out eager with fetchpriority high, the
+rest lazy). The entry people (kind "cutout") are cut out first by `python scripts/cutout-photos.py`
+(BiRefNet, cleaned matte, edge colours re-estimated so there are no halos); build-photos then keeps
+their transparency in AVIF/WebP at 480, 800 and 1200px and writes the transparent PNG.
 Profiles use initials, no stock faces.
 
 

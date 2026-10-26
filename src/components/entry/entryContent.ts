@@ -3,25 +3,32 @@ export interface EntryMessage {
   /** Headline as [before, highlighted, after]. */
   headline: [string, string, string];
   body: string;
-  /** Key of its photo in photoManifest (public/images/entry). */
+  /** Key of its cut-out (one person, background removed) in photoManifest (public/images/entry). */
   photo: string;
+  /**
+   * The original photo cut the person off at its right and bottom edges, so the cut-out sits flush
+   * in the screen's bottom-right corner (right edge on phones), where those cuts stay out of sight.
+   */
+  flush?: boolean;
 }
 
 export const ENTRY_MESSAGES: EntryMessage[] = [
   {
     headline: ['Meet new, ', 'like-minded', ' people.'],
     body: 'Find people who share your interests and enjoy doing things together.',
-    photo: 'entry-1-friends',
+    photo: 'entry-guitar',
+    flush: true,
   },
   {
     headline: ['Have fun trying ', 'new activities', '.'],
     body: 'Explore new hobbies, join adventures, and discover your next favourite thing.',
-    photo: 'entry-2-climbing',
+    photo: 'entry-climbing',
   },
   {
     headline: ['', 'Earn money', ' organising events.'],
     body: 'Create an event, bring people together, and get paid for making it happen.',
-    photo: 'entry-3-organiser',
+    photo: 'entry-cooking',
+    flush: true,
   },
 ];
 

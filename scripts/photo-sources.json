@@ -1,39 +1,33 @@
 {
   "licence": "Unsplash License (https://unsplash.com/license)",
-  "checked": "2026-10-25",
+  "checked": "2026-10-27",
   "photos": [
     {
-      "key": "entry-1-friends",
-      "kind": "entry",
-      "id": "1788550997059-3c024cba84b4",
-      "page": "https://unsplash.com/photos/woman-laughing-with-people-in-foreground-2OCbLK506hA",
-      "photographer": "NATHAN MULLET",
-      "profile": "https://unsplash.com/@nate072107",
-      "subject": "A student laughing with friends, one person in focus",
-      "position": "50% 30%",
-      "mobilePosition": "50% 18%"
+      "key": "entry-guitar",
+      "kind": "cutout",
+      "id": "1606702604994-f4b0df9cd42c",
+      "page": "https://unsplash.com/photos/man-in-brown-coat-and-black-pants-sitting-on-brown-wooden-chair-playing-brown-acoustic-guitar-ovJJZc0NUcE",
+      "photographer": "CALEB SHAVER",
+      "profile": "https://unsplash.com/@calebjshaver",
+      "subject": "A man playing an acoustic guitar on a stool (cut out)"
     },
     {
-      "key": "entry-2-climbing",
-      "kind": "entry",
-      "id": "1775655111255-706378cdf2ca",
-      "page": "https://unsplash.com/photos/young-woman-bouldering-on-an-indoor-climbing-wall-7luvAhiLVLc",
-      "photographer": "Beta Boulders",
-      "profile": "https://unsplash.com/@betaboulders",
-      "subject": "A woman bouldering on an indoor climbing wall",
-      "position": "55% 45%",
-      "mobilePosition": "55% 38%"
+      "key": "entry-climbing",
+      "kind": "cutout",
+      "id": "1679783024493-07b9df0b60ea",
+      "page": "https://unsplash.com/photos/a-man-climbing-up-the-side-of-a-climbing-wall-UA1qdFB4Ywk",
+      "photographer": "Tofan Teodor",
+      "profile": "https://unsplash.com/@tofanteo",
+      "subject": "A man bouldering on an indoor wall (cut out)"
     },
     {
-      "key": "entry-3-organiser",
-      "kind": "entry",
-      "id": "1611244739820-e73f23ae70be",
-      "page": "https://unsplash.com/photos/woman-in-gray-and-white-striped-long-sleeve-shirt-smiling-0tAYWIGtYTo",
-      "photographer": "Matthieu Jungfer",
-      "profile": "https://unsplash.com/@jungfish",
-      "subject": "An organiser with a clipboard",
-      "position": "50% 40%",
-      "mobilePosition": "50% 22%"
+      "key": "entry-cooking",
+      "kind": "cutout",
+      "id": "1556908247-45afb446ed86",
+      "page": "https://unsplash.com/photos/woman-holding-lid-of-cooking-pot-and-using-brown-spatula-XRCJXVwcBCo",
+      "photographer": "Le Creuset",
+      "profile": "https://unsplash.com/@lecreuset",
+      "subject": "A woman cooking pasta (cut out)"
     },
     {
       "key": "beginner-bouldering",

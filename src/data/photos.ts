@@ -15,6 +15,8 @@ export interface PhotoSet {
   height: number;
   position?: string;
   mobilePosition?: string;
+  /** Cut-outs only: a small transparent WebP whose shape masks the gradient silhouette behind. */
+  mask?: string;
 }
 
 const url = (key: string, info: PhotoInfo, w: number, ext: 'avif' | 'webp') => `/images/${info.dir}/${key}-${w}.${ext}`;
@@ -28,7 +30,9 @@ export function photoSet(key?: string): PhotoSet | undefined {
   return {
     avif: srcset('avif'),
     webp: srcset('webp'),
-    fallback: url(key, info, middle, 'webp'),
+    // A cut-out falls back to its transparent PNG.
+    fallback: info.cutout ? `/images/${info.dir}/${key}.png` : url(key, info, middle, 'webp'),
+    ...(info.cutout ? { mask: url(key, info, info.widths.find((w) => w >= 800) ?? info.widths[info.widths.length - 1], 'webp') } : {}),
     width: info.width,
     height: info.height,
     position: info.position,
