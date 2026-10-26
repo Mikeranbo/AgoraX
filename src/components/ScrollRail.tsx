@@ -35,7 +35,7 @@ export const ScrollRail = () => {
   const top = state.progress * (state.rail - HANDLE);
 
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed top-3 right-1.5 bottom-3 z-[45] w-1.5 rounded-full" style={{ background: 'rgba(255,255,255,.06)' }}>
+    <div aria-hidden="true" className="pointer-events-none fixed top-[60px] right-1.5 bottom-3 lg:top-3 z-[45] w-1.5 rounded-full" style={{ background: 'rgba(255,255,255,.06)' }}>
       <div className="absolute inset-x-0 top-0 rounded-full" style={{ height: top + HANDLE / 2, background: 'rgba(138,107,232,.35)' }} />
       <div
         className="absolute -left-[3px] w-3 rounded-full"

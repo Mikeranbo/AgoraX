@@ -299,10 +299,25 @@ export const SidebarDrawer = () => {
   );
 };
 
-/** Top left: opens the menu. On a laptop it shows only while the sidebar is hidden. */
+/** The page has been scrolled away from the very top. */
+function useScrolled(): boolean {
+  const [scrolled, setScrolled] = useState(() => window.scrollY > 4);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return scrolled;
+}
+
+/**
+ * Top left: opens the menu. On a laptop it shows only while the sidebar is hidden. On phones it is
+ * smaller, and once the page scrolls it sits on a solid strip, so it never covers a card.
+ */
 export const MenuButton = () => {
   const { state, actions } = useVisitor();
   const wide = useWideScreen();
+  const scrolled = useScrolled();
   const ref = useRef<HTMLButtonElement>(null);
   const open = wide ? state.sidebarOpen : state.drawerOpen;
   const wasOpen = useRef(open);
@@ -315,17 +330,27 @@ export const MenuButton = () => {
 
   if (state.selected) return null;
   return (
-    <button
-      ref={ref}
-      onClick={actions.toggleNav}
-      aria-label={open ? 'Close menu' : 'Open menu'}
-      aria-expanded={open}
-      aria-controls={wide ? `${NAV_ID}-desktop` : `${NAV_ID}-drawer`}
-      className={`fixed top-2.5 left-3 z-40 grid size-11 place-items-center rounded-full bg-brand-dark/90 text-white shadow-lg ring-1 ring-sheet-line hover:ring-slate-500 ${
-        state.sidebarOpen ? 'lg:hidden' : ''
-      }`}
-    >
-      <Menu size={22} aria-hidden="true" />
-    </button>
+    <>
+      {!wide && (
+        <div
+          aria-hidden="true"
+          className={`fixed inset-x-0 top-0 z-30 h-[53px] border-b border-white/10 bg-[#171c36]/95 backdrop-blur-md transition-opacity duration-200 ${
+            scrolled ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+        />
+      )}
+      <button
+        ref={ref}
+        onClick={actions.toggleNav}
+        aria-label={open ? 'Close menu' : 'Open menu'}
+        aria-expanded={open}
+        aria-controls={wide ? `${NAV_ID}-desktop` : `${NAV_ID}-drawer`}
+        className={`fixed top-1.5 left-3 z-40 grid size-10 place-items-center rounded-full bg-brand-dark/90 text-white shadow-lg ring-1 ring-sheet-line hover:ring-slate-500 lg:top-2.5 lg:size-11 ${
+          state.sidebarOpen ? 'lg:hidden' : ''
+        }`}
+      >
+        <Menu size={22} aria-hidden="true" />
+      </button>
+    </>
   );
 };

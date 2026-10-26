@@ -61,7 +61,16 @@ const PhotoPanel = ({ active, mobile }: { active: number; mobile: boolean }) => 
   </div>
 );
 
-/** Stage 1: three messages on a rolling cube. Wheel, swipe, drag, keys or the cue move on. */
+/** After a scroll step, input is ignored until it has been quiet this long (trackpad inertia)… */
+const QUIET_MS = 220;
+/** …and for at least this long, so one flick is one message. */
+const MIN_STEP_MS = 650;
+
+/**
+ * Stage 1: three messages on a rolling cube. The cube rolls on its own; scrolling, swiping or the
+ * arrow keys also roll it, one message per gesture. Once all three have been on screen, the next
+ * scroll moves on to the notice. Up goes back a message (the first message is the top).
+ */
 const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
   const mobile = useMobile();
   const reduced = !!useReducedMotion();
@@ -70,11 +79,27 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
   const block = useRef<HTMLDivElement>(null);
   const [blockWidth, setBlockWidth] = useState(0);
   const [faceHeight, setFaceHeight] = useState(560);
+  // Read by the input listeners, which are attached once.
+  const stepRef = useRef(0);
+  const seen = useRef(new Set([0]));
   const advanced = useRef(false);
-  const go = () => {
+
+  const roll = (by: number) => {
+    if (by === 0) return;
+    stepRef.current += by;
+    seen.current.add(messageAt(stepRef.current));
+    setStep(stepRef.current);
+  };
+  /** Down: the next message, or on to the notice once all three have been shown. */
+  const next = () => {
     if (advanced.current) return;
+    if (seen.current.size < ENTRY_MESSAGES.length) return roll(1);
     advanced.current = true;
     onAdvance();
+  };
+  /** Up: the previous message; on the first message there's nothing above. */
+  const previous = () => {
+    if (messageAt(stepRef.current) !== 0) roll(-1);
   };
 
   // The headline fills the block: width / 7.8 on wide screens (about 114px at 1440).
@@ -91,45 +116,75 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
     return () => ro.disconnect();
   }, [mobile]);
 
-  // Roll every 5.2s, except while someone is reading (hover/focus) or the tab is hidden.
+  // Roll every 5.2s, except while someone is reading (hover/focus) or the tab is hidden. Any
+  // change of message, by timer or by hand, starts the wait again.
   useEffect(() => {
     if (paused) return;
     const t = setInterval(() => {
-      if (!document.hidden) setStep((k) => k + 1);
+      if (!document.hidden) roll(1);
     }, ROLL_EVERY_MS);
     return () => clearInterval(t);
   }, [paused, step]);
 
-  // Moving on: wheel down past 80, a vertical swipe or drag over 50px, or the keyboard.
+  // By hand: wheel or trackpad, a vertical swipe or mouse drag over 50px, or the keyboard.
   useEffect(() => {
     let wheel = 0;
     let wheelTimer: ReturnType<typeof setTimeout> | undefined;
-    let startY: number | null = null;
+    // Set after a step; cleared once input has been quiet for QUIET_MS and MIN_STEP_MS has passed.
+    let lockedSince = 0;
+    let quietTimer: ReturnType<typeof setTimeout> | undefined;
+    const holdLock = () => {
+      clearTimeout(quietTimer);
+      const wait = Math.max(QUIET_MS, MIN_STEP_MS - (Date.now() - lockedSince));
+      quietTimer = setTimeout(() => (lockedSince = 0), wait);
+    };
+    const stepBy = (direction: 1 | -1) => {
+      lockedSince = Date.now();
+      holdLock();
+      if (direction > 0) next();
+      else previous();
+    };
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (e.deltaY <= 0) return;
-      wheel += e.deltaY;
+      if (lockedSince) return holdLock();
+      // Lines and pages (some mice, Firefox) count as pixels.
+      wheel += e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? window.innerHeight : 1);
       clearTimeout(wheelTimer);
-      wheelTimer = setTimeout(() => (wheel = 0), 400);
-      if (wheel > 80) go();
+      wheelTimer = setTimeout(() => (wheel = 0), 300);
+      if (Math.abs(wheel) < 60) return;
+      const direction = wheel > 0 ? 1 : -1;
+      wheel = 0;
+      stepBy(direction);
     };
-    const onDown = (e: PointerEvent) => (startY = e.clientY);
-    const onUp = (e: PointerEvent) => {
-      if (startY !== null && Math.abs(startY - e.clientY) > 50) go();
+    let startY: number | null = null;
+    const swipe = (endY: number) => {
+      if (startY !== null && Math.abs(startY - endY) > 50 && !lockedSince) stepBy(startY > endY ? 1 : -1);
       startY = null;
+    };
+    // Touch comes through the touch events; pointer events only add mouse drags.
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') startY = e.clientY;
+    };
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') swipe(e.clientY);
     };
     const onTouchStart = (e: TouchEvent) => (startY = e.touches[0].clientY);
     const onTouchEnd = (e: TouchEvent) => {
       const y = e.changedTouches[0]?.clientY;
-      if (startY !== null && y !== undefined && Math.abs(startY - y) > 50) go();
-      startY = null;
+      if (y !== undefined) swipe(y);
+      else startY = null;
     };
     const onKey = (e: KeyboardEvent) => {
       const onButton = (e.target as HTMLElement)?.closest('button');
-      if (e.key === 'ArrowDown' || e.key === 'PageDown' || (e.key === ' ' && !onButton)) {
-        e.preventDefault();
-        go();
-      }
+      const space = e.key === ' ' && !onButton;
+      const down = e.key === 'ArrowDown' || e.key === 'PageDown' || (space && !e.shiftKey);
+      const up = e.key === 'ArrowUp' || e.key === 'PageUp' || (space && e.shiftKey);
+      if (!down && !up) return;
+      e.preventDefault();
+      // Holding a key down is still one step.
+      if (e.repeat) return;
+      if (down) next();
+      else previous();
     };
     window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('pointerdown', onDown);
@@ -139,6 +194,7 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
     window.addEventListener('keydown', onKey);
     return () => {
       clearTimeout(wheelTimer);
+      clearTimeout(quietTimer);
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointerup', onUp);
@@ -149,8 +205,11 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
   }, []);
 
   const active = messageAt(step);
-  // Jump to a message by rolling forward one or two faces.
-  const show = (i: number) => setStep((k) => k + ((i - messageAt(k) + 3) % 3));
+  // A dash rolls straight to its message: one face forward, or one back for the previous one.
+  const show = (i: number) => {
+    const ahead = (i - messageAt(stepRef.current) + 3) % 3;
+    roll(ahead === 2 && stepRef.current > 0 ? -1 : ahead);
+  };
   const headlineSize = mobile ? 44 : Math.round(blockWidth / 7.8);
 
   return (
@@ -201,7 +260,7 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
       </div>
 
       <button
-        onClick={go}
+        onClick={next}
         className="absolute bottom-9 left-1/2 z-10 inline-flex min-h-12 -translate-x-1/2 items-center gap-2 rounded-full whitespace-nowrap border border-white/30 px-5 text-[15px] font-extrabold text-white backdrop-blur-[8px]"
         style={{ background: 'rgba(12,14,40,.35)', fontFamily: 'var(--font-brand)' }}
       >

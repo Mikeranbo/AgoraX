@@ -38,7 +38,7 @@ test('organisers draft, preview, edit and send a proposal; it appears in My prop
   const preview = page.getByRole('region', { name: 'Preview' });
   await expect(preview).toContainText('Pottery night');
   await expect(preview).toContainText('Date to be confirmed');
-  await expect(preview).toContainText('0 interested');
+  await expect(preview).toContainText('0 of 8 needed to run');
 
   await page.getByRole('button', { name: 'Save as draft' }).click();
   await expect(page.getByRole('heading', { name: 'My proposals' })).toBeVisible();

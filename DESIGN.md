@@ -43,7 +43,7 @@ by a seeded layout with no overlaps (12px apart), sizes 30–84px (fillers 16–
 1.8px non-scaling strokes, coloured by height from purple at the top (rgb 133,96,216) to blue at
 the bottom (rgb 88,118,224), layer opacity .9. It is recalculated on resize (cached per size) and
 never takes clicks. The native scrollbar is hidden; `<ScrollRail />` draws a decorative 6px rail
-with a 12×48px gradient handle. Cards, sheets and the filter bar are flat `sheet` surfaces with a
+with a 12×48px gradient handle. Sheets and the laptop filter bar are flat `sheet` surfaces with a
 soft shadow. One corner radius for the event page, `rounded-sheet` (14px).
 
 ## Entry flow (`src/components/entry/`)
@@ -53,9 +53,15 @@ soft shadow. One corner radius for the event page, `rounded-sheet` (14px).
    events."), each a whole face of an invisible cube that rolls around the X axis every 5.2s
    (1.35s, `cubic-bezier(.7,-0.2,.25,1.15)`); three messages on four faces. Headline Archivo 800 at
    110% width, block width ÷ 7.8 (about 114px at 1440 wide); text Archivo 500, 28px. A photo per
-   message on the right third (top 40% on phones), crossfading in sync. Three message buttons top
-   right, a "Scroll to explore" cue bottom centre. Wheel (80+), swipe or drag (50px+), arrow/page
-   keys or the cue move on. Rolling pauses on hover/focus; reduced motion crossfades instead.
+   message on the right third (top 40% on phones), crossfading in sync. Three message dashes top
+   right (clickable), a "Scroll to explore" cue bottom centre. The cube rolls on its own, and
+   scrolling down (wheel, trackpad, swipe up, mouse drag, ↓/PageDown/Space or the cue) rolls it to
+   the next message instead of moving the page; up goes back a message, and does nothing on the
+   first. One gesture is one message: after a step, input is ignored until it has been quiet for
+   220ms and at least 650ms have passed (trackpad inertia), and a held key counts once. Any change
+   of message restarts the 5.2s timer. Only once all three messages have been on screen (by timer,
+   scroll or dash) does the next scroll move on to the notice. Rolling pauses on hover/focus;
+   reduced motion crossfades instead.
 2. **Pilot notice** (`PilotNotice`): frosted panel over the blurred events page; only "Got it —
    explore" and "Got it — don’t show again" (`localStorage['agorax.pilotNotice.hidden']`) close it.
    Scrolling, Escape or an outside tap can't. "About the pilot" in the menu reopens it.
@@ -69,11 +75,11 @@ link (`?e=`) skips the messages but still shows the notice on a first visit; /pr
 
 - **Action** (`action-indigo` → `action-purple`, 135°): "I'd join" and form submits only, label
   19px bold so white text stays readable on both ends.
-- **Progress** (`progress-indigo` → `progress-cyan`): the bar toward an event's target. Cyan alone
+- **Progress** (`x-blue` → `x-purple` on cards): the thin bar toward an event's target. Cyan alone
   marks secondary links.
 - **Confirmed** (`happening-green`): the bar and the "Confirmed" badge, only for events an admin
-  confirmed in /admin. Reaching the interest target alone is shown as "Target reached · not
-  confirmed yet" with the normal progress bar, never green.
+  confirmed in /admin. Reaching the interest target alone is shown as "Goal reached · N
+  interested · not confirmed yet" with the normal progress bar, never green.
 - The board mixes indigo and purple only 26% into navy, so white and slate text on it pass AA.
 
 ## Typography
@@ -87,16 +93,22 @@ price 40px, facts 13–14px. Headlines run wider than the card column; body stay
 
 ## Event card (`src/components/EventCard.tsx`)
 
-1. Photo header (`src/data/photos.ts`, free Unsplash photos per seed event; an event's own
+Compact, Meetup-style: a wide rounded picture (2:1, radius 18px, the page's 16px side margins)
+with the details right under it. No border or shadow; only a light navy tint (`#12163a` at 80%)
+behind the card so the doodles don't run through the text. 24px between cards.
+
+1. Photo (`src/data/photos.ts`, free Unsplash photos per seed event; an event's own
    imageUrls win; the emoji on the event's colour if a photo fails). "Proposal" or "Confirmed",
-   category and "Spring trip" chips top left, the save toggle top right, the date bottom right:
-   "Date to be confirmed" unless the event is Confirmed with a confirmed date
-   (`src/data/schedule.ts`, shown in Europe/Amsterdam time with its zone).
-2. Title, then two lines of description.
-3. People line: "8 interested · target 12" from real sign-ups only, initials of people who chose
-   to show them (opt-in, one letter, never more than five circles), and the bar underneath.
-4. Price large on the left with "indicative price" under it, "I'm interested" on the right;
-   interested shows "Interested" and "Withdraw".
+   category and "Spring trip" chips (12px) top left, the save toggle (20px icon, 36px tap area)
+   top right, the date bottom right: "Date to be confirmed" unless the event is Confirmed with a
+   confirmed date (`src/data/schedule.ts`, shown in Europe/Amsterdam time with its zone).
+2. Title (19px) directly under the photo, then two lines of description (13.5px).
+3. Sign-up progress: "7 of 12 needed to run" from real sign-ups only ("Goal reached · 12
+   interested · not confirmed yet" at the target; "N interested · target M" once confirmed),
+   initials of people who chose to show them (opt-in, one letter, never more than five circles),
+   and a 5px bar underneath.
+4. Price (24px) on the left with "indicative price" under it, "I'm interested" (40px tall) on the
+   right; interested shows "Interested" and "Withdraw".
 5. Quiet links: "Organize · est. €84 for a host" (opens the event page), and "Show/Hide my
    initial" once interested. The photo, the title or Organize open the event page.
 
@@ -133,9 +145,13 @@ A menu button top left opens the sidebar. There is no avatar top right: the prof
 bottom of the sidebar holds the personal settings.
 Laptop (≥1024px): the 320px sidebar sits beside the page while open and is fully hidden (no
 reserved width) when closed with its × or the menu button; the choice is remembered on the device.
-Phone: the bottom bar (Proposals · Propose · Interests) stays, and the sidebar is an overlay
-drawer that closes on Escape, a tap outside or a choice; focus moves into it and back to the menu
-button, and the page behind is inert.
+Phone: the bottom bar (Proposals · Propose · Interests; slim, 22–24px icons, 12px labels) stays,
+and the sidebar is an overlay drawer that closes on Escape, a tap outside or a choice; focus moves
+into it and back to the menu button, and the page behind is inert. The menu button is 40px. On the
+proposals page it sits at the left of a solid strip across the top with search and the category
+chips (34px, 14px text); on other pages the same strip appears behind it once the page scrolls.
+Cards scroll under the strip, so no control ever floats over a picture or title. The opened
+event's back, save and share buttons are 36px.
 Sidebar: Proposals, Scheduled events, My interests (count), Saved events, Report a bug (an email
 with the questions we need) and About the pilot; then a collapsed "More" (propose, my proposals, I
 have a space, invite, organiser profile, how the pilot works, FAQ, contact, Admin for admins) and the

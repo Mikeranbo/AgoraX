@@ -12,6 +12,9 @@ import { ownPhoto, photoSet } from '../data/photos';
 import { Photo } from './Photo';
 import { useVisitor } from '../state/VisitorProvider';
 import { quietLinkClass } from './ui';
+
+/** The quiet link, at the card's smaller size. */
+const cardLinkClass = quietLinkClass.replace('min-h-11', 'min-h-9').replace('text-[15px]', 'text-[14px]');
 import { colourFor } from './Avatar';
 
 const DEFAULT_ACCENT = '#818cf8';
@@ -72,17 +75,17 @@ export const PhotoBackdrop = ({ event, className = '', children }: { event: Even
 };
 
 const Chip = ({ children }: { children: React.ReactNode }) => (
-  <span className="rounded-full bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">{children}</span>
+  <span className="rounded-full bg-[#0f172a]/80 px-2.5 py-0.5 text-[12px] leading-5 font-semibold text-white">{children}</span>
 );
 
 /** "Confirmed" only when an admin confirmed it; everything else is labelled a proposal. */
 export const StatusChip = ({ event }: { event: Event }) =>
   isConfirmed(event) ? (
-    <span className="flex shrink-0 items-center gap-1 rounded-full bg-happening px-3 py-1 text-[13px] font-bold text-brand-dark">
-      <Check size={14} strokeWidth={3} aria-hidden="true" /> Confirmed
+    <span className="flex shrink-0 items-center gap-1 rounded-full bg-happening px-2.5 py-0.5 text-[12px] leading-5 font-bold text-brand-dark">
+      <Check size={13} strokeWidth={3} aria-hidden="true" /> Confirmed
     </span>
   ) : (
-    <span className="rounded-full border border-white/30 bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">Proposal</span>
+    <span className="rounded-full border border-white/30 bg-[#0f172a]/80 px-2.5 py-0.5 text-[12px] leading-5 font-semibold text-white">Proposal</span>
   );
 
 /** Saved for later: private, and separate from saying you're interested. */
@@ -97,7 +100,7 @@ export const SaveButton = ({ event }: { event: Event }) => {
       }}
       aria-pressed={saved}
       aria-label={saved ? `Saved: ${event.title}. Remove from saved` : `Save ${event.title} for later`}
-      className="grid size-11 shrink-0 place-items-center rounded-full bg-[#0f172a]/80 text-white hover:bg-[#0f172a]"
+      className="grid size-9 shrink-0 place-items-center rounded-full bg-[#0f172a]/80 text-white hover:bg-[#0f172a]"
     >
       {saved ? <BookmarkCheck size={20} className="text-brand-secondary" /> : <Bookmark size={20} />}
     </button>
@@ -106,8 +109,8 @@ export const SaveButton = ({ event }: { event: Event }) => {
 
 /** Category, "Proposal"/"Confirmed" and "Spring trip" top left, the save toggle top right. */
 export const PhotoBadges = ({ event, save = true }: { event: Event; save?: boolean }) => (
-  <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-    <span className="flex flex-wrap gap-1.5">
+  <div className="absolute inset-x-2.5 top-2.5 flex items-start justify-between gap-2">
+    <span className="flex flex-wrap gap-1.5 pt-1.5">
       <StatusChip event={event} />
       <Chip>{event.category}</Chip>
       {event.season === 'spring' && <Chip>Spring trip</Chip>}
@@ -120,10 +123,10 @@ export const PhotoBadges = ({ event, save = true }: { event: Event; save?: boole
 export const EventPhoto = ({ event, className = '' }: { event: Event; className?: string }) => (
   <PhotoBackdrop event={event} className={className}>
     <PhotoBadges event={event} />
-    <span className="absolute right-3 bottom-3">
+    <span className="absolute right-2.5 bottom-2.5">
       <Chip>
         <span className="inline-flex items-center gap-1.5">
-          <CalendarClock size={14} aria-hidden="true" /> {dateLabel(event)}
+          <CalendarClock size={13} aria-hidden="true" /> {dateLabel(event)}
         </span>
       </Chip>
     </span>
@@ -139,7 +142,7 @@ const Avatars = ({ faces }: { faces: Face[] }) => {
         <span
           key={f.uid}
           aria-hidden="true"
-          className="grid size-7 place-items-center rounded-full font-display text-[13px] font-bold text-brand-dark ring-2 ring-sheet"
+          className="grid size-6 place-items-center rounded-full font-display text-[12px] font-bold text-brand-dark ring-2 ring-[#171c36]"
           style={{ backgroundColor: colourFor(f.uid) }}
         >
           {f.initial.toUpperCase()}
@@ -152,7 +155,10 @@ const Avatars = ({ faces }: { faces: Face[] }) => {
 /** Bars fill once per visit: the first time each one is on screen. */
 const filledThisVisit = new Set<string>();
 
-/** "8 interested · target 12" from real sign-ups, the shown initials, and the bar toward the target. */
+/**
+ * Sign-ups toward the minimum the event needs: "7 of 12 needed to run" from real sign-ups, the
+ * shown initials, and a thin bar. At the target it says "Goal reached", still not confirmed.
+ */
 export const PeopleLine = ({ event }: { event: Event }) => {
   const { meta } = useVisitor();
   const ref = useRef<HTMLDivElement>(null);
@@ -170,18 +176,30 @@ export const PeopleLine = ({ event }: { event: Event }) => {
 
   return (
     <div ref={ref}>
-      <div className="mb-2 flex min-h-7 items-center justify-between gap-3">
-        <p className="flex items-center gap-1.5 text-[15px] text-slate-200 tabular-nums">
-          <Users size={16} className="text-brand-primary" aria-hidden="true" />
-          <span>
-            <span className="font-semibold text-white">{count} interested</span> · target {event.minParticipants}
-            {reached && !confirmed && <span className="block text-[13px] text-slate-300">Target reached · not confirmed yet</span>}
-          </span>
+      <div className="mb-1.5 flex min-h-6 items-center justify-between gap-3">
+        <p className="flex items-center gap-1.5 text-[13px] leading-tight text-slate-300 tabular-nums">
+          <Users size={14} className="shrink-0 text-x-blue" aria-hidden="true" />
+          {confirmed ? (
+            <span>
+              <span className="font-semibold text-white">{count} interested</span> · target {event.minParticipants}
+            </span>
+          ) : reached ? (
+            <span>
+              <span className="font-semibold text-white">Goal reached</span> · {count} interested · not confirmed yet
+            </span>
+          ) : (
+            <span>
+              <span className="font-semibold text-white">
+                {count} of {event.minParticipants}
+              </span>{' '}
+              needed to run
+            </span>
+          )}
         </p>
         <Avatars faces={meta.faces.get(event.id) ?? []} />
       </div>
       <div
-        className="h-2 overflow-hidden rounded-full bg-white/10"
+        className="h-[5px] overflow-hidden rounded-full bg-white/10"
         role="progressbar"
         aria-label="Interest toward the target"
         aria-valuetext={progressLabel(event)}
@@ -190,7 +208,7 @@ export const PeopleLine = ({ event }: { event: Event }) => {
         aria-valuenow={count}
       >
         <motion.div
-          className={`h-full origin-left rounded-full ${confirmed ? 'bg-happening' : 'bg-gradient-to-r from-brand-primary to-brand-secondary'}`}
+          className={`h-full origin-left rounded-full ${confirmed ? 'bg-happening' : 'bg-gradient-to-r from-x-blue to-x-purple'}`}
           initial={armed ? { scaleX: 0 } : false}
           animate={{ scaleX: armed && !inView ? 0 : width / 100 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -210,18 +228,18 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
     <div className="flex items-center justify-between gap-3">
       <p className="flex flex-col">
         <span
-          className={`font-display leading-none font-extrabold tracking-[-0.02em] text-white tabular-nums ${size === 'large' ? 'text-[40px]' : 'text-[30px]'}`}
+          className={`font-display leading-none font-extrabold tracking-[-0.02em] text-white tabular-nums ${size === 'large' ? 'text-[40px]' : 'text-[24px]'}`}
         >
           {priceLabel(event)}
         </span>
-        {event.price > 0 && <span className="mt-1 text-[12px] text-slate-400">indicative price</span>}
+        {event.price > 0 && <span className="mt-0.5 text-[11px] text-slate-400">indicative price</span>}
       </p>
       {event.status === 'Cancelled' ? (
         <p className="text-[15px] text-slate-300">Cancelled</p>
       ) : meta.joined.has(event.id) ? (
         <div className="flex items-center gap-1">
-          <p className="flex min-h-12 items-center gap-1.5 rounded-sheet border border-brand-primary/60 bg-brand-action/20 px-4 font-display text-[17px] font-bold text-white">
-            <Check size={18} strokeWidth={3} aria-hidden="true" /> Interested
+          <p className="flex min-h-10 items-center gap-1.5 rounded-xl border border-brand-primary/60 bg-brand-action/20 px-3 font-display text-[15px] font-bold text-white">
+            <Check size={16} strokeWidth={3} aria-hidden="true" /> Interested
           </p>
           <button
             onClick={(e) => {
@@ -230,7 +248,7 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
             }}
             disabled={busy}
             aria-label={`Withdraw interest in ${event.title}`}
-            className="min-h-11 px-2 text-[15px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white disabled:opacity-50"
+            className="min-h-10 px-2 text-[14px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white disabled:opacity-50"
           >
             {busy ? 'Saving…' : 'Withdraw'}
           </button>
@@ -242,7 +260,7 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
             void actions.join(event);
           }}
           disabled={busy}
-          className="gradient-brand min-h-12 shrink-0 rounded-sheet px-4 font-display text-[18px] font-bold whitespace-nowrap text-white transition-transform active:translate-y-px disabled:opacity-60"
+          className="gradient-brand min-h-10 shrink-0 rounded-xl px-4 font-display text-[15px] font-bold whitespace-nowrap text-white transition-transform active:translate-y-px disabled:opacity-60"
         >
           {busy ? 'Saving…' : "I'm interested"}
         </button>
@@ -258,7 +276,7 @@ export const hostEstimate = (event: Event): string => {
 };
 
 /** Once you're interested: show or hide your first initial on this event. */
-export const InitialToggle = ({ event }: { event: Event }) => {
+export const InitialToggle = ({ event, small = false }: { event: Event; small?: boolean }) => {
   const { state, actions, meta } = useVisitor();
   if (!meta.joined.has(event.id) || event.status === 'Cancelled') return null;
   const showsInitial = (meta.faces.get(event.id) ?? []).some((f) => f.uid === state.uid);
@@ -269,7 +287,7 @@ export const InitialToggle = ({ event }: { event: Event }) => {
         if (showsInitial) void actions.hideInitial(event);
         else actions.askInitial(event);
       }}
-      className="inline-flex min-h-11 items-center text-[15px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white"
+      className={`inline-flex items-center font-semibold text-slate-300 underline underline-offset-4 hover:text-white ${small ? 'min-h-9 text-[13px]' : 'min-h-11 text-[15px]'}`}
     >
       {showsInitial ? 'Hide my initial' : 'Show my initial'}
     </button>
@@ -286,19 +304,19 @@ export const QuietLinks = ({ event }: { event: Event }) => {
   const estimate = hostEstimate(event);
 
   return (
-    <p className="flex flex-wrap gap-x-5">
+    <p className="-mt-1 flex flex-wrap gap-x-5">
       {canHost && (
         <button
           onClick={(e) => {
             e.stopPropagation();
             actions.open(event);
           }}
-          className={quietLinkClass}
+          className={cardLinkClass}
         >
           {estimate ? `Organize · ${estimate} for a host` : 'Organize'}
         </button>
       )}
-      <InitialToggle event={event} />
+      <InitialToggle event={event} small />
     </p>
   );
 };
@@ -313,12 +331,12 @@ export const EventCard = ({ event }: { event: Event }) => {
       ref={cardRef}
       id={`event-${event.id}`}
       onClick={() => actions.open(event)}
-      className="sheet group cursor-pointer overflow-hidden rounded-sheet transition-colors hover:border-slate-500 scroll-mt-24"
+      className="group cursor-pointer scroll-mt-16 rounded-[18px] bg-[#12163a]/80 lg:scroll-mt-24"
     >
-      <EventPhoto event={event} className="h-40" />
-      <div className="space-y-3 px-4 pt-3 pb-2">
+      <EventPhoto event={event} className="aspect-[2/1] rounded-[18px] ring-1 ring-white/10 transition-shadow group-hover:ring-white/30" />
+      <div className="space-y-2.5 px-3 pt-2.5 pb-1.5">
         <div>
-          <h3 className="font-display text-[23px] leading-[1.05] font-bold tracking-[-0.01em] text-white">
+          <h3 className="font-display text-[19px] leading-[1.15] font-bold tracking-[-0.01em] text-white">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -329,7 +347,7 @@ export const EventCard = ({ event }: { event: Event }) => {
               {event.title}
             </button>
           </h3>
-          <p className="mt-1.5 line-clamp-2 text-[14px] leading-snug text-slate-300">{event.description}</p>
+          <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-slate-300">{event.description}</p>
         </div>
         <PeopleLine event={event} />
         <PriceAndAction event={event} />

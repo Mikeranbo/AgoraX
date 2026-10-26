@@ -15,7 +15,7 @@ import { track } from '../services/analytics';
 
 const ENTRY_FONT = { fontFamily: 'var(--font-entry)' } as const;
 const BRAND_FONT = { fontFamily: 'var(--font-brand)' } as const;
-const roundButton = 'grid size-11 place-items-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-sm hover:border-white/60';
+const roundButton = 'grid size-9 place-items-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-sm hover:border-white/60 min-[760px]:size-11';
 
 /** The organiser who proposed it, as they describe themselves. AgoraX does not verify them. */
 const OrganiserCard = ({ publicId }: { publicId: string }) => {

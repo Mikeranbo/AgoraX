@@ -43,21 +43,26 @@ const ProposalPreview = ({ v, photo }: { v: ProposalFormValues; photo: PickedIma
     emoji: '💡',
   } as Event;
   return (
-    <section aria-label="Preview" className="sheet overflow-hidden rounded-sheet">
-      <PhotoBackdrop event={event} className="h-40">
-        <span className="absolute top-3 left-3 flex gap-1.5">
-          <span className="rounded-full border border-white/30 bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">Proposal</span>
-          <span className="rounded-full bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">{event.category}</span>
+    <section aria-label="Preview" className="rounded-[18px] bg-[#12163a]/80">
+      <PhotoBackdrop event={event} className="aspect-[2/1] rounded-[18px] ring-1 ring-white/10">
+        <span className="absolute top-4 left-2.5 flex gap-1.5">
+          <span className="rounded-full border border-white/30 bg-[#0f172a]/80 px-2.5 py-0.5 text-[12px] leading-5 font-semibold text-white">Proposal</span>
+          <span className="rounded-full bg-[#0f172a]/80 px-2.5 py-0.5 text-[12px] leading-5 font-semibold text-white">{event.category}</span>
         </span>
-        <span className="absolute right-3 bottom-3 inline-flex items-center gap-1.5 rounded-full bg-[#0f172a]/80 px-3 py-1 text-[13px] font-semibold text-white">
-          <CalendarClock size={14} aria-hidden="true" /> Date to be confirmed
+        <span className="absolute right-2.5 bottom-2.5 inline-flex items-center gap-1.5 rounded-full bg-[#0f172a]/80 px-2.5 py-0.5 text-[12px] leading-5 font-semibold text-white">
+          <CalendarClock size={13} aria-hidden="true" /> Date to be confirmed
         </span>
       </PhotoBackdrop>
-      <div className="space-y-2 px-4 py-3">
-        <p className="font-display text-[23px] leading-[1.05] font-bold text-white">{event.title}</p>
-        <p className="text-[15px] text-slate-300 tabular-nums">0 interested · target {event.minParticipants || '?'}</p>
-        <p className="font-display text-[26px] font-extrabold text-white">
-          {event.price === 0 ? 'Free' : `€${event.price}`} <span className="font-sans text-[12px] font-normal text-slate-400">indicative price</span>
+      <div className="space-y-2.5 px-3 pt-2.5 pb-3">
+        <p className="font-display text-[19px] leading-[1.15] font-bold text-white">{event.title}</p>
+        <div>
+          <p className="mb-1.5 text-[13px] text-slate-300 tabular-nums">
+            <span className="font-semibold text-white">0 of {event.minParticipants || '?'}</span> needed to run
+          </p>
+          <div className="h-[5px] rounded-full bg-white/10" aria-hidden="true" />
+        </div>
+        <p className="font-display text-[24px] font-extrabold text-white">
+          {event.price === 0 ? 'Free' : `€${event.price}`} <span className="font-sans text-[11px] font-normal text-slate-400">indicative price</span>
         </p>
         <p className="text-[12px] text-slate-400">Preview only. Proposals go live after we've checked them.</p>
       </div>

@@ -9,11 +9,12 @@ import { filterEvents, hasActiveFilters } from '../data/eventFilters';
 import { CITIES, NEAR_KM } from '../data/location';
 import type { DateFilter } from '../data/schedule';
 import { PILOT_CITY } from '../config/pilot';
+import { useWideScreen } from '../state/useWideScreen';
 
 const CHIPS: Filter[] = ['All', ...PUBLIC_CATEGORIES];
 
 const chipClass = (on: boolean) =>
-  `min-h-11 shrink-0 whitespace-nowrap rounded-sheet border px-4 text-[15px] font-semibold ${
+  `h-[34px] shrink-0 whitespace-nowrap rounded-full border px-3.5 text-[14px] font-semibold lg:h-auto lg:min-h-11 lg:rounded-sheet lg:px-4 lg:text-[15px] ${
     on ? 'border-white bg-white text-brand-dark' : 'border-sheet-line text-slate-300 hover:border-slate-500 hover:text-white'
   }`;
 
@@ -25,7 +26,7 @@ const ViewSwitch = () => {
       role="radio"
       aria-checked={state.view === value}
       onClick={() => actions.setView(value)}
-      className={`min-h-11 flex-1 rounded-sheet px-3 text-[15px] font-semibold ${
+      className={`min-h-9 flex-1 rounded-[10px] px-3 text-[14px] font-semibold lg:min-h-11 lg:rounded-sheet lg:text-[15px] ${
         state.view === value ? 'bg-white text-brand-dark' : 'text-slate-300 hover:text-white'
       }`}
     >
@@ -40,8 +41,12 @@ const ViewSwitch = () => {
   );
 };
 
-/** Sticky under the header: category chips, or the search field in their place. */
-const FilterBar = ({ query, setQuery }: { query: string; setQuery: (q: string) => void }) => {
+/**
+ * Sticky at the top: category chips, or the search field in their place. On phones it is a solid
+ * strip across the top with the menu button at its left, so cards scroll under it instead of
+ * having controls float over their picture or title.
+ */
+const FilterBar = ({ query, setQuery, wide }: { query: string; setQuery: (q: string) => void; wide: boolean }) => {
   const { state, actions } = useVisitor();
   const [searching, setSearching] = useState(false);
   const closeSearch = () => {
@@ -50,7 +55,13 @@ const FilterBar = ({ query, setQuery }: { query: string; setQuery: (q: string) =
   };
 
   return (
-    <div className="sheet sticky top-2 z-30 mx-12 rounded-sheet p-1.5">
+    <div
+      className={
+        wide
+          ? 'sheet sticky top-2 z-30 mx-12 rounded-sheet p-1.5'
+          : 'sticky top-0 z-[35] -mx-4 border-b border-white/10 bg-[#171c36]/95 py-[9px] pr-4 pl-[60px] backdrop-blur-md sm:-mx-6 sm:pr-6'
+      }
+    >
       {searching ? (
         <div className="flex items-center gap-2">
           <label htmlFor="event-search" className="sr-only">Search events</label>
@@ -61,9 +72,9 @@ const FilterBar = ({ query, setQuery }: { query: string; setQuery: (q: string) =
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Chess, hiking, pottery…"
-            className="min-h-11 flex-1 rounded-sheet border border-sheet-line bg-brand-dark px-3 text-[16px] text-white placeholder:text-slate-400 focus:border-brand-secondary focus:outline-none"
+            className="h-[34px] min-w-0 flex-1 rounded-full border border-sheet-line bg-brand-dark px-3 text-[16px] text-white placeholder:text-slate-400 focus:border-brand-secondary focus:outline-none lg:h-auto lg:min-h-11 lg:rounded-sheet"
           />
-          <button onClick={closeSearch} aria-label="Close search" className="grid size-11 place-items-center text-slate-300 hover:text-white">
+          <button onClick={closeSearch} aria-label="Close search" className="grid size-[34px] shrink-0 place-items-center text-slate-300 hover:text-white lg:size-11">
             <X size={20} />
           </button>
         </div>
@@ -72,9 +83,9 @@ const FilterBar = ({ query, setQuery }: { query: string; setQuery: (q: string) =
           <button
             onClick={() => setSearching(true)}
             aria-label="Search events"
-            className="grid size-11 shrink-0 place-items-center rounded-sheet border border-sheet-line text-slate-200 hover:border-slate-500"
+            className="grid size-[34px] shrink-0 place-items-center rounded-full border border-sheet-line text-slate-200 hover:border-slate-500 lg:size-11 lg:rounded-sheet"
           >
-            <Search size={18} />
+            <Search size={20} />
           </button>
           <div className="no-scrollbar flex gap-2 overflow-x-auto" role="group" aria-label="Categories">
             {CHIPS.map((c) => (
@@ -108,10 +119,10 @@ const MoreFilters = ({ active }: { active: boolean }) => {
   );
 
   return (
-    <div className="sheet mt-3 space-y-3 rounded-sheet p-3">
+    <div className="sheet mt-3 space-y-2.5 rounded-sheet p-3 lg:space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor="city" className="sr-only">City</label>
-        <select id="city" value={place.city} onChange={(e) => set({ city: e.target.value })} className={`${fieldClass.replace('w-full', 'w-auto')} min-w-40 sm:max-w-xs`}>
+        <select id="city" value={place.city} onChange={(e) => set({ city: e.target.value })} className={`${fieldClass.replace('w-full', 'w-auto').replace('min-h-11', 'h-[34px] lg:h-auto lg:min-h-11')} min-w-40 !py-0 sm:max-w-xs lg:!py-2.5`}>
           {CITIES.map((c) => (
             <option key={c.name} value={c.name} className="bg-brand-dark">
               {c.name}
@@ -121,7 +132,7 @@ const MoreFilters = ({ active }: { active: boolean }) => {
         <button
           onClick={actions.locateMe}
           disabled={state.locating}
-          className="inline-flex min-h-11 items-center gap-2 rounded-sheet border border-sheet-line px-3 text-[15px] font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-60"
+          className="inline-flex h-[34px] items-center gap-2 rounded-full border border-sheet-line px-3 text-[14px] font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-60 lg:h-auto lg:min-h-11 lg:rounded-sheet lg:text-[15px]"
         >
           <LocateFixed size={16} aria-hidden="true" /> {state.locating ? 'Finding…' : 'Use my location'}
         </button>
@@ -142,7 +153,7 @@ const MoreFilters = ({ active }: { active: boolean }) => {
       )}
       <div className="flex flex-wrap items-center justify-between gap-x-4">
         <details className="group text-[13px] text-slate-300">
-          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center font-semibold text-slate-200 underline underline-offset-4">
+          <summary className="inline-flex min-h-9 cursor-pointer list-none items-center font-semibold text-slate-200 underline underline-offset-4 lg:min-h-11">
             How "near" works
           </summary>
           <p className="max-w-[70ch] pb-2 leading-relaxed">
@@ -151,7 +162,7 @@ const MoreFilters = ({ active }: { active: boolean }) => {
           </p>
         </details>
         {active && (
-          <button onClick={actions.clearFilters} className="min-h-11 text-[14px] font-semibold text-white underline underline-offset-4">
+          <button onClick={actions.clearFilters} className="min-h-9 text-[14px] font-semibold text-white underline underline-offset-4 lg:min-h-11">
             Clear filters
           </button>
         )}
@@ -164,6 +175,7 @@ const Empty = ({ children }: { children: React.ReactNode }) => <div className="p
 
 export const EventsScreen = () => {
   const { state, actions } = useVisitor();
+  const wide = useWideScreen();
   const [query, setQuery] = useState('');
   const filters = { view: state.view, category: state.filter, date: state.dateFilter, place: state.place, search: query };
   const active = hasActiveFilters(filters);
@@ -216,11 +228,12 @@ export const EventsScreen = () => {
     <div>
       <h1 className="sr-only">AgoraX proposals</h1>
 
-      <div id={LIST_ID} className="mx-auto max-w-6xl scroll-mt-0 px-4 pt-3 sm:px-6">
-        <div className="mx-12 mb-3 max-w-md">
+      <div id={LIST_ID} className="mx-auto max-w-6xl scroll-mt-0 px-4 sm:px-6 lg:pt-3">
+        {!wide && <FilterBar query={query} setQuery={setQuery} wide={false} />}
+        <div className={wide ? 'mx-12 mb-3 max-w-md' : 'mt-3 max-w-md'}>
           <ViewSwitch />
         </div>
-        <FilterBar query={query} setQuery={setQuery} />
+        {wide && <FilterBar query={query} setQuery={setQuery} wide />}
         <MoreFilters active={active} />
 
         {groups.map((g) =>
@@ -237,7 +250,7 @@ export const EventsScreen = () => {
                   {g.events.length} {state.view === 'scheduled' ? (g.events.length === 1 ? 'event' : 'events') : g.events.length === 1 ? 'proposal' : 'proposals'}
                 </span>
               </div>
-              <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              <div className="grid grid-cols-1 items-start gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
                 {g.events.map((event) => (
                   <EventCard key={event.id} event={event} />
                 ))}
