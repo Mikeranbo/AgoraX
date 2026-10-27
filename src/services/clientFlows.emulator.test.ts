@@ -3,6 +3,7 @@
  * rule change that breaks a legitimate flow fails here. Skipped unless the emulator is up
  * (npm run test:rules starts it and sets FIRESTORE_EMULATOR_HOST).
  */
+import { SEED_EVENTS } from '../data/seedEvents';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
@@ -254,7 +255,7 @@ describe.skipIf(!host)('client flows against the rules', () => {
     await expect(revokeAdmin('owner1')).rejects.toThrow();
 
     const seeded = await seedEvents();
-    expect(seeded.created).toBe(33);
+    expect(seeded.created).toBe(SEED_EVENTS.length);
 
     await raw((db) => setDoc(doc(db, 'events', 'e1'), { participantsCount: 9, joins: 9 }, { merge: true }));
     const events = await raw(async (db) => (await getDocs(collection(db, 'events'))).docs.map((d) => ({ id: d.id, ...d.data() }) as any));

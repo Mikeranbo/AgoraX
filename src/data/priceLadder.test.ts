@@ -9,7 +9,7 @@ describe('price ladder', () => {
   });
 
   it('asks about €2 for a free event', () => {
-    expect(nextPriceFor(seedAsEvent('running-club'))).toBe(2);
+    expect(nextPriceFor(seedAsEvent('reading-meetup'))).toBe(2);
   });
 
   it('always asks about a price above the one shown', () => {

@@ -93,6 +93,7 @@ export type EventFormData = Pick<
   | 'deadline'
   | 'startTime'
   | 'imageUrls'
+  | 'media'
   | 'emoji'
   | 'accent'
   | 'durationHours'
@@ -186,7 +187,7 @@ async function deleteAll(refs: DocumentReference[]) {
 }
 
 /**
- * Deletes every event that is not one of the 33 seed events (approved proposals are kept),
+ * Deletes every event that is not one of the seed events (approved proposals are kept),
  * together with its participants, comments, helpers and shown initials. Firestore does not cascade, so the
  * subcollections go first and the event document last: if a run stops halfway, running it
  * again finds the same event and finishes the job.

@@ -1,6 +1,6 @@
 import type { ConsentPurpose } from './data/consent';
 export type EventCategory =
-  | 'Sports'
+  | 'Networking'
   | 'Games'
   | 'Creative'
   | 'Social'
@@ -8,6 +8,7 @@ export type EventCategory =
   | 'Tech & Ideas'
   | 'Outdoor'
   // Legacy categories — kept so older documents keep rendering.
+  | 'Sports'
   | 'Workshop'
   | 'Concert'
   | 'Cultural'
@@ -16,7 +17,7 @@ export type EventCategory =
 
 /** Categories shown as filter chips and offered when creating events. */
 export const PUBLIC_CATEGORIES: EventCategory[] = [
-  'Sports',
+  'Networking',
   'Games',
   'Creative',
   'Social',
@@ -25,7 +26,23 @@ export const PUBLIC_CATEGORIES: EventCategory[] = [
   'Outdoor',
 ];
 
-export const LEGACY_CATEGORIES: EventCategory[] = ['Workshop', 'Concert', 'Cultural', 'Fitness', 'Startup'];
+export const LEGACY_CATEGORIES: EventCategory[] = ['Sports', 'Workshop', 'Concert', 'Cultural', 'Fitness', 'Startup'];
+
+/**
+ * One item in an event's gallery. The list is ordered and the first item is the cover.
+ * image: a URL (site path, https or an uploaded data URL); video: an mp4/webm file URL (site path
+ * or Firebase Storage), shown as a muted loop; youtube/vimeo: the video id, embedded on tap.
+ */
+export interface EventMedia {
+  kind: 'image' | 'video' | 'youtube' | 'vimeo';
+  src: string;
+  /** Video only: a still to show before it plays. */
+  poster?: string;
+  /** "Photo: Jane Doe / Unsplash", shown on the media. */
+  credit?: string;
+  /** Where the credit links to. */
+  link?: string;
+}
 
 export type EventStatus = 'Pending' | 'Confirmed' | 'Cancelled';
 
@@ -53,6 +70,8 @@ export interface Event {
   organizerId: string;
   venueId?: string;
   imageUrls: string[];
+  /** The gallery, in order. When absent, a seed event shows its own media (data/media.ts). */
+  media?: EventMedia[];
   mapsLink?: string;
   /** Aggregate counters, bumped with increment() so the admin page never scans analytics. */
   impressions?: number;
@@ -62,7 +81,7 @@ export interface Event {
   clicks?: number;
   /** Firestore Timestamp (or null while the write is still pending). Absent on older documents. */
   createdAt?: any;
-  /** 'seed' = one of the 33; 'proposal' = created by approving a student proposal. */
+  /** 'seed' = one of the seed list; 'proposal' = created by approving a student proposal. */
   origin?: 'seed' | 'proposal';
   /** proposals/{id} this event was approved from. */
   proposalId?: string;

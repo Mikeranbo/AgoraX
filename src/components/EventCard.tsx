@@ -8,8 +8,8 @@ import { once } from '../services/session';
 import { canOfferHosting, keepPerHost } from '../data/earnings';
 import { isConfirmed, progressLabel, progressPercent, targetReached } from '../data/progress';
 import { formatEventDate, isScheduled } from '../data/schedule';
-import { ownPhoto, photoSet } from '../data/photos';
-import { Photo } from './Photo';
+import { mediaFor } from '../data/media';
+import { LoopVideo } from './MediaGallery';
 import { useVisitor } from '../state/VisitorProvider';
 import { quietLinkClass } from './ui';
 
@@ -43,6 +43,9 @@ function useImpression(ref: React.RefObject<HTMLElement | null>, eventId: string
   }, [ref, eventId]);
 }
 
+/** The first paragraph of a description: the one-line hook the card shows. */
+export const hookOf = (description = '') => description.split(/\n\s*\n/)[0];
+
 export const priceLabel = (event: Event) => (event.price === 0 ? 'Free' : `€${event.price}`);
 
 /** "Sat 14 Nov, 19:30 CET" for a scheduled event; proposals have no date yet. */
@@ -51,20 +54,33 @@ export const dateLabel = (event: Event) => (isScheduled(event) ? formatEventDate
 /** How wide a card photo is shown: one, two or three columns. */
 const CARD_SIZES = '(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw';
 
-/** The event's photo, or its emoji on its own colour when there is none or it fails to load. */
+/**
+ * The event's cover, the first item of its gallery: a photo, or a muted loop that plays while the
+ * card is on screen. Its emoji on its own colour when there is none or it fails to load.
+ */
 export const PhotoBackdrop = ({ event, className = '', children }: { event: Event; className?: string; children?: React.ReactNode }) => {
-  const own = ownPhoto(event);
-  const set = own ? undefined : photoSet(event.slug);
+  const cover = mediaFor(event)[0];
   const [failed, setFailed] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const visible = useInView(box, { amount: 0.6 });
   const accent = event.accent || DEFAULT_ACCENT;
   const fill = 'absolute inset-0 h-full w-full object-cover';
+  const still = cover?.kind === 'image' ? cover.src : cover?.poster;
 
   return (
-    <div className={`relative overflow-hidden ${className}`} style={{ backgroundColor: `color-mix(in srgb, ${accent} 55%, #0f172a)` }}>
-      {own && !failed ? (
-        <img src={own} alt="" loading="lazy" onError={() => setFailed(true)} className={fill} />
-      ) : set && !failed ? (
-        <Photo set={set} sizes={CARD_SIZES} onError={() => setFailed(true)} className={fill} />
+    <div ref={box} className={`relative overflow-hidden ${className}`} style={{ backgroundColor: `color-mix(in srgb, ${accent} 55%, #0f172a)` }}>
+      {cover?.kind === 'video' && !failed ? (
+        <LoopVideo item={cover} active={visible} sizes={CARD_SIZES} />
+      ) : still && !failed ? (
+        <img
+          src={still}
+          srcSet={cover?.kind === 'image' ? cover.srcSet : cover?.posterSrcSet}
+          sizes={CARD_SIZES}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className={fill}
+        />
       ) : (
         <span aria-hidden="true" className="absolute inset-0 grid place-items-center text-6xl">{event.emoji}</span>
       )}
@@ -347,7 +363,7 @@ export const EventCard = ({ event }: { event: Event }) => {
               {event.title}
             </button>
           </h3>
-          <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-slate-300">{event.description}</p>
+          <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-slate-300">{hookOf(event.description)}</p>
         </div>
         <PeopleLine event={event} />
         <PriceAndAction event={event} />

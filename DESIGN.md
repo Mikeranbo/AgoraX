@@ -53,12 +53,14 @@ soft shadow. One corner radius for the event page, `rounded-sheet` (14px).
    events."), each a whole face of an invisible cube that rolls around the X axis every 5.2s
    (1.35s, `cubic-bezier(.7,-0.2,.25,1.15)`); three messages on four faces. Headline Archivo 800 at
    110% width, block width ÷ 7.8 (about 114px at 1440 wide); text Archivo 500, 28px. One person per
-   message (guitar, climbing, cooking), cut out on a transparent background (no rectangle, no
-   overlay) on the right, never over the text; across the top on phones, ending in a short fade.
-   Photos cropped by their original frame sit flush in the bottom-right corner. Behind each person
-   is their own silhouette in the x-blue → x-purple gradient, offset 18px down and right (14px on
-   phones). On a roll the person moves with the cube (same 1.35s curve) and the shape trails 0.12s
-   behind; with reduced motion they only fade. Three message dashes top
+   message (guitar, dance, an event host with a microphone), complete and cut out on a transparent
+   background (no rectangle, no overlay) on the right, never over the text; across the top on
+   phones, ending in a short fade. A photo cropped by its original frame sits flush in the
+   bottom-right corner. A thin outline in the x-blue → x-purple gradient runs around each person:
+   the same image used as a mask and dilated by an SVG feMorphology filter (2.5px on phones, 3px
+   wider), so it follows the body exactly. On a roll the person moves with the cube (same 1.35s
+   curve) and the outline trails 0.1s behind, meeting the body again at rest; with reduced motion
+   they only fade. Three message dashes top
    right (clickable), a "Scroll to explore" cue bottom centre. The cube rolls on its own, and
    scrolling down (wheel, trackpad, swipe up, mouse drag, ↓/PageDown/Space or the cue) rolls it to
    the next message instead of moving the page; up goes back a message, and does nothing on the
@@ -117,18 +119,24 @@ behind the card so the doodles don't run through the text. 24px between cards.
 5. Quiet links: "Organize · est. €84 for a host" (opens the event page), and "Show/Hide my
    initial" once interested. The photo, the title or Organize open the event page.
 
-## Opened event (`src/screens/EventDetail.tsx`, "Cinematic")
+## Opened event (`src/screens/EventDetail.tsx`)
 
-Full-screen photo (object-position 72% 40%) with the soft-light purple/blue tint and fades into
-#07081A. Left column: "PROPOSAL · CATEGORY • DATE TO BE CONFIRMED", the title (Archivo 800, up to
-84px), a cyan→purple rule, the description (20px), pills for date, venue and duration, "I’m
-interested" (gradient pill; "✓ Interested — withdraw" once in) and "Organize · est. €X" (outline;
-opens the organiser sheet and shows "We’ll contact you about a possible collaboration. This doesn’t
-make you the organiser."), and "Prices and potential earnings are hypothetical — not promises."
-Bottom bar: interested / target, indicative price, est. host earnings in 54px numerals, and the
-shown initials plus dashed empty places with "X more to reach the target". Back, Save and Share at
-the top. Phones: photo across the top 62%, stats as a 3-column grid. Details (you bring, hosts,
-organiser, map link, photo credit) follow below.
+The gallery (`MediaGallery`) fills the top edge to edge, no margins: photos and videos side by side,
+swiped (scroll-snap), with arrows on wide screens and dots below (a small play triangle for videos).
+Uploaded loops play muted while their slide is showing, with a pause button; YouTube and Vimeo show a
+still and load the player (privacy-enhanced) only on tap. Each slide shows its credit. The media fades
+out at the bottom, and the header card reaches 96px up over it: transparent at the top, the card
+colour (#12163A) in the middle, transparent again at the bottom, so photo and card read as one piece.
+Back (top left), and edit media (organiser or admin), save and share (top right) sit over the media.
+
+Header: status and category chips with the date, the title (28px, 40px wide), the one-line hook and
+the sign-up progress bar. Below it, cards in the feed's style (#12163A at 80%, radius 18px, 24px
+apart, 19px headings): Sign up (price at 44px, "I'm interested", initials and empty places,
+"Organize · est. €X for a host" with its note, the hypothetical-prices line), About (the rest of the
+description), How it works (3–4 steps, each with a `StepArt` drawing: the step's outline icon in a
+dashed ring with two small doodles, stroked blue at the top to purple at the bottom, the reverse of
+the page background) and Details (where, duration, price, what to bring, when, needed to run, hosts,
+map link, organiser).
 
 ## Motion
 
@@ -170,7 +178,14 @@ Cookie Policy and Imprint are placeholder pages that say they're not written yet
 
 ## Event photos
 
-Every seed event and every entry message has a real, licensed photo served from this site
+Every seed event has a gallery (`scripts/media-sources.json` → `node scripts/build-media.mjs` →
+`public/media/<slug>/` and `src/data/mediaManifest.ts`, credits in `public/media/CREDITS.md`): a
+muted 8-second 720p loop from Pexels first (the cover), then up to two Unsplash photos as WebP at 640,
+1280 and 1920px. An event's own `media` list (set in the admin editor, or by the organiser who
+proposed it) replaces it; `data/media.ts` turns either into what the gallery and cards show. Feed
+cards play the cover loop only while on screen, and never with reduced motion.
+
+Every entry message has a real, licensed photo served from this site
 (`public/images`, never hotlinked): Unsplash originals, each checked as "Free to use under the
 Unsplash License", listed with photographer and page in `scripts/photo-sources.json` and credited in
 `public/images/CREDITS.md`. `node scripts/build-photos.mjs` makes AVIF and WebP at 640, 1280, 1920

@@ -93,7 +93,23 @@ service cloud.firestore {
              data.title is string && data.title.size() <= 200 &&
              data.description is string && data.description.size() <= 2000 &&
              data.category is string &&
-             data.status in ['Pending', 'Confirmed', 'Cancelled'];
+             data.status in ['Pending', 'Confirmed', 'Cancelled'] &&
+             isValidMedia(data.get('media', []));
+    }
+
+    // An event's gallery: an ordered list, first item the cover, at most 12 items.
+    function isValidMedia(m) {
+      return m is list && m.size() <= 12;
+    }
+
+    // The organiser who proposed an event may change its gallery and nothing else. Who owns a
+    // public profile is in profileOwners, which only rules can read.
+    function organiserMediaUpdate() {
+      let pid = resource.data.get('organiserPublicId', '');
+      return isSignedIn() && pid is string && pid != '' &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['media']) &&
+             isValidMedia(incoming().get('media', [])) &&
+             get(/databases/$(database)/documents/profileOwners/$(pid)).data.uid == request.auth.uid;
     }
 
     function isValidVenue(data) {
@@ -387,7 +403,8 @@ service cloud.firestore {
       // The counter steps are listed first so ordinary visitors never trigger an admin lookup.
       allow update: if (isSignedIn() && (joinStep(eventId) || interestStep(eventId) ||
                                          viewStep(eventId, 'impressions') || viewStep(eventId, 'opens'))) ||
-                       (isEditor() && isValidEvent(incoming()));
+                       (isEditor() && isValidEvent(incoming())) ||
+                       organiserMediaUpdate();
       allow delete: if isEditor();
 
       // Comments are switched off (APP_CHANGES §5): no new writes. Admins can still read

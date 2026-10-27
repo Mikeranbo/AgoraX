@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Cloud Storage for Firebase: videos in an event's gallery (events/<eventId>/<file>).
+// Anyone can watch them. Uploading needs an admin editor, or the organiser who proposed the
+// event (their public profile owns it, see profileOwners in firestore.rules).
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isEditor() {
+      let admin = /databases/(default)/documents/admins/$(request.auth.uid);
+      return firestore.exists(admin) && firestore.get(admin).data.role in ['owner', 'editor'];
+    }
+
+    function isOrganiser(eventId) {
+      let pid = firestore.get(/databases/(default)/documents/events/$(eventId)).data.get('organiserPublicId', '');
+      return pid != '' && firestore.get(/databases/(default)/documents/profileOwners/$(pid)).data.uid == request.auth.uid;
+    }
+
+    match /events/{eventId}/{file} {
+      allow read: if true;
+      // mp4 or webm, at most 50 MB.
+      allow create: if request.auth != null &&
+                       request.resource.size <= 50 * 1024 * 1024 &&
+                       request.resource.contentType.matches('video/(mp4|webm)') &&
+                       (isEditor() || isOrganiser(eventId));
+      allow delete: if request.auth != null && isEditor();
+    }
+  }
+}

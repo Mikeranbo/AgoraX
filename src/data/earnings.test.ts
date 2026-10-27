@@ -3,16 +3,16 @@ import { earningsFor, keepPerHost } from './earnings';
 import { seedAsEvent } from '../test/seedEvent';
 
 describe('earnings', () => {
-  it('matches the Boxing Intro breakdown in APP_CHANGES §6', () => {
-    const e = earningsFor(seedAsEvent('boxing-martial-arts-intro'));
-    expect(e.gross).toBe(144);
-    expect(e.platformFee).toBeCloseTo(10.08, 2);
-    expect(e.costs).toBe(50);
-    expect(e.perHost).toBeCloseTo(83.92, 2);
-    expect(keepPerHost(seedAsEvent('boxing-martial-arts-intro'))).toBe(84);
+  it('works out the Brain Battle breakdown: 24 × €5, 7% fee, €20 prize pot, two hosts', () => {
+    const e = earningsFor(seedAsEvent('themed-pub-quiz'));
+    expect(e.gross).toBe(120);
+    expect(e.platformFee).toBeCloseTo(8.4, 2);
+    expect(e.costs).toBe(20);
+    expect(e.perHost).toBeCloseTo(45.8, 2);
+    expect(keepPerHost(seedAsEvent('themed-pub-quiz'))).toBe(46);
   });
 
   it('never shows negative earnings', () => {
-    expect(earningsFor(seedAsEvent('running-club')).perHost).toBe(0);
+    expect(earningsFor(seedAsEvent('reading-meetup')).perHost).toBe(0);
   });
 });

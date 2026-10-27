@@ -1,8 +1,8 @@
 /**
- * Photos served from this site (public/images), never hotlinked. Each seed event and each entry
- * message has a set of AVIF and WebP files at fixed widths; scripts/build-photos.mjs makes them
- * from the Unsplash originals listed in scripts/photo-sources.json and credits them in
- * public/images/CREDITS.md. An event's own imageUrls, set in /admin or a proposal, always win.
+ * Photos served from this site (public/images), never hotlinked: the opening screen's cut-outs, as
+ * AVIF and WebP at fixed widths plus a transparent PNG. scripts/build-photos.mjs makes them from the
+ * Unsplash originals in scripts/photo-sources.json and credits them in public/images/CREDITS.md.
+ * Event galleries live in data/media.ts.
  */
 import { PHOTO_MANIFEST, PhotoInfo } from './photoManifest';
 
@@ -38,16 +38,6 @@ export function photoSet(key?: string): PhotoSet | undefined {
     position: info.position,
     mobilePosition: info.mobilePosition,
   };
-}
-
-/** The event's own first photo (an https link or an uploaded data URL), if it has one. */
-export function ownPhoto(e: { imageUrls?: string[] }): string | undefined {
-  return e.imageUrls?.find((u) => u && u.trim() !== '');
-}
-
-/** A single URL for the event's photo: its own, else its local seed photo. */
-export function photoFor(e: { imageUrls?: string[]; slug?: string }): string | undefined {
-  return ownPhoto(e) ?? photoSet(e.slug)?.fallback;
 }
 
 /** The small WebP of a seed photo, for thumbnails such as the photo picker's ideas. */

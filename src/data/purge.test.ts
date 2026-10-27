@@ -5,10 +5,10 @@ import { SEED_EVENTS } from './seedEvents';
 const SEED_SLUGS = SEED_EVENTS.map((e) => e.slug);
 
 describe('selectEventsToPurge', () => {
-  it('keeps every one of the 33 seed events', () => {
+  it('keeps every one of the 40 seed events', () => {
     const events = SEED_SLUGS.map((id) => ({ id }));
     expect(selectEventsToPurge(events, SEED_SLUGS)).toEqual([]);
-    expect(SEED_SLUGS).toHaveLength(33);
+    expect(SEED_SLUGS).toHaveLength(40);
   });
 
   it('removes old test events, whatever their id looks like', () => {

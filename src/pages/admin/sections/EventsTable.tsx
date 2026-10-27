@@ -4,6 +4,7 @@ import { useAdmin } from '../AdminContext';
 import { Bar, Section, Table, Td, pct } from '../ui';
 import { downloadCsv } from '../../../lib/csv';
 import { seedEvents } from '../../../services/firebaseService';
+import { SEED_EVENTS } from '../../../data/seedEvents';
 import { applyCounterFixes, deleteEvent, purgeNonSeedEvents, setEventStatus } from '../../../services/adminService';
 import { Event, EventStatus } from '../../../types';
 
@@ -31,7 +32,7 @@ export function EventsTable() {
   };
 
   const handlePurge = async () => {
-    if (!window.confirm('Delete every event that is not one of the 33 seed events, with its joins, comments and helpers? Events you approved from proposals are kept. This cannot be undone.')) return;
+    if (!window.confirm(`Delete every event that is not one of the ${SEED_EVENTS.length} seed events, with its joins, comments and helpers? Events you approved from proposals are kept. This cannot be undone.`)) return;
     setPurging(true);
     await run('Remove events', async () => {
       const r = await purgeNonSeedEvents();
@@ -41,7 +42,7 @@ export function EventsTable() {
   };
 
   const handleSeed = async () => {
-    if (!window.confirm('Write the 33 seed events? New ones are created; existing ones only get their copy/price/cost fields refreshed — signups, counters, status and photos are kept.')) return;
+    if (!window.confirm(`Write the ${SEED_EVENTS.length} seed events? New ones are created; existing ones only get their copy/price/cost fields refreshed — signups, counters, status and photos are kept.`)) return;
     setSeeding(true);
     await run('Seed events', async () => {
       const { created, updated } = await seedEvents();
@@ -77,7 +78,7 @@ export function EventsTable() {
               <Plus size={12} /> New event
             </button>
             <button onClick={handleSeed} disabled={seeding} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg glass text-xs font-bold text-slate-200 hover:text-white disabled:opacity-50">
-              <Sprout size={12} /> {seeding ? 'Seeding…' : 'Seed the 33 events'}
+              <Sprout size={12} /> {seeding ? 'Seeding…' : 'Seed the events'}
             </button>
             <button onClick={handlePurge} disabled={purging} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg glass text-xs font-bold text-red-300 hover:text-red-200 disabled:opacity-50">
               <Eraser size={12} /> {purging ? 'Removing…' : 'Remove events not in the list'}
@@ -93,7 +94,7 @@ export function EventsTable() {
     >
       <Table
         head={['Event', 'Category', '€', 'Min', 'Joins', 'Progress', 'Impr.', 'Opens', 'Open→join', 'Host int.', 'Status', ...(canEdit ? ['Actions'] : [])]}
-        empty="No events yet — use “Seed events” to add the 33."
+        empty={`No events yet — use “Seed the events” to add the ${SEED_EVENTS.length}.`}
       >
         {eventRows.map(({ event: e, joins, impressions, opens, conversion, interest }) => (
           <tr

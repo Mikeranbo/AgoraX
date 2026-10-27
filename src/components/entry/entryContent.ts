@@ -22,13 +22,12 @@ export const ENTRY_MESSAGES: EntryMessage[] = [
   {
     headline: ['Have fun trying ', 'new activities', '.'],
     body: 'Explore new hobbies, join adventures, and discover your next favourite thing.',
-    photo: 'entry-climbing',
+    photo: 'entry-dancing',
   },
   {
     headline: ['', 'Earn money', ' organising events.'],
     body: 'Create an event, bring people together, and get paid for making it happen.',
-    photo: 'entry-cooking',
-    flush: true,
+    photo: 'entry-hosting',
   },
 ];
 

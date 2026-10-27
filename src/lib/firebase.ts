@@ -9,7 +9,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
  */
 const useEmulators = import.meta.env.VITE_FIREBASE_EMULATORS === '1';
 
-const app = initializeApp(useEmulators ? { apiKey: 'demo-key', authDomain: 'localhost', projectId: 'demo-agorax' } : firebaseConfig);
+export const app = initializeApp(useEmulators ? { apiKey: 'demo-key', authDomain: 'localhost', projectId: 'demo-agorax' } : firebaseConfig);
 export const db = getFirestore(app, useEmulators ? '(default)' : firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 

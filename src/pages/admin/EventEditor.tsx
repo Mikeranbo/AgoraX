@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { Event, EventCategory, EventStatus, PUBLIC_CATEGORIES, LEGACY_CATEGORIES } from '../../types';
+import { Event, EventCategory, EventMedia, EventStatus, PUBLIC_CATEGORIES, LEGACY_CATEGORIES } from '../../types';
 import { EventFormData, saveEvent } from '../../services/adminService';
-import { ImagePicker, PickedImage } from '../../components/ImagePicker';
+import { MediaEditor } from '../../components/MediaEditor';
+import { editableMedia } from '../../data/media';
 
 
 const input =
@@ -35,7 +36,7 @@ interface FormState {
   startTime: string;
   dateConfirmed: boolean;
   city: string;
-  photo: PickedImage | null;
+  media: EventMedia[];
   emoji: string;
   accent: string;
   durationHours: string;
@@ -59,7 +60,7 @@ function initial(event: Event | null): FormState {
     startTime: event?.startTime ? toLocalInput(event.startTime) : '',
     dateConfirmed: event?.dateConfirmed === true,
     city: event?.city ?? '',
-    photo: event?.imageUrls?.[0] ? { image: event.imageUrls[0], credit: event.imageCredit } : null,
+    media: event ? editableMedia(event) : [],
     emoji: event?.emoji ?? '💡',
     accent: event?.accent ?? '#818cf8',
     durationHours: String(event?.durationHours ?? 2),
@@ -113,8 +114,10 @@ export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
       startTime,
       dateConfirmed: f.dateConfirmed && !!startTime,
       city: f.city.trim(),
-      imageUrls: f.photo ? [f.photo.image] : [],
-      imageCredit: f.photo?.credit ?? '',
+      // The gallery replaces the old single photo; its first item is the cover.
+      media: f.media,
+      imageUrls: [],
+      imageCredit: '',
       emoji: f.emoji.trim() || '💡',
       accent: f.accent,
       durationHours: toNumber(f.durationHours),
@@ -257,8 +260,8 @@ export const EventEditor = ({ event, onClose, onSaved }: EventEditorProps) => {
             <input className={input} value={f.bringYourOwn} onChange={(e) => set('bringYourOwn', e.target.value)} />
           </div>
           <div className="sm:col-span-2">
-            <ImagePicker value={f.photo} onChange={(v) => set('photo', v)} title={f.title} category={f.category} />
-            <p className="mt-1 text-[11px] text-slate-500">No photo: seed events use their default photo, others the emoji cover.</p>
+            <p className={label}>Photos and videos (the first one is the cover)</p>
+            <MediaEditor value={f.media} onChange={(v) => set('media', v)} eventId={event?.id} title={f.title} category={f.category} />
           </div>
         </div>
 

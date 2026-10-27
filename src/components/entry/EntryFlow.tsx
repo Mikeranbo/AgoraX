@@ -27,16 +27,25 @@ const ROLL_EASE = [0.7, -0.2, 0.25, 1.15] as const;
 /** Phones: the cut-out ends in a short fade where the photo itself was cropped. */
 const PHONE_FADE = 'linear-gradient(180deg, #000 80%, transparent 100%)';
 
+/** The SVG filter that grows a cut-out's own shape by a few pixels: the outline. */
+const OUTLINE_FILTER = 'cutout-outline';
+
 /**
  * One person per message, cut out on a transparent background, on the right (across the top on
- * phones), never over the text. Behind each person is their own silhouette filled with the
- * blue–purple gradient and offset down and to the right. On a roll the person rises (or drops)
- * with the cube and the shape trails a beat behind. With reduced motion only opacity changes.
+ * phones), never over the text. Around each person runs a thin outline in the blue–purple
+ * gradient, made from the cut-out's own alpha (the same image as a mask, dilated by an SVG
+ * filter), so it follows the body exactly: about 2.5px on phones, 3px wider. On a roll the person
+ * rises (or drops) with the cube and the outline trails a beat behind, meeting the body again at
+ * rest. With reduced motion only opacity changes.
  */
 const CutoutPanel = ({ active, direction, mobile }: { active: number; direction: 1 | -1; mobile: boolean }) => {
-  const offset = mobile ? 14 : 18;
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+      <svg width="0" height="0" className="absolute" focusable="false">
+        <filter id={OUTLINE_FILTER} x="-10%" y="-10%" width="120%" height="120%">
+          <feMorphology operator="dilate" radius={mobile ? 2.5 : 3} />
+        </filter>
+      </svg>
       {ENTRY_MESSAGES.map((m, i) => {
         const set = photoSet(m.photo);
         if (!set) return null;
@@ -52,21 +61,28 @@ const CutoutPanel = ({ active, direction, mobile }: { active: number; direction:
           <div key={m.photo} className="absolute" style={box}>
             <motion.div
               className="absolute inset-0"
-              style={{
-                background: 'linear-gradient(150deg, var(--color-x-blue) 0%, var(--color-x-purple) 100%)',
-                maskImage: mask,
-                WebkitMaskImage: mask,
-                maskSize: 'contain',
-                WebkitMaskSize: 'contain',
-                maskPosition: place,
-                WebkitMaskPosition: place,
-                maskRepeat: 'no-repeat',
-                WebkitMaskRepeat: 'no-repeat',
-              }}
               initial={false}
-              animate={on ? { x: [offset + 10, offset], y: [offset + direction * 120, offset], opacity: [0, 1] } : { x: offset, y: offset - direction * 80, opacity: 0 }}
-              transition={on ? { duration: 1.35, delay: 0.12, ease: ROLL_EASE } : { duration: 0.75, ease: [0.7, 0, 0.84, 0] }}
-            />
+              animate={on ? { y: [direction * 110, 0], opacity: [0, 1] } : { y: -direction * 90, opacity: 0 }}
+              transition={on ? { duration: 1.35, delay: 0.1, ease: ROLL_EASE } : { duration: 0.75, ease: [0.7, 0, 0.84, 0] }}
+            >
+              {/* The filter sits inside the moving layer, so it is drawn once and only moved. */}
+              <div className="absolute inset-0" style={{ filter: `url(#${OUTLINE_FILTER})` }}>
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: 'linear-gradient(150deg, var(--color-x-blue) 0%, var(--color-x-purple) 100%)',
+                    maskImage: mask,
+                    WebkitMaskImage: mask,
+                    maskSize: 'contain',
+                    WebkitMaskSize: 'contain',
+                    maskPosition: place,
+                    WebkitMaskPosition: place,
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskRepeat: 'no-repeat',
+                  }}
+                />
+              </div>
+            </motion.div>
             <motion.div
               className="absolute inset-0"
               initial={false}
