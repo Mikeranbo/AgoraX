@@ -13,13 +13,15 @@ const optionClass =
 
 /**
  * A photo for a proposed event: upload one, paste a link, or tap one of the ideas, which follow
- * what is typed in "What is it?" and the chosen category.
+ * what is typed in "What is it?" and the chosen category. With uploadFile, a photo from the
+ * device goes to Storage and its URL is kept; without it, the photo is stored as a small data URL.
  */
-export const ImagePicker = ({ value, onChange, title, category }: {
+export const ImagePicker = ({ value, onChange, title, category, uploadFile }: {
   value: PickedImage | null;
   onChange: (v: PickedImage | null) => void;
   title: string;
   category: string;
+  uploadFile?: (file: File) => Promise<string>;
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -74,22 +76,30 @@ export const ImagePicker = ({ value, onChange, title, category }: {
     search(query, page + 1, () => false);
   };
 
+  const fromFile = (file: File) =>
+    uploadFile
+      ? run(async () => ({ image: await uploadFile(file) }), (err) =>
+          String((err as { code?: string })?.code ?? '').includes('unauthorized')
+            ? "You can't upload photos to this event."
+            : "That photo didn't upload. Try a jpeg, png or webp picture, or paste a link instead.")
+      : run(async () => ({ image: await compressToDataUrl(file) }), "That file isn't a picture we can read.");
+
   const dropped = (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-    if (file?.type.startsWith('image/')) void run(async () => ({ image: await compressToDataUrl(file) }), "That file isn't a picture we can read.");
+    if (file?.type.startsWith('image/')) void fromFile(file);
     else if (url) void run(async () => (await checkImageLink(url), { image: url.trim() }), 'That link is not a picture we can show.');
   };
 
-  const run = async (job: () => Promise<PickedImage>, failure: string) => {
+  const run = async (job: () => Promise<PickedImage>, failure: string | ((err: unknown) => string)) => {
     setBusy(true);
     setError('');
     try {
       onChange(await job());
     } catch (err) {
       console.warn(err);
-      setError(failure);
+      setError(typeof failure === 'string' ? failure : failure(err));
     } finally {
       setBusy(false);
     }
@@ -148,7 +158,7 @@ export const ImagePicker = ({ value, onChange, title, category }: {
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = '';
-          if (file) void run(async () => ({ image: await compressToDataUrl(file) }), "That file isn't a picture we can read.");
+          if (file) void fromFile(file);
         }}
       />
 

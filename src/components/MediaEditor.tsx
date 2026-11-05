@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Film, ImagePlus, Link2, Star, Trash2, Video } from 'lucide-react';
 import type { EventMedia } from '../types';
 import { MAX_MEDIA, parseVideoLink, youtubeThumb } from '../data/media';
-import { videoFileProblem, uploadEventVideo } from '../services/mediaService';
+import { videoFileProblem, uploadEventFile, uploadEventPhoto } from '../services/mediaService';
 import { ImagePicker, PickedImage } from './ImagePicker';
 import { errorClass, fieldClass } from './ui';
 
@@ -82,7 +82,7 @@ export const MediaEditor = ({ value, onChange, eventId, title, category }: {
     setError('');
     setProgress(0);
     try {
-      const url = await uploadEventVideo(eventId, file, setProgress);
+      const url = await uploadEventFile(eventId, file, file.name, setProgress);
       add({ kind: 'video', src: url });
     } catch (e) {
       const code = String((e as { code?: string })?.code ?? '');
@@ -165,7 +165,15 @@ export const MediaEditor = ({ value, onChange, eventId, title, category }: {
         />
       </div>
 
-      {adding === 'photo' && <ImagePicker value={null} onChange={addPhoto} title={title} category={category} />}
+      {adding === 'photo' && (
+        <ImagePicker
+          value={null}
+          onChange={addPhoto}
+          title={title}
+          category={category}
+          uploadFile={eventId ? (file) => uploadEventPhoto(eventId, file) : undefined}
+        />
+      )}
       {adding === 'link' && (
         <div className="flex gap-2">
           <label htmlFor="media-link" className="sr-only">YouTube or Vimeo link</label>
@@ -175,8 +183,8 @@ export const MediaEditor = ({ value, onChange, eventId, title, category }: {
       )}
 
       <p className="text-[12px] text-slate-400">
-        Up to {MAX_MEDIA} items. Videos: mp4 or webm, at most 50 MB; they play as silent loops. Credit every photo or video that isn't
-        yours.
+        Up to {MAX_MEDIA} items. Photos: jpeg, png or webp, at most 10 MB. Videos: mp4 or webm, at most 50 MB; they play as silent
+        loops. Credit every photo or video that isn't yours.
       </p>
       {full && <p className="text-[13px] text-slate-300">That's the maximum. Remove something to add more.</p>}
       {size > SIZE_WARNING && <p className={errorClass}>Uploaded photos are taking a lot of space. Use fewer, or free photos and links instead.</p>}
