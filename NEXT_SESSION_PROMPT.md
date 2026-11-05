@@ -11,10 +11,12 @@ Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Fi
   backup from before is in `..\backups\firestore-events-before-40-2026-11-05.json`.
 - Admins: `0iWlXrItViTi0MWyWvJOLaApjfG3` owner "Mike (founder)"; `LUhMLDBO3CP0OsuSGlpUCUyNTqM2` editor
   "Claude (co-founder)" (the Claude desktop browser pane, granted from the console).
-- Storage: default bucket `agorax-a8d07.firebasestorage.app` (europe-west4) created and
-  `storage.rules` released. Still open: the rules read Firestore, so the Storage service agent needs
-  the "Firebase Rules Firestore Service Agent" role (Firebase Console → Storage → Rules offers it,
-  or an interactive `firebase deploy --only storage`). Until then video uploads are refused.
+- Storage: default bucket `agorax-a8d07.firebasestorage.app` (europe-west4). The Storage service
+  agent has the "Firebase Rules Firestore Service Agent" role (granted in Cloud Console, 5 Nov).
+  `storage.rules` allow editors and the event's organiser to upload photos (jpeg/png/webp, 10 MB)
+  and videos (mp4/webm, 50 MB) to `events/<id>/`; only editors delete. Gallery photos from the device
+  are scaled to 2000 px and saved as JPEG (no camera metadata) before upload. Tested live as the
+  editor on 5 Nov: photo and video uploaded, shown on Photo Walk & Share, then deleted; a GIF is refused.
 - Event page: Meetup-style two columns on wide screens (sticky sign-up card on the right), header
   edge to edge; the footer is a full-width band on every screen.
 
