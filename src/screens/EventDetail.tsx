@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Bookmark, BookmarkCheck, Check, ExternalLink, ImagePlus, Share2 } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookmarkCheck, CalendarDays, Check, Clock3, ExternalLink, ImagePlus, MapPin, Share2 } from 'lucide-react';
 import { Event, EventMedia, PublicProfile } from '../types';
 import { useVisitor } from '../state/VisitorProvider';
 import { InitialToggle, PeopleLine, StatusChip, dateLabel, hostEstimate, priceLabel } from '../components/EventCard';
@@ -24,6 +24,8 @@ const roundButton = 'grid size-9 place-items-center rounded-full bg-black/45 tex
 /** The feed card's surface, type and spacing, reused for every section. */
 const card = 'rounded-[18px] bg-[#12163a]/80 px-4 py-4 min-[760px]:px-6 min-[760px]:py-5';
 const heading = 'font-display text-[19px] leading-[1.15] font-bold tracking-[-0.01em] text-white';
+/** The page's content width: the full page on phones, centred up to 1200px on wide screens. */
+const shell = 'mx-auto w-full max-w-[1200px] px-4 min-[760px]:px-6 lg:px-10';
 
 /** The organiser who proposed it, as they describe themselves. AgoraX does not verify them. */
 const OrganiserCard = ({ publicId }: { publicId: string }) => {
@@ -176,14 +178,16 @@ export const EventDetail = ({ event }: { event: Event }) => {
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[760px] min-[760px]:px-6" style={{ marginTop: -OVERLAP }}>
-        {/* Transparent over the gallery, then the card colour, then fading out again: no edges. */}
+      <div className="relative z-10" style={{ marginTop: -OVERLAP }}>
+        {/* Edge to edge like the gallery: transparent over it, then the card colour, then fading out again. */}
         <header
-          className="px-4 pt-6 pb-8 min-[760px]:px-6"
+          className="pt-6 pb-8"
           style={{
             background: `linear-gradient(180deg, rgba(18,22,58,0) 0px, rgba(18,22,58,.9) ${OVERLAP - 24}px, #12163a ${OVERLAP + 24}px, #12163a calc(100% - 56px), rgba(18,22,58,0) 100%)`,
           }}
         >
+          <div className={shell}>
+          <div className="max-w-[860px]">
           <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
             <StatusChip event={event} />
             <span className="rounded-full bg-[#0f172a]/80 px-2.5 py-0.5 leading-5 font-semibold text-white">{event.category}</span>
@@ -195,11 +199,37 @@ export const EventDetail = ({ event }: { event: Event }) => {
           <div className="mt-4">
             <PeopleLine event={event} />
           </div>
+          </div>
+          </div>
         </header>
 
-        <div className="mt-2 space-y-6 px-4 min-[760px]:px-0">
-          <section aria-labelledby="signup-heading" className={card}>
+        {/*
+          Meetup-style: on a wide page the sign-up card stays beside the reading column while it
+          scrolls; on a phone it comes first, then About, How it works and Details.
+        */}
+        <div className={`@container mt-2 ${shell}`}>
+          <div className="grid gap-6 @4xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] @4xl:gap-x-10">
+          <div className="@4xl:col-start-2 @4xl:row-start-1">
+          <section aria-labelledby="signup-heading" className={`${card} @4xl:sticky @4xl:top-[76px]`}>
             <h2 id="signup-heading" className="sr-only">Sign up</h2>
+            <ul className="mb-4 space-y-1.5 border-b border-white/10 pb-4 text-[14px] text-slate-200">
+              <li className="flex items-start gap-2.5">
+                <CalendarDays size={18} className="mt-px shrink-0 text-slate-400" aria-hidden="true" />
+                <span><span className="sr-only">When: </span>{dateLabel(event)}</span>
+              </li>
+              {where && (
+                <li className="flex items-start gap-2.5">
+                  <MapPin size={18} className="mt-px shrink-0 text-slate-400" aria-hidden="true" />
+                  <span><span className="sr-only">Where: </span>{where}</span>
+                </li>
+              )}
+              {duration && (
+                <li className="flex items-start gap-2.5">
+                  <Clock3 size={18} className="mt-px shrink-0 text-slate-400" aria-hidden="true" />
+                  <span><span className="sr-only">Duration: </span>{duration}</span>
+                </li>
+              )}
+            </ul>
             <div className="flex flex-wrap items-end justify-between gap-4">
               <p>
                 <span className="block font-display text-[44px] leading-none font-extrabold tracking-[-0.02em] text-white tabular-nums">{priceLabel(event)}</span>
@@ -246,7 +276,9 @@ export const EventDetail = ({ event }: { event: Event }) => {
               Prices and potential earnings are hypothetical, not promises. Interest isn't a booking: no payment, and no guarantee it goes ahead.
             </p>
           </section>
+          </div>
 
+          <div className="min-w-0 space-y-6 @4xl:col-start-1 @4xl:row-start-1">
           {about.length > 0 && (
             <section aria-labelledby="about-heading" className={card}>
               <h2 id="about-heading" className={heading}>About</h2>
@@ -260,7 +292,7 @@ export const EventDetail = ({ event }: { event: Event }) => {
 
           <section aria-labelledby="how-heading" className={card}>
             <h2 id="how-heading" className={heading}>How it works</h2>
-            <ol className="mt-3 space-y-3">
+            <ol className="mt-3 grid gap-3 @2xl:grid-cols-2 @2xl:gap-x-6 @2xl:gap-y-4">
               {steps.map((s, i) => (
                 <li key={s.title} className="flex items-center gap-3">
                   <StepArt icon={s.icon} index={i} size={60} />
@@ -319,6 +351,8 @@ export const EventDetail = ({ event }: { event: Event }) => {
             )}
             {event.organiserPublicId && <OrganiserCard publicId={event.organiserPublicId} />}
           </section>
+          </div>
+          </div>
         </div>
       </div>
 

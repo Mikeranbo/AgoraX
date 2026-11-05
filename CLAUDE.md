@@ -18,7 +18,7 @@ Product context: PRODUCT.md.
   email/phone or a client-reported uid (docs/SECURITY.md).
 - Do not take payments. Do not promise dates for events that do not exist yet.
 - Keep the dark theme: `glass`, `brand-primary`, rounded-3xl cards.
-- src/data/seedEvents.ts is the source of truth for the 33 events. Do not invent
+- src/data/seedEvents.ts is the source of truth for the 40 events. Do not invent
   events or change prices without being asked.
 
 ## Skills - always check them first

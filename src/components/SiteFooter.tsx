@@ -12,12 +12,15 @@ const Column = ({ title, children }: { title: string; children: React.ReactNode 
   </section>
 );
 
-/** On every screen: a rounded card at the bottom with company, legal, support and contact. */
+/**
+ * On every screen: a band across the full width of the page (rounded at the top) with company,
+ * legal, support and contact. The bottom padding keeps it clear of the phone tab bar.
+ */
 export const SiteFooter = () => {
   const { actions } = useVisitor();
   return (
-    <footer className="mx-auto max-w-6xl px-4 pb-40 sm:px-6 lg:pb-12">
-      <div className="rounded-[28px] border border-white/10 p-6 sm:p-10" style={{ background: 'rgba(14,17,38,.92)' }}>
+    <footer className="w-full rounded-t-[28px] border-t border-white/10" style={{ background: 'rgba(14,17,38,.92)' }}>
+      <div className="mx-auto max-w-6xl px-4 pt-8 pb-40 sm:px-10 sm:pt-12 lg:pb-12">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <Column title="Company">
             <button onClick={actions.openPilotNotice} className={linkClass}>About the pilot</button>

@@ -129,14 +129,19 @@ out at the bottom, and the header card reaches 96px up over it: transparent at t
 colour (#12163A) in the middle, transparent again at the bottom, so photo and card read as one piece.
 Back (top left), and edit media (organiser or admin), save and share (top right) sit over the media.
 
-Header: status and category chips with the date, the title (28px, 40px wide), the one-line hook and
-the sign-up progress bar. Below it, cards in the feed's style (#12163A at 80%, radius 18px, 24px
-apart, 19px headings): Sign up (price at 44px, "I'm interested", initials and empty places,
-"Organize · est. €X for a host" with its note, the hypothetical-prices line), About (the rest of the
-description), How it works (3–4 steps, each with a `StepArt` drawing: the step's outline icon in a
+Header (edge to edge, like the gallery; text up to 860px): status and category chips with the date,
+the title (28px, 40px wide), the one-line hook and the sign-up progress bar. Below it, cards in the
+feed's style (#12163A at 80%, radius 18px, 24px apart, 19px headings), laid out Meetup-style in a
+1200px column: once the content area is 896px wide (a container query, so the open sidebar counts)
+the Sign up card moves into a 300–360px right column and stays in view (sticky, 76px from the top)
+while About, How it works and Details scroll on the left; How it works shows its steps two by two.
+On a phone it is one column: Sign up, About, How it works, Details. Sign up: when, where and
+duration with outline icons, the price at 44px, "I'm interested", initials and empty places,
+"Organize · est. €X for a host" with its note, the hypothetical-prices line. About is the rest of the
+description; How it works has 3–4 steps, each with a `StepArt` drawing (the step's outline icon in a
 dashed ring with two small doodles, stroked blue at the top to purple at the bottom, the reverse of
-the page background) and Details (where, duration, price, what to bring, when, needed to run, hosts,
-map link, organiser).
+the page background); Details lists where, duration, price, what to bring, when, needed to run,
+hosts, the map link and the organiser.
 
 ## Motion
 
@@ -171,7 +176,8 @@ have a space, invite, organiser profile, how the pilot works, FAQ, contact, Admi
 collapsed "Ideas we're considering" with the locked feature votes. Categories live only in the chip
 bar above the list. The profile card at the bottom opens profile, Attend/Organise/Both,
 notification preferences, privacy & my data, account & security and the privacy notice.
-Every screen ends with the footer card (radius 28px): Company, Legal (Privacy Policy, Terms of Use,
+Every screen ends with the footer: a band across the full width of the page (rounded 28px at the
+top, its content centred up to 1152px): Company, Legal (Privacy Policy, Terms of Use,
 Cookie Policy, Imprint), Support, Contact, and © 2026 AgoraX with registration number and VAT ID.
 Company facts that aren't confirmed yet show "to be confirmed" (`src/config/legal.ts`); Terms,
 Cookie Policy and Imprint are placeholder pages that say they're not written yet.

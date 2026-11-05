@@ -3,6 +3,21 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07`, Vercel deploys `main` to https://agora-x.vercel.app.
 
+## State on 5 Nov 2026
+
+- Live database matches `src/data/seedEvents.ts`: the 10 events that left the list (bouldering, padel,
+  boxing, fencing, basketball, ping-pong, swim & sauna, running, video games, cycling) were removed
+  with their 6 sign-ups via /admin, and the seed wrote 17 new + 23 refreshed = 40 events. A read-only
+  backup from before is in `..\backups\firestore-events-before-40-2026-11-05.json`.
+- Admins: `0iWlXrItViTi0MWyWvJOLaApjfG3` owner "Mike (founder)"; `LUhMLDBO3CP0OsuSGlpUCUyNTqM2` editor
+  "Claude (co-founder)" (the Claude desktop browser pane, granted from the console).
+- Storage: default bucket `agorax-a8d07.firebasestorage.app` (europe-west4) created and
+  `storage.rules` released. Still open: the rules read Firestore, so the Storage service agent needs
+  the "Firebase Rules Firestore Service Agent" role (Firebase Console → Storage → Rules offers it,
+  or an interactive `firebase deploy --only storage`). Until then video uploads are refused.
+- Event page: Meetup-style two columns on wide screens (sticky sign-up card on the right), header
+  edge to edge; the footer is a full-width band on every screen.
+
 ## State on 24 Oct 2026
 
 - `ec69644` (security + pilot UX) plus a CRLF-safe privacy-notice test are on `main` and live.
