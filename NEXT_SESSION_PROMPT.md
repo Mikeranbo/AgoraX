@@ -3,6 +3,23 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07`, Vercel deploys `main` to https://agora-x.vercel.app.
 
+## Pending spec list (from Mike, 11 Nov 2026; keep this list here)
+
+1. Pilot disclaimer on the opening screen (honest: "this is a pilot, nothing is paid yet").
+2. No dates on any event.
+3. Filters: category, near me / elsewhere, and today / tomorrow shown as locked "coming soon".
+4. Collapsible sidebar that holds only event-related items.
+5. Settings, privacy and legal live inside My account, not the sidebar.
+6. Profile styled like a social profile: cover image and avatar.
+7. Two account types: participant and organiser. An organiser applies, an admin approves, and the
+   organiser then gets a badge and can create their own events.
+8. Full Privacy Policy and Terms pages (GDPR, Dutch law).
+9. "I am 16 or older" tick before contact capture.
+10. Analytics consent banner. Only track after consent, except strictly necessary data.
+11. Background doodles in a graffiti style: outlines only, with the gradient running the opposite way
+    to the buttons.
+12. Improv event: add at least 2 more photos.
+
 ## State on 5 Nov 2026
 
 - Live database matches `src/data/seedEvents.ts`: the 10 events that left the list (bouldering, padel,
