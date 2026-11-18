@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { LocateFixed, Search, X } from 'lucide-react';
+import { LocateFixed, Lock, Search, X } from 'lucide-react';
 import { LEGACY_CATEGORIES, PUBLIC_CATEGORIES } from '../types';
 import { Filter, PlaceFilter, useVisitor } from '../state/VisitorProvider';
 import { EventCard } from '../components/EventCard';
@@ -7,7 +7,6 @@ import { SuggestionBox } from '../components/SuggestionBox';
 import { LIST_ID, fieldClass } from '../components/ui';
 import { filterEvents, hasActiveFilters } from '../data/eventFilters';
 import { CITIES, NEAR_KM } from '../data/location';
-import type { DateFilter } from '../data/schedule';
 import { PILOT_CITY } from '../config/pilot';
 import { useWideScreen } from '../state/useWideScreen';
 
@@ -100,12 +99,8 @@ const FilterBar = ({ query, setQuery, wide }: { query: string; setQuery: (q: str
   );
 };
 
-const DATE_CHIPS: { value: DateFilter; label: string }[] = [
-  { value: 'any', label: 'All upcoming' },
-  { value: 'today', label: 'Today' },
-  { value: 'tomorrow', label: 'Tomorrow' },
-  { value: 'week', label: 'Next 7 days' },
-];
+/** No event has a date during the pilot, so the day filters are shown locked ("coming soon"). */
+const DATE_CHIPS = ['Today', 'Tomorrow'] as const;
 
 /** Where and when. "Near" is explained right next to it; location is only asked for on a tap. */
 const MoreFilters = ({ active }: { active: boolean }) => {
@@ -142,15 +137,19 @@ const MoreFilters = ({ active }: { active: boolean }) => {
         {scope('near', `Near ${place.city}`)}
         {scope('other', 'Other locations')}
       </div>
-      {state.view === 'scheduled' && (
-        <div className="no-scrollbar flex gap-2 overflow-x-auto" role="group" aria-label="Date">
-          {DATE_CHIPS.map((d) => (
-            <button key={d.value} onClick={() => actions.setDateFilter(d.value)} aria-pressed={state.dateFilter === d.value} className={chipClass(state.dateFilter === d.value)}>
-              {d.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="no-scrollbar flex gap-2 overflow-x-auto" role="group" aria-label="Date, coming soon">
+        {DATE_CHIPS.map((label) => (
+          <button
+            key={label}
+            onClick={() => actions.openLocked('day-filter')}
+            aria-label={`${label}: coming soon`}
+            className={`${chipClass(false)} inline-flex items-center gap-1.5 border-dashed !text-slate-400`}
+          >
+            <Lock size={12} aria-hidden="true" /> {label}
+            <span className="text-[11px] font-semibold tracking-wide uppercase">Soon</span>
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-x-4">
         <details className="group text-[13px] text-slate-300">
           <summary className="inline-flex min-h-9 cursor-pointer list-none items-center font-semibold text-slate-200 underline underline-offset-4 lg:min-h-11">

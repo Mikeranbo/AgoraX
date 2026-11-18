@@ -4,6 +4,7 @@ import { Event, EventMedia, PublicProfile } from '../types';
 import { useVisitor } from '../state/VisitorProvider';
 import { InitialToggle, PeopleLine, StatusChip, dateLabel, hostEstimate, priceLabel } from '../components/EventCard';
 import { MediaGallery } from '../components/MediaGallery';
+import { OrganiserBadge } from '../components/OrganiserBadge';
 import { MediaEditor } from '../components/MediaEditor';
 import { Modal } from '../components/Modal';
 import { StepArt } from '../components/StepArt';
@@ -192,6 +193,7 @@ export const EventDetail = ({ event }: { event: Event }) => {
             <StatusChip event={event} />
             <span className="rounded-full bg-[#0f172a]/80 px-2.5 py-0.5 leading-5 font-semibold text-white">{event.category}</span>
             {event.season === 'spring' && <span className="rounded-full bg-[#0f172a]/80 px-2.5 py-0.5 leading-5 font-semibold text-white">Spring trip</span>}
+            {event.byApprovedOrganiser && <OrganiserBadge small />}
             <span className="px-1 font-semibold text-slate-300">{dateLabel(event)}</span>
           </div>
           <h1 className="mt-2 font-display text-[28px] leading-[1.08] font-bold tracking-[-0.02em] text-white min-[760px]:text-[40px]">{event.title}</h1>

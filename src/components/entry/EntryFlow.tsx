@@ -270,9 +270,10 @@ const Intro = ({ onAdvance }: { onAdvance: () => void }) => {
       <CutoutPanel active={active} direction={direction} mobile={mobile} />
 
       <header className={`absolute inset-x-0 top-8 z-10 flex items-center justify-between ${mobile ? 'px-5' : 'px-12'}`}>
-        <p>
+        <div>
           <Logo />
-        </p>
+          <p className="mt-1.5 text-[13px] font-semibold text-white/75">A pilot: nothing is booked or paid through AgoraX yet.</p>
+        </div>
         <div className="flex" role="group" aria-label="Messages" onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
           {ENTRY_MESSAGES.map((m, i) => (
             <button

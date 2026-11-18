@@ -25,5 +25,18 @@ test('with the draft notice, launch news and invitations are not offered', async
   await expect(page.getByRole('switch', { name: 'When AgoraX launches' })).toHaveCount(0);
   await expect(page.getByText('once our privacy notice is final')).toBeVisible();
   await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByRole('dialog', { name: 'Hear whether it goes ahead' }).getByRole('checkbox')).toHaveCount(1);
+  // Only the age check and the one consent this form is for.
+  const boxes = page.getByRole('dialog', { name: 'Hear whether it goes ahead' }).getByRole('checkbox');
+  await expect(boxes).toHaveCount(2);
+  await expect(boxes.first()).toHaveAccessibleName("I'm 16 or older.");
+});
+
+test('visit statistics stay off until the visitor allows them', async ({ page }) => {
+  await openSite(page, { answerStats: false });
+  const stats = page.getByRole('region', { name: 'Visit statistics' });
+  await expect(stats).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('agorax_stats_consent'))).toBeNull();
+  await stats.getByRole('button', { name: 'Allow' }).click();
+  await expect(stats).toBeHidden();
+  expect(await page.evaluate(() => localStorage.getItem('agorax_stats_consent'))).toBe('yes');
 });

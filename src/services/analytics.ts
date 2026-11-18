@@ -24,23 +24,42 @@ export type AnalyticsName =
   | 'locked_feature_click'
   | 'feature_vote';
 
-const STATS_OFF_KEY = 'agorax_no_stats';
+/** The answer to the statistics banner, kept per device: 'yes', 'no', or not asked yet. */
+const CONSENT_KEY = 'agorax_stats_consent';
+/** The old "statistics off" switch; still honoured as a "no". */
+const LEGACY_OFF_KEY = 'agorax_no_stats';
 
-/** "Count my visits in AgoraX statistics" switch, kept per device. Joins are never affected. */
-export function statsOff(): boolean {
+export type StatsChoice = 'yes' | 'no' | null;
+
+/** Used when the browser keeps no storage (private mode): the answer lasts for this visit. */
+let memoryChoice: StatsChoice = null;
+
+export function statsChoice(): StatsChoice {
   try {
-    return localStorage.getItem(STATS_OFF_KEY) === '1';
+    const v = localStorage.getItem(CONSENT_KEY);
+    if (v === 'yes' || v === 'no') return v;
+    if (localStorage.getItem(LEGACY_OFF_KEY) === '1') return 'no';
   } catch {
-    return false;
+    /* no storage: fall back to this visit's answer */
   }
+  return memoryChoice;
+}
+
+/**
+ * Visit statistics are counted only after a "yes" (opt-in). Until someone answers, nothing is
+ * tracked. Joins, saves and contact details are not statistics and work either way.
+ */
+export function statsOff(): boolean {
+  return statsChoice() !== 'yes';
 }
 
 export function setStatsOff(off: boolean) {
+  memoryChoice = off ? 'no' : 'yes';
   try {
-    if (off) localStorage.setItem(STATS_OFF_KEY, '1');
-    else localStorage.removeItem(STATS_OFF_KEY);
+    localStorage.setItem(CONSENT_KEY, memoryChoice);
+    localStorage.removeItem(LEGACY_OFF_KEY);
   } catch {
-    /* private mode: the switch lasts for this visit only */
+    /* private mode: the answer lasts for this visit only */
   }
 }
 

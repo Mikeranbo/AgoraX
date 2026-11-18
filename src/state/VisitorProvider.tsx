@@ -25,16 +25,17 @@ import {
   saveDisplayName,
   setConsent,
 } from '../services/identity';
-import { track, AnalyticsName, statsOff, setStatsOff } from '../services/analytics';
+import { track, AnalyticsName, statsOff, setStatsOff, statsChoice } from '../services/analytics';
 import { once } from '../services/session';
 import { subscribeMyProposals } from '../services/organiserService';
+import { subscribeMyApplication } from '../services/organiserAccount';
 import { deletePublicProfile, savePublicProfile, subscribeProfile } from '../services/profileService';
 import { deleteAllMyData, DeletionReport } from '../services/accountService';
 import { nextPriceFor } from '../data/priceLadder';
 import { nearestCity } from '../data/location';
 import type { DateFilter } from '../data/schedule';
 import { CONTACT_EMAIL, PILOT_CITY } from '../config/pilot';
-import type { Event, EventCategory, PreferredTiming, PriceAnswer, Proposal, PublicProfile, UserDoc, UserMode } from '../types';
+import type { Event, EventCategory, OrganiserStatus, PreferredTiming, PriceAnswer, Proposal, PublicProfile, UserDoc, UserMode } from '../types';
 import type { ConsentPurpose } from '../data/consent';
 import type { LockedFeature } from '../data/features';
 import { shareCodeFor } from '../data/share';
@@ -93,6 +94,8 @@ interface VisitorState {
   sidebarOpen: boolean;
   lockedFeature: LockedFeature | null;
   statsOff: boolean;
+  /** The statistics banner was answered (yes or no) on this device. */
+  statsAsked: boolean;
   pending: Set<string>;
   organiserEvent: Event | null;
   ladder: LadderPrompt | null;
@@ -102,6 +105,8 @@ interface VisitorState {
   bannerDismissed: boolean;
   toast: string;
   myProposals: Proposal[];
+  /** Organiser account: none, applied (pending), approved or declined. */
+  organiserStatus: OrganiserStatus;
   myProposalsLoaded: boolean;
   /** The draft open in the Propose screen, if any. */
   editing: Proposal | null;
@@ -269,6 +274,7 @@ export function VisitorProvider({
   const [sidebarOpen, setSidebarOpen] = useState(() => readString(SIDEBAR_KEY) !== '0');
   const [lockedFeature, setLockedFeature] = useState<LockedFeature | null>(null);
   const [statsAreOff, setStatsAreOff] = useState(statsOff);
+  const [statsAsked, setStatsAsked] = useState(() => statsChoice() !== null);
   const [selectedId, setSelectedId] = useState<string | null>(urlEventId);
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [organiserEvent, setOrganiserEvent] = useState<Event | null>(null);
@@ -279,6 +285,7 @@ export function VisitorProvider({
   const [bannerDismissed, setBannerDismissed] = useState(() => readFlag(BANNER_KEY));
   const [toast, setToast] = useState('');
   const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [organiserStatus, setOrganiserStatus] = useState<OrganiserStatus>('none');
   const [myProposalsLoaded, setMyProposalsLoaded] = useState(false);
   const [editing, setEditing] = useState<Proposal | null>(null);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
@@ -318,6 +325,7 @@ export function VisitorProvider({
         unsubscribers.push(subscribeToMyUser(user.uid, setMe));
         unsubscribers.push(subscribeToFaces(setFaces));
         unsubscribers.push(subscribeIsAdmin(user.uid, setIsAdmin));
+        unsubscribers.push(subscribeMyApplication(user.uid, setOrganiserStatus));
         unsubscribers.push(
           subscribeMyProposals(
             user.uid,
@@ -626,8 +634,12 @@ export function VisitorProvider({
       }
     },
     setStatsOff: (off) => {
+      const wasOff = statsOff();
       setStatsOff(off);
       setStatsAreOff(off);
+      setStatsAsked(true);
+      // Saying yes counts this visit from now on; nothing before the answer was recorded.
+      if (wasOff && !off) track('page_view', { path: window.location.pathname });
     },
     hideAllInitials: async () => {
       if (!uid) return;
@@ -751,6 +763,7 @@ export function VisitorProvider({
     sidebarOpen,
     lockedFeature,
     statsOff: statsAreOff,
+    statsAsked,
     pending,
     organiserEvent,
     ladder,
@@ -760,6 +773,7 @@ export function VisitorProvider({
     toast,
     myProposals,
     myProposalsLoaded,
+    organiserStatus,
     editing,
     profile,
   };

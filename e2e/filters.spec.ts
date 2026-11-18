@@ -22,20 +22,17 @@ test('scheduled events and proposals are separate lists', async ({ page }) => {
   await expect(card(page, 'Chess café')).toHaveCount(0);
 });
 
-test('Today and Tomorrow only list real scheduled events', async ({ page }) => {
+test('Today and Tomorrow are shown locked, as coming soon', async ({ page }) => {
   await openSite(page);
   await goToList(page);
-  await page.getByRole('radio', { name: 'Scheduled' }).click();
-  const settled = () => expect(card(page, 'Pub quiz night').or(page.getByText('Nothing matches these filters.'))).toBeVisible();
-  await page.getByRole('button', { name: 'Today' }).click();
-  await settled();
-  const today = await visible(page, 'Pub quiz night');
-  await page.getByRole('button', { name: 'Tomorrow' }).click();
-  await settled();
-  const tomorrow = await visible(page, 'Pub quiz night');
-  // Seeded two hours from now: today in Amsterdam, or tomorrow late at night, never both.
-  expect(today !== tomorrow).toBe(true);
-  await expect(card(page, 'Chess café')).toHaveCount(0);
+  for (const day of ['Today', 'Tomorrow']) {
+    await page.getByRole('button', { name: `${day}: coming soon` }).click();
+    await expect(page.getByRole('dialog', { name: 'Filter by day (today, tomorrow)' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  }
+  // Nothing was filtered.
+  await expect(card(page, 'Chess café')).toHaveCount(1);
 });
 
 test('an empty scheduled list explains itself instead of showing proposals', async ({ page }) => {

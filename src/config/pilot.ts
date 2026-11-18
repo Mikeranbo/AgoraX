@@ -10,7 +10,7 @@ export const PILOT_CITY = 'Groningen';
 export const PILOT_TIME_ZONE = 'Europe/Amsterdam';
 
 /** Version of the privacy notice that consents are given under (stored with each consent). */
-export const NOTICE_VERSION = 'draft-2026-10';
+export const NOTICE_VERSION = 'draft-2026-11';
 
 /**
  * The privacy notice is still a draft with open facts (docs/PRIVACY_NOTICE_DRAFT.md). Until it

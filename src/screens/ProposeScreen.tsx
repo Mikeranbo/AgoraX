@@ -4,6 +4,7 @@ import { Event, EventCategory, PUBLIC_CATEGORIES, Proposal } from '../types';
 import { ProposalFormValues, validateProposal } from '../data/proposals';
 import { CONSENT_TEXTS } from '../data/consent';
 import { submitProposal } from '../services/firebaseService';
+import { publishOwnEvent } from '../services/organiserAccount';
 import { writeProposal } from '../services/organiserService';
 import { track } from '../services/analytics';
 import { useVisitor } from '../state/VisitorProvider';
@@ -11,6 +12,7 @@ import { errorClass, fieldClass, labelClass, primaryButtonClass } from '../compo
 import { ImagePicker, PickedImage } from '../components/ImagePicker';
 import { PhotoBackdrop } from '../components/EventCard';
 import { CollectionNotice } from '../components/CollectionNotice';
+import { AGE_PROBLEM, AgeTick } from '../components/AgeTick';
 
 const EMPTY: ProposalFormValues = {
   title: '',
@@ -73,10 +75,13 @@ const ProposalPreview = ({ v, photo }: { v: ProposalFormValues; photo: PickedIma
 /** A one-minute form. Organisers can keep it as a draft; it shows in the list only once approved. */
 export const ProposeScreen = () => {
   const { state, actions, meta } = useVisitor();
+  // Approved organisers put their own events live; everyone else sends them for review.
+  const approved = state.organiserStatus === 'approved';
   const draft = state.editing;
   const [v, setV] = useState<ProposalFormValues>(() => fromDraft(draft));
   const [photo, setPhoto] = useState<PickedImage | null>(() => (draft?.image ? { image: draft.image, credit: draft.imageCredit } : null));
   const [error, setError] = useState('');
+  const [age16, setAge16] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'busy' | 'done'>('idle');
   const [preview, setPreview] = useState(false);
   const set = <K extends keyof ProposalFormValues>(key: K, value: ProposalFormValues[K]) => setV((prev) => ({ ...prev, [key]: value }));
@@ -95,7 +100,9 @@ export const ProposeScreen = () => {
 
   const saveDraft = async () => {
     if (phase === 'busy') return;
-    const problem = validateProposal(v, 'draft');
+    // A draft may be saved before any contact details are typed; once there are some, ask the age.
+    const hasContact = !!(v.email.trim() || v.phone.trim());
+    const problem = validateProposal(v, 'draft') ?? (hasContact && !age16 ? AGE_PROBLEM : null);
     setError(problem ?? '');
     if (problem) return;
     setPhase('busy');
@@ -114,12 +121,12 @@ export const ProposeScreen = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (phase === 'busy') return;
-    const problem = validateProposal(v);
+    const problem = validateProposal(v) ?? (age16 ? null : AGE_PROBLEM);
     setError(problem ?? '');
     if (problem || !v.category) return;
     setPhase('busy');
     try {
-      await submitProposal({
+      await (approved ? publishOwnEvent : submitProposal)({
         ...asDraft(),
         firstName: v.firstName.trim(),
         phone: v.phone.trim(),
@@ -155,8 +162,9 @@ export const ProposeScreen = () => {
       {phase === 'done' ? (
         <div className="sheet mt-5 space-y-4 rounded-sheet p-5" role="status">
           <p className="text-[16px] leading-relaxed text-slate-200">
-            Got it. We'll look at "{v.title.trim()}" and get in touch. It goes into the list as a proposal once we've checked it, and that
-            still doesn't mean it will run.
+            {approved
+              ? `"${v.title.trim()}" is live in the list as a proposal, with your organiser badge. It has no date yet, and it only runs if enough people are interested.`
+              : `Got it. We'll look at "${v.title.trim()}" and get in touch. It goes into the list as a proposal once we've checked it, and that still doesn't mean it will run.`}
           </p>
           <button
             onClick={() => {
@@ -224,6 +232,7 @@ export const ProposeScreen = () => {
                   <input id="p-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12345678" className={fieldClass} value={v.phone} onChange={(e) => set('phone', e.target.value)} />
                 </div>
               </div>
+              <AgeTick id="p-age" checked={age16} onChange={setAge16} />
               <label className="flex cursor-pointer items-start gap-3">
                 <input type="checkbox" checked={v.consent} onChange={(e) => set('consent', e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-brand-action" />
                 <span className="text-[14px] leading-relaxed text-slate-300">{CONSENT_TEXTS.proposal}</span>
@@ -233,7 +242,7 @@ export const ProposeScreen = () => {
             {organiserPublicId && <p className="text-[13px] text-slate-300">Your organiser profile will be shown with it if it goes live.</p>}
             {error && <p role="alert" className={errorClass}>{error}</p>}
             <button type="submit" disabled={phase === 'busy'} className={primaryButtonClass}>
-              {phase === 'busy' ? 'Sending…' : 'Send for review'}
+              {phase === 'busy' ? 'Sending…' : approved ? 'Publish event' : 'Send for review'}
             </button>
             {meta.organising && (
               <button

@@ -66,6 +66,8 @@ export interface Event {
   city?: string;
   /** Public profile id of the organiser who proposed it (never their uid). */
   organiserPublicId?: string;
+  /** Put live by an organiser an admin approved (rules check the approval at creation). */
+  byApprovedOrganiser?: boolean;
   status: EventStatus;
   organizerId: string;
   venueId?: string;
@@ -248,4 +250,17 @@ export interface AdminDoc {
   label?: string;
   grantedBy?: string;
   grantedAt?: any;
+}
+
+/** Where someone stands as an organiser: they apply, an admin editor decides. */
+export type OrganiserStatus = 'none' | 'pending' | 'approved' | 'rejected';
+
+/** organiserApplications/{uid}: a short plan, no contact details. */
+export interface OrganiserApplication {
+  uid: string;
+  plan: string;
+  status: Exclude<OrganiserStatus, 'none'>;
+  ts?: any;
+  decidedAt?: any;
+  decidedBy?: string;
 }

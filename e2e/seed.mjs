@@ -50,3 +50,32 @@ export default async function seed() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await seed();
+
+/** Approves a visitor's organiser application, as an admin editor would on /admin. */
+export async function approveOrganiser(uid) {
+  const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080').split(':');
+  const env = await initializeTestEnvironment({
+    projectId: 'demo-agorax',
+    firestore: { host, port: Number(port), rules: readFileSync('firestore.rules', 'utf8') },
+  });
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'organiserApplications', uid), { status: 'approved' }, { merge: true });
+  });
+  await env.cleanup();
+}
+
+/** Reads one document from the emulator, bypassing the rules (for checks after a UI action). */
+export async function readDoc(path) {
+  const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080').split(':');
+  const env = await initializeTestEnvironment({
+    projectId: 'demo-agorax',
+    firestore: { host, port: Number(port), rules: readFileSync('firestore.rules', 'utf8') },
+  });
+  let data;
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const { getDoc } = await import('firebase/firestore');
+    data = (await getDoc(doc(ctx.firestore(), ...path.split('/')))).data();
+  });
+  await env.cleanup();
+  return data;
+}

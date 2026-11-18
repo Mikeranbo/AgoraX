@@ -47,6 +47,12 @@ export async function deleteAllMyData(eventIds: string[]): Promise<DeletionRepor
     }
   }
 
+  // An organiser application (pending, approved or declined) goes too.
+  try {
+    await deleteDoc(doc(db, 'organiserApplications', uid));
+  } catch (err) {
+    console.warn('organiser application', err);
+  }
   if (typeof me.publicId === 'string') await deletePublicProfile(me.publicId);
   await deleteMyContact();
   if (meSnap.exists()) await deleteDoc(doc(db, 'users', uid));

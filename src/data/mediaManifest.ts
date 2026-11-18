@@ -914,6 +914,45 @@ export const MEDIA_MANIFEST: Record<string, SeedMedia[]> = {
       "height": 1440,
       "credit": "Photo: Anita Jankovic / Unsplash",
       "link": "https://unsplash.com/photos/people-performing-on-stage-with-chairs-dbXvp5pcwec"
+    },
+    {
+      "kind": "image",
+      "base": "/media/improv-theatre-workshop/2",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1440,
+      "credit": "Photo: Anita Jankovic / Unsplash",
+      "link": "https://unsplash.com/photos/two-people-sitting-on-dark-stage-Sv0vzwNDdC0"
+    },
+    {
+      "kind": "image",
+      "base": "/media/improv-theatre-workshop/3",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1440,
+      "credit": "Photo: Anita Jankovic / Unsplash",
+      "link": "https://unsplash.com/photos/people-performing-on-stage-6eKuaK7THsk"
+    },
+    {
+      "kind": "image",
+      "base": "/media/improv-theatre-workshop/4",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1200,
+      "credit": "Photo: Kyle Hinkson / Unsplash",
+      "link": "https://unsplash.com/photos/yellow-neon-sign-reads-yes-and-sxj2FDJ0G50"
     }
   ],
   "short-film-challenge": [

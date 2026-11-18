@@ -16,6 +16,7 @@ export const LOCKED_FEATURES = {
   appearance: 'Appearance',
   devices: 'Keep my account on other devices',
   terms: 'Terms',
+  'day-filter': 'Filter by day (today, tomorrow)',
 } as const;
 
 export type LockedFeature = keyof typeof LOCKED_FEATURES;

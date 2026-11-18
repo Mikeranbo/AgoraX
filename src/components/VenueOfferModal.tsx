@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from './Modal';
 import { CollectionNotice } from './CollectionNotice';
+import { AGE_PROBLEM, AgeTick } from './AgeTick';
 import { submitVenueOffer } from '../services/firebaseService';
 import { track } from '../services/analytics';
 import { SPACE_TYPES, validateVenueOffer } from '../data/forms';
@@ -16,12 +17,13 @@ const Form = ({ onClose }: { onClose: () => void }) => {
   const [capacity, setCapacity] = useState('');
   const [contact, setContact] = useState('');
   const [consent, setConsent] = useState(false);
+  const [age16, setAge16] = useState(false);
   const [problem, setProblem] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const issue = validateVenueOffer({ name, spaceType, capacity, contact, consent });
+    const issue = validateVenueOffer({ name, spaceType, capacity, contact, consent }) ?? (age16 ? null : AGE_PROBLEM);
     setProblem(issue ?? '');
     if (issue || !spaceType) return;
     setState('busy');
@@ -82,6 +84,7 @@ const Form = ({ onClose }: { onClose: () => void }) => {
         <label className={labelClass} htmlFor="vo-contact">WhatsApp or email</label>
         <input id="vo-contact" maxLength={120} className={fieldClass} value={contact} onChange={(e) => setContact(e.target.value)} />
       </div>
+      <AgeTick id="vo-age" checked={age16} onChange={setAge16} />
       <label className="flex cursor-pointer items-start gap-3">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-brand-action" />
         <span className="text-[14px] leading-relaxed text-slate-300">{CONSENT_TEXTS.space}</span>

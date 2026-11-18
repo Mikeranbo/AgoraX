@@ -59,7 +59,7 @@ analytics and view markers, which carry only the old random uid.
 ## The notice as shown in the app
 
 <!-- notice:start (generated from src/data/privacyNotice.ts; run UPDATE_NOTICE=1 npx vitest run src/data/privacyNotice.test.ts) -->
-> **Draft (draft-2026-10).** Draft for review. Some facts below are still to be confirmed, and the legal bases need checking by someone qualified.
+> **Draft (draft-2026-11).** Draft for review. Some facts below are still to be confirmed, and the legal bases need checking by someone qualified.
 
 ### Who is responsible
 
@@ -77,7 +77,9 @@ You never need to give your name, email or number to browse or to say you are in
 | When you use the pilot | The proposals you are interested in, saved and answered price questions for; your timing preference; whether you attend, organise or both; offers to help run something; ideas you propose (and any picture you add); suggestions; space offers. |
 | Only if you fill it in | Your email and/or WhatsApp number and first name, and which messages you agreed to, with the date and the wording version. |
 | Only if you choose to show it | The first letter of your name on a proposal you are interested in (visible to every visitor), and a public profile (display name, optional picture, cover, bio, interests, area and organiser description). Public profiles open once this notice is final. |
-| Visit statistics (you can switch these off) | Which cards you saw and opened, how far you scrolled, and which "coming soon" features you tapped. No name or contact details. |
+| If you apply to organise | What you wrote about the events you would like to run, and the admin's decision (approved or declined, and when). |
+| If you add photos or videos to an event | The files, stored in Firebase Storage and visible to every visitor of that event. Photos from your device are made smaller and saved again before upload, which removes camera details such as location. |
+| Visit statistics (only if you allow them) | Which cards you saw and opened, how far you scrolled, and which "coming soon" features you tapped. No name or contact details. Nothing is counted until you tap "Allow". |
 
 ### Why, and on what basis
 
@@ -90,7 +92,9 @@ You never need to give your name, email or number to browse or to say you are in
 | Talking to you about an event you offered to run, proposed or a space you offered | Your consent, for that purpose only. |
 | Telling you once if AgoraX launches (optional, email only) | Your consent. Off unless you tick it. Not offered until this notice is final. |
 | Occasional invitations to other events (optional, email only) | Your consent. Off unless you tick it. Not offered until this notice is final. |
-| Visit statistics | Legitimate interest, with a switch to turn it off. [To be confirmed: whether Dutch law requires opt-in consent for this, because it uses browser storage.] |
+| Visit statistics | Your consent, asked once on your first visit. Nothing is counted before you say yes, and you can change your answer any time in Privacy & my data. |
+| Deciding on an organiser application | Handling the request you made (proposed basis: steps you asked for before an agreement, or legitimate interest). |
+| Showing event photos and videos | Legitimate interest: showing what an event is like. Credit is shown where the maker asked for it. |
 | Keeping the site secure and working | Legitimate interest. |
 
 ### Who else handles it
@@ -99,7 +103,7 @@ We never sell your data or use your number for marketing. These services handle 
 
 | | |
 | --- | --- |
-| Google Firebase (Google) | Stores everything above and runs the anonymous sign-in. [To be confirmed: the Firestore data location, the Google entity and data processing terms, and the safeguards for transfers outside the EU.] |
+| Google Firebase (Google) | Stores everything above (database and file storage in the Netherlands, Google Cloud region europe-west4) and runs the anonymous sign-in. [To be confirmed: the Google entity and data processing terms, and the safeguards for any transfer outside the EU.] |
 | Vercel | Hosts the website; it receives your IP address and browser details when the page loads. [To be confirmed: Vercel's data processing terms, server location and log retention.] |
 | Unsplash | Serves the event photos, so it sees your IP address when a photo loads. |
 | Wikimedia Commons and Openverse | Only if you look for a photo while proposing an event: they receive what you searched for and your IP address. |
@@ -107,7 +111,7 @@ We never sell your data or use your number for marketing. These services handle 
 
 ### Cookies and browser storage
 
-AgoraX sets no cookies of its own. It keeps a few small items in your browser: the anonymous sign-in (Firebase), which poster or link brought you here, your city choice, whether the menu is open, whether you dismissed the contact banner, whether statistics are off, and which cards were already counted. [To be confirmed: that Vercel sets no cookies.]
+AgoraX sets no cookies of its own. It keeps a few small items in your browser: the anonymous sign-in (Firebase), which poster or link brought you here, your city choice, whether the menu is open, whether you dismissed the contact banner, your answer to the statistics question, and (only after you allow statistics) which cards were already counted. The Cookie Policy lists them. [To be confirmed: that Vercel sets no cookies.]
 
 ### How long we keep it
 
@@ -127,7 +131,9 @@ If you are unhappy with how we handle your data, you can complain to the Dutch d
 
 ### Other things to know
 
-The pilot is meant for students aged 16 and over. [To be confirmed: the minimum age.] We make no automated decisions about you.
+The pilot is for people aged 16 and over. Every form that takes an email or number asks you to confirm you are 16 or older. We make no automated decisions about you.
 
-This is notice version draft-2026-10. When it changes, we will say so in the app.
+The GDPR (AVG) and the Dutch implementation act (UAVG) apply to how we handle your data.
+
+This is notice version draft-2026-11. When it changes, we will say so in the app.
 <!-- notice:end -->

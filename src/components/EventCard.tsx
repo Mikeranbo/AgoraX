@@ -16,6 +16,7 @@ import { quietLinkClass } from './ui';
 /** The quiet link, at the card's smaller size. */
 const cardLinkClass = quietLinkClass.replace('min-h-11', 'min-h-9').replace('text-[15px]', 'text-[14px]');
 import { colourFor } from './Avatar';
+import { OrganiserBadge } from './OrganiserBadge';
 
 const DEFAULT_ACCENT = '#818cf8';
 
@@ -130,6 +131,7 @@ export const PhotoBadges = ({ event, save = true }: { event: Event; save?: boole
       <StatusChip event={event} />
       <Chip>{event.category}</Chip>
       {event.season === 'spring' && <Chip>Spring trip</Chip>}
+      {event.byApprovedOrganiser && <OrganiserBadge small />}
     </span>
     {save && <SaveButton event={event} />}
   </div>

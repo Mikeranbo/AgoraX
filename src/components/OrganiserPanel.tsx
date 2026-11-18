@@ -10,6 +10,7 @@ import { track } from '../services/analytics';
 import { useVisitor } from '../state/VisitorProvider';
 import { errorClass, fieldClass, labelClass, primaryButtonClass } from './ui';
 import { CollectionNotice } from './CollectionNotice';
+import { AGE_PROBLEM, AgeTick } from './AgeTick';
 
 const money = (n: number) => `€${n.toFixed(2)}`;
 
@@ -78,13 +79,14 @@ const HelperForm = ({ event, onDone }: { event: Event; onDone: () => void }) => 
   const [email, setEmail] = useState('');
   const [ranBefore, setRanBefore] = useState<RanBefore | ''>('');
   const [consent, setConsent] = useState(false);
+  const [age16, setAge16] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    const problem = validateHelperForm({ firstName, phone, email, ranBefore, consent });
+    const problem = validateHelperForm({ firstName, phone, email, ranBefore, consent }) ?? (age16 ? null : AGE_PROBLEM);
     setError(problem ?? '');
     if (problem || !ranBefore || !state.uid) return;
     setBusy(true);
@@ -129,6 +131,7 @@ const HelperForm = ({ event, onDone }: { event: Event; onDone: () => void }) => 
           ))}
         </div>
       </fieldset>
+      <AgeTick id="hf-age" checked={age16} onChange={setAge16} />
       <label className="flex cursor-pointer items-start gap-3">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-brand-action" />
         <span className="text-[14px] leading-relaxed text-slate-300">{CONSENT_TEXTS.organising}</span>

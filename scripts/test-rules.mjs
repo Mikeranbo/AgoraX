@@ -388,6 +388,50 @@ await check('organiser deletes an unsent draft', assertSucceeds((async () => {
   await deleteDoc(doc(cara, 'proposals', 'cara-draft-3'));
 })()));
 
+// ------------------------------------------------------------------ organiser accounts: apply, approve, publish
+const appRef = (db, uid) => doc(db, 'organiserApplications', uid);
+const plan = 'Monthly pottery evenings at a studio in the centre.';
+const application = (extra = {}) => ({ plan, status: 'pending', ts: serverTimestamp(), ...extra });
+await check('visitor applies to organise', assertSucceeds(setDoc(appRef(cara, 'cara'), application())));
+await check('applicant reads their own application', assertSucceeds(getDoc(appRef(cara, 'cara'))));
+await check('nobody else reads an application', assertFails(getDoc(appRef(mallory, 'cara'))));
+await check('visitor cannot list applications', assertFails(getDocs(collection(mallory, 'organiserApplications'))));
+await check('cannot apply as already approved', assertFails(setDoc(appRef(mallory, 'mallory'), application({ status: 'approved' }))));
+await check('cannot apply for someone else', assertFails(setDoc(appRef(mallory, 'bob'), application())));
+await check('application plan too short denied', assertFails(setDoc(appRef(mallory, 'mallory'), application({ plan: 'pots' }))));
+await check('applicant cannot approve themselves', assertFails(updateDoc(appRef(cara, 'cara'), { status: 'approved', decidedAt: serverTimestamp(), decidedBy: 'cara' })));
+await check('viewer cannot approve', assertFails(updateDoc(appRef(vic, 'cara'), { status: 'approved', decidedAt: serverTimestamp(), decidedBy: 'vic' })));
+await check('admin lists applications', assertSucceeds(getDocs(collection(vic, 'organiserApplications'))));
+
+const organiserEvent = (pid, extra = {}) => ({
+  title: 'Pottery evening', description: 'Pottery evening', category: 'Creative', price: 12, minParticipants: 8, status: 'Pending',
+  imageUrls: [], emoji: '💡', accent: '#818cf8', durationHours: 2, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0, bringYourOwn: '',
+  venueNote: '', season: 'any', origin: 'proposal', proposalId: pid, organiserPublicId: pidCara, organizerId: 'organiser',
+  byApprovedOrganiser: true, createdAt: serverTimestamp(), participantsCount: 0, impressions: 0, opens: 0, joins: 0, organiserInterest: 0, ...extra,
+});
+const publish = (db, { pid, eid, uid = 'cara', event: extraEvent = {} }) => {
+  const b = writeBatch(db);
+  b.set(doc(db, 'proposals', pid), draft({ uid, status: 'approved', eventId: eid, organiserPublicId: pidCara }));
+  b.set(doc(db, 'events', eid), organiserEvent(pid, extraEvent));
+  return b.commit();
+};
+await check('pending applicant cannot publish an event', assertFails(publish(cara, { pid: 'cara-pub-0', eid: 'cara-event-0' })));
+await check('editor approves the application', assertSucceeds(updateDoc(appRef(erin, 'cara'), { status: 'approved', decidedAt: serverTimestamp(), decidedBy: 'erin' })));
+await check('approved organiser publishes their own event', assertSucceeds(publish(cara, { pid: 'cara-pub-1', eid: 'cara-event-1' })));
+await check('published event cannot start with joins', assertFails(publish(cara, { pid: 'cara-pub-2', eid: 'cara-event-2', event: { participantsCount: 5 } })));
+await check('published event cannot be confirmed', assertFails(publish(cara, { pid: 'cara-pub-3', eid: 'cara-event-3', event: { status: 'Confirmed' } })));
+await check('published event cannot carry a date', assertFails(publish(cara, { pid: 'cara-pub-4', eid: 'cara-event-4', event: { dateConfirmed: true } })));
+await check('event without its own proposal denied', assertFails(setDoc(doc(cara, 'events', 'cara-event-5'), organiserEvent('cara-pub-1'))));
+await check('approved proposal without its event denied', assertFails(setDoc(doc(cara, 'proposals', 'cara-pub-6'), draft({ status: 'approved', eventId: 'nope' }))));
+await check('a visitor who was not approved cannot publish', assertFails(publish(mallory, { pid: 'm-pub', eid: 'm-event', uid: 'mallory' })));
+await check('a normal proposal cannot carry an eventId', assertFails(addDoc(collection(bob, 'proposals'), proposal({ eventId: 'board-games' }))));
+await check('approved organiser publishes from a draft', assertSucceeds((async () => {
+  await setDoc(doc(cara, 'proposals', 'cara-draft-9'), draft({ organiserPublicId: pidCara }));
+  await publish(cara, { pid: 'cara-draft-9', eid: 'cara-event-9' });
+})()));
+await check('applicant withdraws the application', assertSucceeds(deleteDoc(appRef(cara, 'cara'))));
+await check('after withdrawing, publishing is denied', assertFails(publish(cara, { pid: 'cara-pub-7', eid: 'cara-event-7' })));
+
 // ------------------------------------------------------------------ suggestions + space offers (unchanged flow)
 await check('suggestion saves', assertSucceeds(addDoc(collection(bob, 'suggestions'), { uid: 'bob', text: 'More chess', source: 'test', ts: serverTimestamp() })));
 await check('space offer saves', assertSucceeds(addDoc(collection(bob, 'venueOffers'), { uid: 'bob', spaceType: 'room', capacity: 20, source: 'test', ts: serverTimestamp() })));

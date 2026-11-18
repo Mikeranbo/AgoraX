@@ -69,6 +69,9 @@ Photos are from [Unsplash](https://unsplash.com) (Unsplash License; each checked
 | `media/collage-and-zine-night` | image | [Jo Szczepanska](https://unsplash.com/@joszczepanska) | [source](https://unsplash.com/photos/person-holding-paper-cutout-decors-RTnDfYr1G6U) | Unsplash License |
 | `media/improv-theatre-workshop` | video | [cottonbro studio](https://www.pexels.com/@cottonbro) | [source](https://www.pexels.com/video/a-production-team-rehearsing-for-the-stage-play-6896248/) | Pexels License |
 | `media/improv-theatre-workshop` | image | [Anita Jankovic](https://unsplash.com/@dslr_newb) | [source](https://unsplash.com/photos/people-performing-on-stage-with-chairs-dbXvp5pcwec) | Unsplash License |
+| `media/improv-theatre-workshop` | image | [Anita Jankovic](https://unsplash.com/@dslr_newb) | [source](https://unsplash.com/photos/two-people-sitting-on-dark-stage-Sv0vzwNDdC0) | Unsplash License |
+| `media/improv-theatre-workshop` | image | [Anita Jankovic](https://unsplash.com/@dslr_newb) | [source](https://unsplash.com/photos/people-performing-on-stage-6eKuaK7THsk) | Unsplash License |
+| `media/improv-theatre-workshop` | image | [Kyle Hinkson](https://unsplash.com/@whereiskylenow) | [source](https://unsplash.com/photos/yellow-neon-sign-reads-yes-and-sxj2FDJ0G50) | Unsplash License |
 | `media/short-film-challenge` | video | [Artem Podrez](https://www.pexels.com/@artempodrez) | [source](https://www.pexels.com/video/recording-a-video-of-a-man-playing-the-guitar-4706205/) | Pexels License |
 | `media/short-film-challenge` | image | [Marwan Ahmed](https://unsplash.com/@marwan15) | [source](https://unsplash.com/photos/man-in-gray-shirt-holding-black-smartphone-uur8WascC1o) | Unsplash License |
 | `media/short-film-challenge` | image | [Jakob Owens](https://unsplash.com/@jakobowens1) | [source](https://unsplash.com/photos/clap-board-roadside-jakob-and-ryan-CiUR8zISX60) | Unsplash License |

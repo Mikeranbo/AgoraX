@@ -15,7 +15,7 @@ export async function leaveIntro(page: Page) {
  * Opens the site as a brand-new anonymous visitor (each test has its own browser context) and
  * walks the entry flow: the opening messages, then "Got it — explore" on the pilot notice.
  */
-export async function openSite(page: Page) {
+export async function openSite(page: Page, { answerStats = true }: { answerStats?: boolean } = {}) {
   await page.goto('/');
   const notice = page.getByRole('dialog', { name: 'A quick note: this is a pilot' });
   const intro = page.getByRole('button', { name: /to explore/ });
@@ -30,6 +30,12 @@ export async function openSite(page: Page) {
     await notice.getByRole('button', { name: 'Got it — explore' }).click({ timeout: 5_000 });
     await expect(notice).toBeHidden({ timeout: 5_000 });
   }).toPass({ timeout: 45_000 });
+  // Then the statistics question; most tests just decline it.
+  if (answerStats) {
+    const stats = page.getByRole('region', { name: 'Visit statistics' });
+    await stats.getByRole('button', { name: 'No thanks' }).click();
+    await expect(stats).toBeHidden();
+  }
 }
 
 /** The card (an <article>) for an event title. */
@@ -46,8 +52,9 @@ export async function goToList(page: Page) {
 export async function openMenu(page: Page) {
   const phone = (page.viewportSize()?.width ?? 1280) < 1024;
   if (phone) {
-    await page.getByRole('button', { name: 'Open menu' }).click();
-    return page.getByRole('dialog', { name: 'Menu' });
+    const drawer = page.getByRole('dialog', { name: 'Menu' });
+    if (!(await drawer.isVisible())) await page.getByRole('button', { name: 'Open menu' }).click();
+    return drawer;
   }
   const sidebar = page.locator('#site-menu-desktop');
   const button = page.getByRole('button', { name: 'Open menu' });
@@ -57,24 +64,37 @@ export async function openMenu(page: Page) {
   return sidebar;
 }
 
-/** Opens a personal-settings screen from the profile card at the bottom of the menu. */
-export async function fromAccountMenu(page: Page, item: string) {
+/** Opens My account from the button at the bottom of the menu. */
+export async function openAccount(page: Page) {
   const menu = await openMenu(page);
-  // The laptop sidebar stays open, so the card may still be expanded from a previous visit.
-  const profileCard = menu.getByRole('button', { name: /Profile & settings/ });
-  if ((await profileCard.getAttribute('aria-expanded')) !== 'true') await profileCard.click();
-  await menu.getByRole('button', { name: item, exact: true }).click();
+  await menu.getByRole('button', { name: /My account/ }).click();
+  await expect(page.getByRole('main').getByText('My account', { exact: true })).toBeVisible();
 }
 
-/** Expands the menu's collapsed "More" section, where the less used items live. */
-export async function openMore(menu: Locator) {
-  const more = menu.locator('details', { has: menu.page().locator('summary', { hasText: /^More$/ }) });
-  if ((await more.getAttribute('open')) === null) await more.locator('summary').click();
+/** Opens a settings, privacy or help item on My account ("Profile" is My account itself). */
+export async function fromAccountMenu(page: Page, item: string) {
+  await openAccount(page);
+  if (item === 'Profile') return;
+  await page.getByRole('main').getByRole('button', { name: item, exact: true }).click();
 }
 
-/** Opens a screen from the menu (or its "More" section), on either layout. */
+/** Opens a screen from the menu, on either layout. */
 export async function fromSidebar(page: Page, item: string) {
   const menu = await openMenu(page);
-  await openMore(menu);
   await menu.getByRole('button', { name: item }).click();
+}
+
+/** The anonymous uid of the visitor in this page (Firebase keeps it in IndexedDB). */
+export async function visitorUid(page: Page): Promise<string> {
+  return page.evaluate(
+    () =>
+      new Promise<string>((resolve, reject) => {
+        const req = indexedDB.open('firebaseLocalStorageDb');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const all = req.result.transaction('firebaseLocalStorage', 'readonly').objectStore('firebaseLocalStorage').getAll();
+          all.onsuccess = () => resolve(all.result.map((r: { value?: { uid?: string } }) => r.value?.uid).find(Boolean) ?? '');
+        };
+      }),
+  );
 }

@@ -1,47 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Bell,
   Bookmark,
-  Bug,
   Building2,
   CalendarCheck,
   CalendarDays,
   ChevronRight,
-  ChevronUp,
-  CircleQuestionMark,
   DoorOpen,
-  FileText,
-  Info,
-  KeyRound,
   Inbox,
-  Languages,
   LayoutGrid,
-  Lightbulb,
   Lock,
-  Mail,
   Map,
   Menu,
-  MessageCircle,
   Plus,
-  ScrollText,
-  Shield,
-  ShieldCheck,
-  Smartphone,
-  Sparkles,
   Star,
-  SunMoon,
-  User,
-  UserPlus,
-  UserRoundPen,
-  Users,
   UsersRound,
   X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Tab, useVisitor } from '../state/VisitorProvider';
 import { LOCKED_FEATURES, LockedFeature } from '../data/features';
-import { CONTACT_EMAIL } from '../config/pilot';
 import { useWideScreen } from '../state/useWideScreen';
 import { Logo } from './Logo';
 import { ProfileAvatar, displayNameOf } from './Avatar';
@@ -93,48 +71,31 @@ const Group = ({ title, children }: { title: string; children: React.ReactNode }
   </section>
 );
 
-/** "Report a bug" opens an email with the questions we need answered. */
-const BUG_MAIL = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('AgoraX bug report')}&body=${encodeURIComponent(
-  'What went wrong?\n\nWhere did you find it (page, button)?\n\nPhone or laptop, and which browser?\n',
-)}`;
-
-/** Your profile at the bottom of the menu; it opens the personal settings. */
-const ProfileCard = () => {
+/** One way into everything personal: settings, privacy, legal and help live on My account. */
+const AccountButton = () => {
   const { state, actions } = useVisitor();
-  const [open, setOpen] = useState(false);
-  const go = (tab: Tab) => () => actions.setTab(tab);
+  const on = !state.selected && state.tab === 'profile';
   return (
     <div className="sheet sticky bottom-0 mt-6 rounded-sheet p-2">
-      {open && (
-        <div id="profile-settings" className="mb-1 space-y-0.5 border-b border-sheet-line pb-1">
-          <Item icon={User} label="Profile" onClick={go('profile')} />
-          <Item icon={Sparkles} label="Attend, organise or both" onClick={() => actions.openSheet('mode')} />
-          <Item icon={Bell} label="Notification preferences" onClick={go('notifications')} />
-          <Item icon={Shield} label="Privacy & my data" onClick={go('data')} />
-          <Item icon={KeyRound} label="Account & security" onClick={go('account')} />
-          <Item icon={FileText} label="Privacy notice" onClick={go('notice')} />
-        </div>
-      )}
       <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-controls="profile-settings"
-        className="flex min-h-14 w-full items-center gap-3 rounded-sheet px-2 text-left hover:bg-white/5"
+        onClick={() => actions.setTab('profile')}
+        aria-current={on ? 'page' : undefined}
+        className={`flex min-h-14 w-full items-center gap-3 rounded-sheet px-2 text-left hover:bg-white/5 ${on ? 'bg-brand-action/25' : ''}`}
       >
         <ProfileAvatar size={40} />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-display text-[16px] font-bold text-white">{displayNameOf(state.profile?.displayName ?? state.me?.displayName)}</span>
-          <span className="block text-[13px] text-slate-300">Profile & settings</span>
+          <span className="block text-[13px] text-slate-300">My account</span>
         </span>
-        <ChevronUp size={18} aria-hidden="true" className={`text-slate-400 transition-transform motion-reduce:transition-none ${open ? '' : 'rotate-180'}`} />
+        <ChevronRight size={18} aria-hidden="true" className="text-slate-400" />
       </button>
     </div>
   );
 };
 
 /**
- * Where to go. The categories live only in the chips above the list, and personal settings only
- * in the profile card at the bottom, so nothing appears twice.
+ * Events only: the lists, your picks, proposing, and event ideas still to come. Categories live
+ * in the chips above the list; settings, privacy, legal and help live on My account.
  */
 export const SidebarContent = ({ onClose, closeLabel }: { onClose: () => void; closeLabel: string }) => {
   const { state, actions, meta } = useVisitor();
@@ -159,53 +120,34 @@ export const SidebarContent = ({ onClose, closeLabel }: { onClose: () => void; c
         <Item icon={CalendarCheck} label="Scheduled events" active={on('events') && state.view === 'scheduled'} onClick={actions.showScheduled} />
         <Item icon={Star} label="My interests" active={on('picks')} onClick={() => actions.setTab('picks')} trailing={<Count n={meta.picks.length} />} />
         <Item icon={Bookmark} label="Saved events" active={on('saved')} onClick={() => actions.setTab('saved')} trailing={<Count n={meta.savedEvents.length} />} />
-        <Item icon={Bug} label="Report a bug" href={BUG_MAIL} />
-        <Item icon={Info} label="About the pilot" onClick={actions.openPilotNotice} />
       </nav>
+
+      <Group title="Make one happen">
+        <Item
+          icon={Plus}
+          label={state.organiserStatus === 'approved' ? 'Create an event' : 'Propose an event'}
+          active={on('propose')}
+          onClick={() => actions.editProposal(null)}
+        />
+        <Item icon={Inbox} label="My proposals" active={on('proposals')} onClick={() => actions.setTab('proposals')} trailing={<Count n={state.myProposals.length} />} />
+        <Item icon={DoorOpen} label="I have a space" onClick={() => actions.openSheet('space')} />
+      </Group>
 
       <details className="group mt-5">
         <summary className={`${rowClass} cursor-pointer list-none text-[13px] font-semibold text-slate-300 hover:text-white`}>
-          <span className="flex-1">More</span>
+          <span className="flex-1">Coming soon</span>
           <ChevronRight size={16} aria-hidden="true" className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
         </summary>
         <div className="space-y-0.5">
-          <Item icon={Plus} label="Propose an event" active={on('propose')} onClick={() => actions.editProposal(null)} />
-          <Item icon={Inbox} label="My proposals" active={on('proposals')} onClick={() => actions.setTab('proposals')} trailing={<Count n={state.myProposals.length} />} />
-          <Item icon={DoorOpen} label="I have a space" onClick={() => actions.openSheet('space')} />
-          <Item icon={UserPlus} label="Invite friends" onClick={() => void actions.invite()} />
-          {meta.organising ? (
-            <Item icon={UserRoundPen} label="Organiser profile" active={on('profile')} onClick={() => actions.setTab('profile')} />
-          ) : (
-            <Item icon={Sparkles} label="Want to organise?" onClick={() => actions.openSheet('mode')} />
-          )}
-          <Item icon={Lightbulb} label="How the pilot works" active={on('how')} onClick={() => actions.setTab('how')} />
-          <Item icon={CircleQuestionMark} label="FAQ" active={on('faq')} onClick={() => actions.setTab('faq')} />
-          <Item icon={Mail} label="Contact" href={`mailto:${CONTACT_EMAIL}`} />
-          {state.isAdmin && <Item icon={ShieldCheck} label="Admin" href="/admin" />}
-        </div>
-      </details>
-
-      <details className="group mt-1">
-        <summary className={`${rowClass} cursor-pointer list-none text-[13px] font-semibold text-slate-300 hover:text-white`}>
-          <span className="flex-1">Ideas we're considering</span>
-          <ChevronRight size={16} aria-hidden="true" className="transition-transform group-open:rotate-90 motion-reduce:transition-none" />
-        </summary>
-        <div className="space-y-0.5">
-          <Locked icon={Users} feature="friends" />
-          <Locked icon={MessageCircle} feature="messages" />
-          <Locked icon={UsersRound} feature="communities" />
           <Locked icon={Map} feature="map" />
           <Locked icon={CalendarDays} feature="calendar" />
           <Locked icon={Building2} feature="cities" />
-          <Locked icon={Languages} feature="dutch" />
-          <Locked icon={SunMoon} feature="appearance" />
-          <Locked icon={Smartphone} feature="devices" />
-          <Locked icon={ScrollText} feature="terms" />
+          <Locked icon={UsersRound} feature="communities" />
         </div>
       </details>
 
       <div className="flex-1" />
-      <ProfileCard />
+      <AccountButton />
     </div>
   );
 };

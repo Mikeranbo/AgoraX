@@ -399,7 +399,7 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if isSignedIn();
-      allow create: if isEditor() && isValidEvent(incoming());
+      allow create: if (isEditor() && isValidEvent(incoming())) || organiserPublishesEvent(eventId);
       // The counter steps are listed first so ordinary visitors never trigger an admin lookup.
       allow update: if (isSignedIn() && (joinStep(eventId) || interestStep(eventId) ||
                                          viewStep(eventId, 'impressions') || viewStep(eventId, 'opens'))) ||
@@ -485,6 +485,67 @@ service cloud.firestore {
       allow delete: if ownsProfileBefore(publicId);
     }
 
+    // --- Organiser accounts ---
+    // Anyone can apply to organise; an admin editor approves. Approval lives only in
+    // organiserApplications/{uid}.status, which the applicant can never set themselves.
+    function applicationDoc(uid) {
+      return /databases/$(database)/documents/organiserApplications/$(uid);
+    }
+
+    function isApprovedOrganiser() {
+      return isSignedIn() && exists(applicationDoc(request.auth.uid)) &&
+             get(applicationDoc(request.auth.uid)).data.status == 'approved';
+    }
+
+    match /organiserApplications/{applicantUid} {
+      // The applicant sees their own; admins see all. It is one short text, no contact details.
+      allow get: if isOwner(applicantUid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(applicantUid) &&
+                       incoming().keys().hasOnly(['plan', 'status', 'ts']) &&
+                       incoming().keys().hasAll(['plan', 'status', 'ts']) &&
+                       incoming().status == 'pending' &&
+                       incoming().plan is string && incoming().plan.size() >= 10 && incoming().plan.size() <= 500 &&
+                       incoming().ts == request.time;
+      // Editors decide; only the decision fields change.
+      allow update: if isEditor() &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'decidedAt', 'decidedBy']) &&
+                       incoming().status in ['pending', 'approved', 'rejected'] &&
+                       incoming().decidedAt == request.time && incoming().decidedBy == request.auth.uid;
+      // Withdrawing, or applying again after a "no", starts from scratch.
+      allow delete: if isOwner(applicantUid) || isEditor();
+    }
+
+    // An approved organiser puts their own proposal live: one batch writes the proposal
+    // (status 'approved', eventId) and the pending event it becomes. No date, counters at zero.
+    function organiserPublishesEvent(eventId) {
+      let d = incoming();
+      let p = getAfter(/databases/$(database)/documents/proposals/$(d.get('proposalId', 'none'))).data;
+      return isApprovedOrganiser() &&
+             d.keys().hasOnly(['title', 'description', 'category', 'price', 'minParticipants', 'status',
+                               'imageUrls', 'imageCredit', 'emoji', 'accent', 'durationHours', 'hostsNeeded',
+                               'fixedCost', 'perPersonCost', 'bringYourOwn', 'venueNote', 'season', 'origin',
+                               'proposalId', 'organiserPublicId', 'organizerId', 'createdAt', 'participantsCount',
+                               'impressions', 'opens', 'joins', 'organiserInterest', 'byApprovedOrganiser']) &&
+             isValidEvent(d) && d.status == 'Pending' && d.origin == 'proposal' &&
+             d.organizerId == 'organiser' && d.byApprovedOrganiser == true &&
+             d.createdAt == request.time &&
+             d.participantsCount == 0 && d.joins == 0 && d.impressions == 0 && d.opens == 0 &&
+             d.organiserInterest == 0 &&
+             d.price is number && d.price >= 0 && d.price <= 200 &&
+             d.proposalId is string &&
+             p.uid == request.auth.uid && p.status == 'approved' && p.eventId == eventId &&
+             okOrganiserLink(d);
+    }
+
+    function organiserPublishesProposal(proposalId) {
+      let d = incoming();
+      let e = getAfter(/databases/$(database)/documents/events/$(d.get('eventId', 'none')));
+      return isApprovedOrganiser() && d.status == 'approved' && isValidProposal(d) &&
+             d.eventId is string && e != null &&
+             e.data.proposalId == proposalId && e.data.byApprovedOrganiser == true;
+    }
+
     // An organiser may name their own public profile on a proposal, nobody else's.
     function okOrganiserLink(data) {
       return !('organiserPublicId' in data) ||
@@ -494,7 +555,8 @@ service cloud.firestore {
 
     function isValidProposal(data) {
       return data.keys().hasOnly(['uid', 'title', 'category', 'price', 'minPeople', 'needs', 'image',
-                                  'imageCredit', 'status', 'source', 'ts', 'organiserPublicId']) &&
+                                  'imageCredit', 'status', 'source', 'ts', 'organiserPublicId', 'eventId']) &&
+             (!('eventId' in data) || data.status == 'approved') &&
              // A photo is an https link or a small compressed picture (data/images.ts).
              data.get('image', 'https://') is string &&
              data.get('image', 'https://').size() <= 200000 &&
@@ -515,13 +577,16 @@ service cloud.firestore {
     // Student proposals: visible to their author and admins. The author can keep editing
     // while it is a draft and send it once ('new'); after that only editors change it.
     match /proposals/{proposalId} {
-      allow create: if isOwnRecord(incoming()) && incoming().status in ['draft', 'new'] &&
-                       isValidProposal(incoming());
+      allow create: if isOwnRecord(incoming()) &&
+                       ((incoming().status in ['draft', 'new'] && isValidProposal(incoming())) ||
+                        organiserPublishesProposal(proposalId));
       allow read: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
       allow update: if (isEditor() && incoming().status in ['new', 'approved', 'rejected']) ||
                        (isOwnRecord(existing()) && existing().status == 'draft' &&
                         incoming().uid == existing().uid && incoming().status in ['draft', 'new'] &&
-                        isValidProposal(incoming()));
+                        isValidProposal(incoming())) ||
+                       (isOwnRecord(existing()) && existing().status == 'draft' &&
+                        incoming().uid == existing().uid && organiserPublishesProposal(proposalId));
       allow delete: if isOwnRecord(existing()) && existing().status == 'draft';
     }
 

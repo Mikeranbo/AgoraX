@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { fromAccountMenu, openMenu, openSite, seed } from './helpers';
+import { fromAccountMenu, openMenu, openSite, seed, visitorUid } from './helpers';
+import { readDoc } from './seed.mjs';
 
 test.beforeEach(async () => {
   await seed();
@@ -47,7 +48,7 @@ test('profile: cover and picture can be validated, previewed, repositioned, remo
   await expect(page.getByRole('heading', { name: 'Robin' })).toBeVisible();
   await expect(page.getByText('Board games and bouldering')).toBeVisible();
   const menu = await openMenu(page);
-  await expect(menu.getByRole('button', { name: /Profile & settings/ }).locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+  await expect(menu.getByRole('button', { name: /My account/ }).locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
 });
 
 test('profile never shows private contact details', async ({ page }) => {
@@ -57,7 +58,8 @@ test('profile never shows private contact details', async ({ page }) => {
   const form = page.getByRole('dialog', { name: 'Hear whether it goes ahead' });
   await form.getByLabel('Email', { exact: true }).fill('robin@example.com');
   await form.getByLabel('or WhatsApp number').fill('06 12345678');
-  await form.getByRole('checkbox').first().check();
+  await form.getByLabel("I'm 16 or older.").check();
+  await form.getByRole('checkbox').nth(1).check();
   await form.getByRole('button', { name: 'Save' }).click();
   await expect(form).toBeHidden();
 
@@ -81,21 +83,25 @@ test('contact form: email or WhatsApp is enough, optional extras start unticked 
   await page.getByRole('button', { name: 'Add' }).click();
   const form = page.getByRole('dialog', { name: 'Hear whether it goes ahead' });
   const boxes = form.getByRole('checkbox');
-  await expect(boxes).toHaveCount(3);
-  await expect(boxes.nth(1)).not.toBeChecked(); // launch news
-  await expect(boxes.nth(2)).not.toBeChecked(); // invitations
+  await expect(boxes).toHaveCount(4);
+  await expect(boxes.nth(0)).not.toBeChecked(); // 16 or older
+  await expect(boxes.nth(2)).not.toBeChecked(); // launch news
+  await expect(boxes.nth(3)).not.toBeChecked(); // invitations
   await expect(form.getByRole('button', { name: 'Privacy notice' })).toBeVisible();
 
   await form.getByRole('button', { name: 'Save' }).click();
   await expect(form.getByRole('alert')).toHaveText('Add an email or a WhatsApp number.');
 
   await form.getByLabel('or WhatsApp number').fill('06 12345678');
-  await boxes.nth(0).check();
   await boxes.nth(1).check();
+  await form.getByRole('button', { name: 'Save' }).click();
+  await expect(form.getByRole('alert')).toContainText('16 or older');
+  await boxes.nth(0).check();
+  await boxes.nth(2).check();
   await form.getByRole('button', { name: 'Save' }).click();
   await expect(form.getByRole('alert')).toContainText('only go by email');
 
-  await boxes.nth(1).uncheck();
+  await boxes.nth(2).uncheck();
   await form.getByRole('button', { name: 'Save' }).click();
   await expect(form).toBeHidden();
 });
@@ -111,8 +117,9 @@ test('notification preferences: each purpose switches on and off, and the change
   await updates.click();
   const form = page.getByRole('dialog', { name: 'Hear whether it goes ahead' });
   await form.getByLabel('Email', { exact: true }).fill('robin@example.com');
-  await form.getByRole('checkbox').first().check();
-  await form.getByRole('checkbox').nth(1).check(); // launch news, by email
+  await form.getByLabel("I'm 16 or older.").check();
+  await form.getByRole('checkbox').nth(1).check();
+  await form.getByRole('checkbox').nth(2).check(); // launch news, by email
   await form.getByRole('button', { name: 'Save' }).click();
   await expect(form).toBeHidden();
   await expect(updates).toHaveAttribute('aria-checked', 'true');
@@ -123,6 +130,8 @@ test('notification preferences: each purpose switches on and off, and the change
   await expect(updates).toHaveAttribute('aria-checked', 'false');
   await launch.click();
   await expect(launch).toHaveAttribute('aria-checked', 'false');
+  const uid = await visitorUid(page);
+  await expect.poll(async () => Object.keys(((await readDoc(`users/${uid}`)) as { consents?: object } | undefined)?.consents ?? {}).sort().join(',')).toBe('');
   await page.reload();
   await fromAccountMenu(page, 'Notification preferences');
   await expect(page.getByRole('switch', { name: "Whether they go ahead, are cancelled or won't happen" })).toHaveAttribute('aria-checked', 'false');
@@ -131,7 +140,7 @@ test('notification preferences: each purpose switches on and off, and the change
 
 test('the privacy notice is marked as a draft with its open points visible', async ({ page }) => {
   await openSite(page);
-  await fromAccountMenu(page, 'Privacy notice');
+  await fromAccountMenu(page, 'Privacy Policy');
   await expect(page.getByRole('note')).toContainText('Draft');
   await expect(page.locator('mark').first()).toContainText('To be confirmed');
   await expect(page.getByText('Autoriteit Persoonsgegevens', { exact: false })).toBeVisible();

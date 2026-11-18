@@ -4,6 +4,7 @@ import { Tab, VisitorProvider, useVisitor } from './state/VisitorProvider';
 import { useWideScreen } from './state/useWideScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { EventDetail } from './screens/EventDetail';
+import { LegalDocScreen } from './screens/LegalDocScreen';
 import { LegalPlaceholderScreen } from './screens/LegalPlaceholderScreen';
 import { MyPicksScreen, SavedScreen } from './screens/MyPicksScreen';
 import { ProposeScreen } from './screens/ProposeScreen';
@@ -14,6 +15,7 @@ import { PrivacyNoticeScreen } from './screens/PrivacyNoticeScreen';
 import { FaqScreen, HowItWorksScreen, MyDataScreen } from './screens/AccountScreens';
 import { TabBar } from './components/TabBar';
 import { ContactBanner } from './components/ContactBanner';
+import { StatsConsentBanner } from './components/StatsConsentBanner';
 import { OrganiserPanel } from './components/OrganiserPanel';
 import { PriceLadderSheet } from './components/PriceLadderSheet';
 import { VenueOfferModal } from './components/VenueOfferModal';
@@ -97,6 +99,7 @@ const Screen = () => {
       return <FaqScreen />;
     case 'terms':
     case 'cookies':
+      return <LegalDocScreen doc={state.tab} />;
     case 'imprint':
       return <LegalPlaceholderScreen doc={state.tab} />;
     default:
@@ -132,10 +135,11 @@ const Shell = () => {
       </div>
       {!state.selected && (
         <>
-          <ContactBanner />
+          {state.statsAsked && <ContactBanner />}
           <TabBar />
         </>
       )}
+      <StatsConsentBanner />
       <Sheets />
       {state.toast && (
         <div

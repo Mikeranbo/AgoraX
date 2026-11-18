@@ -3,6 +3,7 @@ import { CONSENT_TEXTS, ConsentPurpose } from '../data/consent';
 import { contactProblem } from '../data/forms';
 import { PRIVACY_NOTICE_FINAL } from '../config/pilot';
 import { CollectionNotice } from './CollectionNotice';
+import { AGE_PROBLEM, AgeTick } from './AgeTick';
 import { errorClass, fieldClass, labelClass, primaryButtonClass } from './ui';
 
 export interface ContactValues {
@@ -27,6 +28,7 @@ export const ContactForm = ({ onSubmit }: { onSubmit: (values: ContactValues) =>
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(false);
+  const [age16, setAge16] = useState(false);
   const [launch, setLaunch] = useState(false);
   const [invites, setInvites] = useState(false);
   const [error, setError] = useState('');
@@ -38,7 +40,8 @@ export const ContactForm = ({ onSubmit }: { onSubmit: (values: ContactValues) =>
     if (busy) return;
     const problem = contactProblem(email, phone);
     if (problem) return setError(problem);
-    if (!consent) return setError('Tick the first box so we can tell you about your events.');
+    if (!age16) return setError(AGE_PROBLEM);
+    if (!consent) return setError('Tick the box so we can tell you about your events.');
     if (extrasNeedEmail) return setError('Launch news and invitations only go by email. Add an email or untick them.');
     setError('');
     setBusy(true);
@@ -72,6 +75,7 @@ export const ContactForm = ({ onSubmit }: { onSubmit: (values: ContactValues) =>
         />
         <p className="mt-1.5 text-[13px] text-slate-400">One of the two is enough. A number is only used to message you about your events, never for marketing.</p>
       </div>
+      <AgeTick id="cf-age" checked={age16} onChange={setAge16} />
       <Tick checked={consent} onChange={setConsent}>{CONSENT_TEXTS.updates}</Tick>
       {PRIVACY_NOTICE_FINAL && (
         <>

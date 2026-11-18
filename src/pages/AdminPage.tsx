@@ -13,6 +13,7 @@ import { PriceAnswers } from './admin/sections/PriceAnswers';
 import { TimingPreferences } from './admin/sections/TimingPreferences';
 import { Helpers } from './admin/sections/Helpers';
 import { Proposals } from './admin/sections/Proposals';
+import { OrganiserApplications } from './admin/sections/OrganiserApplications';
 import { SpaceOffers } from './admin/sections/SpaceOffers';
 import { Suggestions } from './admin/sections/Suggestions';
 import { Admins } from './admin/sections/Admins';
@@ -78,6 +79,7 @@ function Dashboard({ uid, admin }: { uid: string; admin: AdminDoc }) {
           <PriceAnswers />
           <TimingPreferences />
           <Proposals />
+          <OrganiserApplications />
           <Helpers />
           <SpaceOffers />
           <Suggestions />

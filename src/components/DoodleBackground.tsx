@@ -35,8 +35,10 @@ interface Placed {
 }
 
 const GAP = 12;
-const TOP = [133, 96, 216]; // purple at the top
-const BOTTOM = [88, 118, 224]; // blue at the bottom
+// The buttons run indigo → purple from top left to bottom right (135°); the drawings run the
+// other way: purple at the top left, blue at the bottom right.
+const TOP = [133, 96, 216]; // purple, top left
+const BOTTOM = [88, 118, 224]; // blue, bottom right
 
 /** Small deterministic random generator, so a given size always gets the same layout. */
 function mulberry32(seed: number) {
@@ -88,7 +90,7 @@ function layout(width: number, height: number): Placed[] {
       continue;
     }
     misses = 0;
-    const t = Math.min(1, Math.max(0, y / height));
+    const t = Math.min(1, Math.max(0, (x / width + y / height) / 2));
     const colour = `rgb(${TOP.map((c, i) => Math.round(c + (BOTTOM[i] - c) * t)).join(',')})`;
     // Walk through the drawings so neighbours differ; fillers are picked at random.
     const Icon = filler ? FILLERS[Math.floor(rand() * FILLERS.length)] : DRAWINGS[(drawing += 1 + Math.floor(rand() * 7)) % DRAWINGS.length];
@@ -104,7 +106,10 @@ function layout(width: number, height: number): Placed[] {
 /** Rounded up, so the browser bar sliding on a phone doesn't reshuffle the drawings. */
 const bucket = (h: number) => Math.ceil(h / 160) * 160;
 
-/** "Background 1 · Even scatter": outline drawings behind everything, fixed while the page scrolls. */
+/**
+ * "Background 1 · Even scatter": outline drawings behind everything, fixed while the page scrolls.
+ * A light displacement filter roughens the lines so they read as quick marker graffiti, not icons.
+ */
 export const DoodleBackground = () => {
   const [size, setSize] = useState(() => ({ w: window.innerWidth, h: bucket(window.innerHeight) }));
   useEffect(() => {
@@ -122,12 +127,18 @@ export const DoodleBackground = () => {
   const items = useMemo(() => layout(size.w, size.h), [size.w, size.h]);
 
   return (
-    <div aria-hidden="true" className="doodle-layer pointer-events-none fixed inset-x-0 top-0 -z-[1] overflow-hidden" style={{ height: size.h, opacity: 0.9 }}>
+    <div aria-hidden="true" className="doodle-layer pointer-events-none fixed inset-x-0 top-0 -z-[1] overflow-hidden" style={{ height: size.h, opacity: 0.9, filter: 'url(#doodle-rough)' }}>
+      <svg width="0" height="0" className="absolute">
+        <filter id="doodle-rough" x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="7" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.6" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
       {items.map(({ Icon, x, y, size: s, rotate, colour }, i) => (
         <Icon
           key={i}
           size={s}
-          strokeWidth={1.8}
+          strokeWidth={2.1}
           absoluteStrokeWidth
           color={colour}
           style={{ position: 'absolute', left: x - s / 2, top: y - s / 2, transform: `rotate(${rotate}deg)` }}

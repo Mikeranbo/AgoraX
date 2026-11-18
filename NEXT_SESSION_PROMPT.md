@@ -20,6 +20,25 @@ Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Fi
     to the buttons.
 12. Improv event: add at least 2 more photos.
 
+Status on 18 Nov 2026 (all built, tested and live):
+1. Done: the pilot notice in the entry flow, plus a line on the opening screen itself.
+2. Done: no event has a confirmed date; cards say "Date to be confirmed".
+3. Done: category chips, near / other locations, and Today / Tomorrow as locked "Soon" chips.
+4. Done: the menu holds only events (lists, picks, propose, my proposals, space, event ideas to come).
+5. Done: settings, privacy, legal, help and the non-event "coming soon" items live on My account.
+6. Done: profile with cover and avatar (was already built).
+7. Done: Account type on My account. Apply → admin approves on /admin → "Organiser applications"
+   → badge, and "Publish event" puts their event live (rules: `organiserApplications`,
+   `organiserPublishesEvent`). Taking approval back is a button there too.
+8. Drafted: Privacy Policy (updated), Terms of Use and Cookie Policy pages under Dutch law. Still
+   marked draft with [To be confirmed] points (legal name, address, KvK, Google/Vercel terms, retention);
+   they need a qualified review. The Imprint waits for the company details.
+9. Done: "I'm 16 or older" on every form that takes an email or number.
+10. Done: statistics are opt-in. A banner asks once; nothing is tracked before "Allow".
+11. Done: doodles are outlines with a rough marker filter, purple top left to blue bottom right
+    (the buttons run indigo to purple, 135°).
+12. Done: improv has 3 more Unsplash photos (Anita Jankovic ×2, Kyle Hinkson).
+
 ## State on 5 Nov 2026
 
 - Live database matches `src/data/seedEvents.ts`: the 10 events that left the list (bouldering, padel,

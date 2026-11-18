@@ -40,8 +40,10 @@ Event cards float on a fixed board: a page gradient (#171C36 → #1E2450 → #2A
 bottom) under `<DoodleBackground />`, "Background 1 · Even scatter": about sixty lucide outline
 drawings (sports, music, food, travel, games, weather, hobbies) plus ~22% tiny filler shapes, spread
 by a seeded layout with no overlaps (12px apart), sizes 30–84px (fillers 16–26px), rotated ±25°,
-1.8px non-scaling strokes, coloured by height from purple at the top (rgb 133,96,216) to blue at
-the bottom (rgb 88,118,224), layer opacity .9. It is recalculated on resize (cached per size) and
+2.1px non-scaling strokes roughened by a light SVG displacement filter (`#doodle-rough`) so they read
+as marker graffiti, outlines only, coloured along the diagonal from purple at the top left (rgb
+133,96,216) to blue at the bottom right (rgb 88,118,224): the opposite way to the 135° indigo →
+purple button gradient. Layer opacity .9. It is recalculated on resize (cached per size) and
 never takes clicks. The native scrollbar is hidden; `<ScrollRail />` draws a decorative 6px rail
 with a 12×48px gradient handle. Sheets and the laptop filter bar are flat `sheet` surfaces with a
 soft shadow. One corner radius for the event page, `rounded-sheet` (14px).

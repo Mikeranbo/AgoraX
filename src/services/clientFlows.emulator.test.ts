@@ -45,6 +45,8 @@ import { touchUser, linkContact, setConsent, saveDisplayName, deleteMyContact } 
 import { applyCounterFixes, grantAdmin, purgeNonSeedEvents, revokeAdmin } from './adminService';
 import { savePublicProfile, deletePublicProfile } from './profileService';
 import { writeProposal, deleteDraft } from './organiserService';
+import { setStatsOff } from './analytics';
+import { NOTICE_VERSION } from '../config/pilot';
 import { deleteAllMyData } from './accountService';
 import { countersToFix } from '../pages/admin/recount';
 
@@ -132,6 +134,8 @@ describe.skipIf(!host)('client flows against the rules', () => {
 
   it('view counters move once per visitor', async () => {
     act('visitor');
+    // Statistics are opt-in: this visitor said yes on the banner.
+    setStatsOff(false);
     await bumpEventCounter('e2', 'impressions');
     await bumpEventCounter('e2', 'impressions');
     await bumpEventCounter('e2', 'opens');
@@ -178,7 +182,7 @@ describe.skipIf(!host)('client flows against the rules', () => {
     act('visitor');
     await linkContact({ email: 'vi@example.com', purpose: 'updates', alsoConsent: ['launch'] });
     let me = await raw(async (db) => (await getDoc(doc(db, 'users', 'visitor'))).data());
-    expect(me!.consents.launch).toMatchObject({ version: 'v2', notice: 'draft-2026-10' });
+    expect(me!.consents.launch).toMatchObject({ version: 'v2', notice: NOTICE_VERSION });
     expect(me!.consents.invites).toBeUndefined();
     await setConsent('launch', false);
     me = await raw(async (db) => (await getDoc(doc(db, 'users', 'visitor'))).data());

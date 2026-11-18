@@ -237,6 +237,7 @@ export function useAdminData(access: AdminAccess) {
     ladderRows,
     helperRows,
     proposalRows,
+    usersById,
     suggestionRows,
     offerRows,
     adminRows,

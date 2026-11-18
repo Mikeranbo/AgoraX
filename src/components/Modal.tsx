@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 
@@ -9,8 +9,17 @@ interface ModalProps {
   children: React.ReactNode;
 }
 
-/** A sheet that slides up from the bottom on phones and sits centred on wider screens. */
-export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => (
+/** A sheet that slides up from the bottom on phones and sits centred on wider screens. Escape closes it. */
+export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+  return (
   <AnimatePresence>
     {isOpen && (
       <>
@@ -47,4 +56,5 @@ export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => (
       </>
     )}
   </AnimatePresence>
-);
+  );
+};
