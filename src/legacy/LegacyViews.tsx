@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { Plus, Building2, TrendingUp, Award, Users, ChevronRight } from 'lucide-react';
-import { auth } from '../lib/firebase';
+import { currentUser } from '../lib/firebase';
 import { Event, Venue } from '../types';
 import { VenueCard } from '../components/VenueCard';
 
@@ -46,7 +46,7 @@ export const VenueMarketplace = ({ venues, onListVenue, onSelectVenue }: { venue
 };
 
 export const DashboardView = ({ events, onSelectEvent, onCreateEvent }: { events: Event[], onSelectEvent: (e: Event) => void, onCreateEvent: () => void }) => {
-  const organiserEvents = events.filter(e => e.organizerId === auth.currentUser?.uid);
+  const organiserEvents = events.filter(e => e.organizerId === currentUser()?.uid);
   
   const stats = {
     totalProjected: organiserEvents.reduce((acc, e) => acc + (e.participantsCount * e.price), 0),

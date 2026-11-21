@@ -1,7 +1,7 @@
 import { deleteDoc, doc, getDoc, getDocs, query, collection, where } from 'firebase/firestore';
 import { deleteUser } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
-import { ensureAnonymousAuth, deleteMyContact } from './identity';
+import { currentUser, db } from '../lib/firebase';
+import { deleteMyContact, forgetIdentity, restoreIdentity } from './identity';
 import { leaveEvent, withdrawHelperInterest } from './firebaseService';
 import { deletePublicProfile } from './profileService';
 
@@ -24,9 +24,14 @@ export interface DeletionReport {
  * the old random uid only, which no longer belongs to any account afterwards.
  */
 export async function deleteAllMyData(eventIds: string[]): Promise<DeletionReport> {
-  const user = await ensureAnonymousAuth();
-  const uid = user.uid;
   const report: DeletionReport = { interestsWithdrawn: 0, helperOffersWithdrawn: 0, draftsDeleted: 0, sentProposalsKept: 0 };
+  // Never creates an ID: a browser without one has nothing stored with us.
+  const user = currentUser() ?? (await restoreIdentity());
+  if (!user) {
+    forgetIdentity();
+    return report;
+  }
+  const uid = user.uid;
   const meSnap = await getDoc(doc(db, 'users', uid));
   const me = meSnap.data() ?? {};
 
@@ -58,6 +63,9 @@ export async function deleteAllMyData(eventIds: string[]): Promise<DeletionRepor
   if (meSnap.exists()) await deleteDoc(doc(db, 'users', uid));
 
   // Last: the anonymous account. The next visit starts with a new random id.
-  if (auth.currentUser) await deleteUser(auth.currentUser);
+  const last = currentUser();
+  if (last) await deleteUser(last);
+  // And what this browser kept: the ID marker, settings and answers.
+  forgetIdentity();
   return report;
 }

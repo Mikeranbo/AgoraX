@@ -15,7 +15,7 @@ import {
   runTransaction,
   writeBatch,
 } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, currentUser } from '../lib/firebase';
 import { ensureAnonymousAuth, getSource, linkContact } from './identity';
 import { statsOff } from './analytics';
 import { onceOnDevice } from './session';
@@ -37,10 +37,8 @@ function handleFirestoreError(error: any, operationType: string, path: string | 
   const errInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
+      userId: currentUser()?.uid,
+      isAnonymous: currentUser()?.isAnonymous,
     },
     operationType,
     path

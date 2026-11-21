@@ -1,7 +1,7 @@
 import React from 'react';
 import { useVisitor } from '../state/VisitorProvider';
 import { CONTACT_EMAIL } from '../config/pilot';
-import { LEGAL, SOCIAL_LINKS, TO_BE_CONFIRMED } from '../config/legal';
+import { LEGAL, SOCIAL_LINKS } from '../config/legal';
 
 const linkClass = 'inline-flex min-h-11 min-w-11 items-center text-left text-[15px] text-slate-200 underline-offset-4 hover:text-white hover:underline';
 
@@ -29,6 +29,7 @@ export const SiteFooter = () => {
             <button onClick={() => actions.openSheet('space')} className={linkClass}>I have a space</button>
           </Column>
           <Column title="Legal">
+            <button onClick={() => actions.setTab('data')} className={linkClass}>Privacy &amp; my data</button>
             <button onClick={() => actions.setTab('notice')} className={linkClass}>Privacy Policy</button>
             <button onClick={() => actions.setTab('terms')} className={linkClass}>Terms of Use</button>
             <button onClick={() => actions.setTab('cookies')} className={linkClass}>Cookie Policy</button>
@@ -41,16 +42,16 @@ export const SiteFooter = () => {
           </Column>
           <Column title="Contact">
             <p className="text-[15px] leading-relaxed text-slate-300">
-              {LEGAL.legalName ?? `Legal name: ${TO_BE_CONFIRMED}`}
+              {LEGAL.legalName}
               <br />
-              {LEGAL.postalAddress ?? `Postal address: ${TO_BE_CONFIRMED}`}
+              {LEGAL.postalAddress}
             </p>
             <a href={`mailto:${CONTACT_EMAIL}`} className={linkClass}>{CONTACT_EMAIL}</a>
           </Column>
         </div>
         <div className="mt-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-white/10 pt-5 text-[13px] text-slate-300">
           <p>
-            © 2026 AgoraX · Registration no. {LEGAL.registrationNumber ?? TO_BE_CONFIRMED} · VAT ID {LEGAL.vatId ?? TO_BE_CONFIRMED}
+            © 2026 AgoraX · {LEGAL.registrationNumber ? `KvK ${LEGAL.registrationNumber}` : 'Run by a private person, not registered with the KvK yet'}
           </p>
           {SOCIAL_LINKS.length > 0 && (
             <nav aria-label="Social" className="flex gap-4">

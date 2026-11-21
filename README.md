@@ -145,8 +145,11 @@ aggregate counters — `impressions`, `opens`, `joins`, `organiserInterest` (and
 
 ## Privacy
 
-- The draft privacy notice is `docs/PRIVACY_NOTICE_DRAFT.md` (same text as the in-app page,
-  `src/data/privacyNotice.ts`). It is **not final**: open facts are listed at its top.
+- The privacy notice is version 1.1, `docs/PRIVACY_NOTICE_FINAL.md`. The app shows it from
+  `src/data/privacyNotice.ts`, and a unit test fails if the two ever differ by a word.
+- Nothing is stored on the device and no ID is created before the visitor's first action
+  (Telecommunicatiewet 11.7a). Page loads only add one to `visits/{src}`. `e2e/storage.spec.ts` checks it.
+- Only the owner role can read contact details, helper and space offers, proposals and suggestions.
 - Contact details (email *or* WhatsApp, either is enough) are only collected behind a consent box
   per purpose; each consent stores its purpose, wording version, notice version and server time.
   Launch news and invitations are separate, unticked, email-only opt-ins.

@@ -15,8 +15,8 @@ export async function leaveIntro(page: Page) {
  * Opens the site as a brand-new anonymous visitor (each test has its own browser context) and
  * walks the entry flow: the opening messages, then "Got it — explore" on the pilot notice.
  */
-export async function openSite(page: Page, { answerStats = true }: { answerStats?: boolean } = {}) {
-  await page.goto('/');
+export async function openSite(page: Page, { answerStats = true, path = '/' }: { answerStats?: boolean; path?: string } = {}) {
+  await page.goto(path);
   const notice = page.getByRole('dialog', { name: 'A quick note: this is a pilot' });
   const intro = page.getByRole('button', { name: /to explore/ });
   // Retried as a whole: a cold dev server can reload the page once while it optimises dependencies.

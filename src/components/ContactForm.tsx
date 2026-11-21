@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CONSENT_TEXTS, ConsentPurpose } from '../data/consent';
 import { contactProblem } from '../data/forms';
-import { PRIVACY_NOTICE_FINAL } from '../config/pilot';
+import { EXTRA_DATA_FEATURES } from '../config/pilot';
 import { CollectionNotice } from './CollectionNotice';
 import { AGE_PROBLEM, AgeTick } from './AgeTick';
 import { errorClass, fieldClass, labelClass, primaryButtonClass } from './ui';
@@ -22,7 +22,7 @@ const Tick = ({ checked, onChange, children }: { checked: boolean; onChange: (on
 
 /**
  * An email or a WhatsApp number (either is enough), the one consent this form is for, and,
- * once the privacy notice is final, two optional email-only extras that start unticked.
+ * only with EXTRA_DATA_FEATURES, two optional email-only extras that start unticked.
  */
 export const ContactForm = ({ onSubmit }: { onSubmit: (values: ContactValues) => Promise<void> }) => {
   const [phone, setPhone] = useState('');
@@ -77,7 +77,7 @@ export const ContactForm = ({ onSubmit }: { onSubmit: (values: ContactValues) =>
       </div>
       <AgeTick id="cf-age" checked={age16} onChange={setAge16} />
       <Tick checked={consent} onChange={setConsent}>{CONSENT_TEXTS.updates}</Tick>
-      {PRIVACY_NOTICE_FINAL && (
+      {EXTRA_DATA_FEATURES && (
         <>
           <Tick checked={launch} onChange={setLaunch}>{CONSENT_TEXTS.launch}</Tick>
           <Tick checked={invites} onChange={setInvites}>{CONSENT_TEXTS.invites}</Tick>

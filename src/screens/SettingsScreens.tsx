@@ -4,7 +4,7 @@ import { useVisitor } from '../state/VisitorProvider';
 import { CONSENT_TEXTS, ConsentPurpose } from '../data/consent';
 import { maskPhone } from '../data/contact';
 import { timestampMillis } from '../services/firebaseService';
-import { CONTACT_EMAIL, PRIVACY_NOTICE_FINAL } from '../config/pilot';
+import { CONTACT_EMAIL, EXTRA_DATA_FEATURES } from '../config/pilot';
 import type { DeletionReport } from '../services/accountService';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -103,7 +103,7 @@ export const NotificationsScreen = () => {
       </Block>
 
       <Block title="Optional, by email only">
-        {PRIVACY_NOTICE_FINAL ? (
+        {EXTRA_DATA_FEATURES ? (
           <>
             <Switch
               label="When AgoraX launches"
@@ -120,7 +120,7 @@ export const NotificationsScreen = () => {
           </>
         ) : (
           <p className="px-4 py-3 text-[14px] leading-relaxed text-slate-300">
-            Launch news and invitations to other events will be offered here, off by default, once our privacy notice is final. We never use a
+            We don't send launch news or invitations to other events during the pilot. We never use a
             WhatsApp number for these.
           </p>
         )}
@@ -132,9 +132,7 @@ export const NotificationsScreen = () => {
 
 /** No login: the account is this device. Deleting it withdraws everything that counts in public. */
 export const AccountScreen = () => {
-  const { state, actions } = useVisitor();
-  const [step, setStep] = useState<'idle' | 'confirm' | 'busy' | 'done' | 'error'>('idle');
-  const [report, setReport] = useState<DeletionReport | null>(null);
+  const { state } = useVisitor();
   const [copied, setCopied] = useState(false);
 
   const copyId = async () => {
@@ -144,17 +142,6 @@ export const AccountScreen = () => {
       setTimeout(() => setCopied(false), 1500);
     } catch {
       /* the id is selectable text */
-    }
-  };
-
-  const deleteAll = async () => {
-    setStep('busy');
-    try {
-      setReport(await actions.deleteEverything());
-      setStep('done');
-    } catch (err) {
-      console.error(err);
-      setStep('error');
     }
   };
 
@@ -181,7 +168,44 @@ export const AccountScreen = () => {
         </div>
       </Block>
 
-      <Block title="Delete my data">
+      <DeleteEverything />
+    </div>
+  );
+};
+
+/**
+ * "Delete everything": withdraws every interest and offer, deletes the visitor's records and the
+ * anonymous account, and clears what this browser kept. Used on Privacy & my data and on
+ * Account & security. A browser without an ID has nothing to delete, and nothing is created.
+ */
+export const DeleteEverything = ({ title = 'Delete everything' }: { title?: string }) => {
+  const { state, actions } = useVisitor();
+  const [step, setStep] = useState<'idle' | 'confirm' | 'busy' | 'done' | 'error'>('idle');
+  const [report, setReport] = useState<DeletionReport | null>(null);
+
+  const deleteAll = async () => {
+    setStep('busy');
+    try {
+      setReport(await actions.deleteEverything());
+      setStep('done');
+    } catch (err) {
+      console.error(err);
+      setStep('error');
+    }
+  };
+
+  if (!state.uid && step !== 'done') {
+    return (
+      <Block title={title}>
+        <p className="px-4 py-4 text-[15px] leading-relaxed text-slate-200">
+          This browser has no ID yet, so we hold nothing about you. Just looking around stores nothing.
+        </p>
+      </Block>
+    );
+  }
+
+  return (
+      <Block title={title}>
         <div className="space-y-3 px-4 py-4 text-[15px] leading-relaxed text-slate-200">
           {step === 'done' && report ? (
             <div role="status" className="space-y-2">
@@ -232,6 +256,5 @@ export const AccountScreen = () => {
           )}
         </div>
       </Block>
-    </div>
   );
 };

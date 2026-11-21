@@ -74,7 +74,7 @@ test('phone: a category picked in the chips stays picked after visiting another 
   await expect(page.getByRole('heading', { name: 'Chess café' })).toHaveCount(0);
 
   await fromAccountMenu(page, 'Privacy Policy');
-  await expect(page.getByRole('heading', { name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'AgoraX privacy notice' })).toBeVisible();
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Proposals' }).click();
   await expect(page.getByRole('button', { name: 'Creative', pressed: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Chess café' })).toHaveCount(0);
@@ -107,6 +107,7 @@ test('footer links to privacy and help are on every screen', async ({ page }) =>
   await goToList(page);
   const footer = page.getByRole('contentinfo');
   await expect(footer.getByRole('button', { name: 'Privacy Policy' })).toBeVisible();
+  await expect(footer.getByRole('button', { name: 'Privacy & my data' })).toBeVisible();
   await footer.getByRole('button', { name: 'How the pilot works' }).click();
   await expect(page.getByRole('heading', { name: 'How the pilot works' })).toBeVisible();
   await expect(page.getByRole('contentinfo').getByRole('button', { name: 'Privacy Policy' })).toBeVisible();

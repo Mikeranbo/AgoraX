@@ -22,8 +22,9 @@ const AdminContext = createContext<AdminContextValue | null>(null);
 export function AdminProvider({ uid, admin, children }: { uid: string; admin: AdminDoc; children: React.ReactNode }) {
   const canEdit = admin.role === 'owner' || admin.role === 'editor';
   const isOwner = admin.role === 'owner';
-  // Viewers see aggregates only: no names, contact details or admin list (the rules agree).
-  const data = useAdminData({ people: canEdit, admins: isOwner });
+  // Only the owner sees names, contact details, offers, proposals and the admin list (the rules
+  // agree). Editors work on events and their media; viewers see totals.
+  const data = useAdminData({ people: isOwner, admins: isOwner });
   const { addError } = data;
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState<Event | 'new' | null>(null);

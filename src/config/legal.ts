@@ -1,17 +1,14 @@
 /**
- * Company facts for the footer. Each one stays null ("to be confirmed") until it is real; the
- * privacy notice draft lists the same open points (docs/PRIVACY_NOTICE_DRAFT.md). Never fill
- * these with made-up values.
+ * Operator facts for the footer, the Imprint and the Terms. AgoraX is run by a private person;
+ * it is not a registered company yet, so there is no KvK or VAT number. Never fill these with
+ * made-up values.
  */
 export const LEGAL = {
-  legalName: null as string | null,
-  postalAddress: null as string | null,
-  /** KvK registration number. */
+  legalName: 'Michael Aleinikov',
+  postalAddress: 'Suikerlaan 1, 9743 DA Groningen, the Netherlands',
+  /** KvK registration number: none yet. */
   registrationNumber: null as string | null,
-  vatId: null as string | null,
 };
 
 /** Social profiles shown in the footer; none exist yet. */
 export const SOCIAL_LINKS: { label: string; href: string }[] = [];
-
-export const TO_BE_CONFIRMED = 'to be confirmed';

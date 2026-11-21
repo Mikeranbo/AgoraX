@@ -17,7 +17,9 @@ import {
 } from '../services/firebaseService';
 import {
   ensureAnonymousAuth,
-  touchUser,
+  restoreIdentity,
+  onIdentity,
+  countVisit,
   linkContact,
   deleteMyContact,
   getSource,
@@ -255,8 +257,9 @@ export function VisitorProvider({
   /** Pages reached by direct link skip the opening messages and the notice. */
   skipEntry?: boolean;
 }) {
-  const [phase, setPhase] = useState<VisitorState['phase']>('loading');
-  const [authError, setAuthError] = useState('');
+  // The page works without an ID: events load straight away, the ID comes with the first action.
+  const [phase] = useState<VisitorState['phase']>('ready');
+  const [authError] = useState('');
   const [uid, setUid] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
@@ -293,63 +296,69 @@ export function VisitorProvider({
   const scrollBeforeOpen = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // No sign-in screen, ever: get an anonymous user first, then subscribe.
+  // Opening the page stores nothing on the device and creates no ID (Telecommunicatiewet 11.7a):
+  // the events are public, the visit is one anonymous +1, and a returning visitor's ID is restored.
   useEffect(() => {
-    let cancelled = false;
     const unsubscribers: Array<() => void> = [];
     document.title = 'AgoraX · Help choose which events happen next';
+    countVisit();
+    unsubscribers.push(
+      subscribeToEvents(
+        (list) => {
+          setEvents(list);
+          setEventsLoaded(true);
+          setEventsError(false);
+        },
+        () => {
+          setEventsLoaded(true);
+          setEventsError(true);
+        },
+      ),
+    );
+    unsubscribers.push(subscribeToFaces(setFaces));
+    void restoreIdentity();
+    // Counted only if this browser said yes to statistics earlier (track() checks).
+    if (!pageViewSent) {
+      pageViewSent = true;
+      track('page_view', { path: window.location.pathname });
+    }
+    return () => unsubscribers.forEach((u) => u());
+  }, []);
 
-    ensureAnonymousAuth()
-      .then((user) => {
-        if (cancelled) return;
-        setUid(user.uid);
-        setPhase('ready');
-        void touchUser();
-        if (!pageViewSent) {
-          pageViewSent = true;
-          track('page_view', { path: window.location.pathname });
-        }
-        unsubscribers.push(
-          subscribeToEvents(
-            (list) => {
-              setEvents(list);
-              setEventsLoaded(true);
-              setEventsError(false);
-            },
-            () => {
-              setEventsLoaded(true);
-              setEventsError(true);
-            },
-          ),
-        );
-        unsubscribers.push(subscribeToMyUser(user.uid, setMe));
-        unsubscribers.push(subscribeToFaces(setFaces));
-        unsubscribers.push(subscribeIsAdmin(user.uid, setIsAdmin));
-        unsubscribers.push(subscribeMyApplication(user.uid, setOrganiserStatus));
-        unsubscribers.push(
-          subscribeMyProposals(
-            user.uid,
-            (list) => {
-              setMyProposals(list);
-              setMyProposalsLoaded(true);
-            },
-            (err) => {
-              console.warn('my proposals', err);
-              setMyProposalsLoaded(true);
-            },
-          ),
-        );
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error(err);
-        setAuthError(describeAuthError(err));
-        setPhase('error');
-      });
-
+  // Everything tied to the ID starts once there is one: restored on load, or made by a first action.
+  const attachedUid = useRef<string | null>(null);
+  useEffect(() => {
+    let userSubs: Array<() => void> = [];
+    const detach = () => {
+      userSubs.forEach((u) => u());
+      userSubs = [];
+      attachedUid.current = null;
+    };
+    const off = onIdentity((user) => {
+      if (attachedUid.current === user.uid) return;
+      detach();
+      attachedUid.current = user.uid;
+      setUid(user.uid);
+      userSubs.push(subscribeToMyUser(user.uid, setMe));
+      userSubs.push(subscribeIsAdmin(user.uid, setIsAdmin));
+      userSubs.push(subscribeMyApplication(user.uid, setOrganiserStatus));
+      userSubs.push(
+        subscribeMyProposals(
+          user.uid,
+          (list) => {
+            setMyProposals(list);
+            setMyProposalsLoaded(true);
+          },
+          (err) => {
+            console.warn('my proposals', err);
+            setMyProposalsLoaded(true);
+          },
+        ),
+      );
+    });
     return () => {
-      cancelled = true;
-      unsubscribers.forEach((u) => u());
+      off();
+      detach();
     };
   }, []);
 
@@ -410,6 +419,18 @@ export function VisitorProvider({
   };
   const saveFailed = () => showToast("That didn't save. Check your connection and try again.");
 
+  /** This browser's ID, created now if needed. Only ever called from something the visitor did. */
+  const ensureId = async (): Promise<string | null> => {
+    if (uid) return uid;
+    try {
+      return (await ensureAnonymousAuth()).uid;
+    } catch (err) {
+      console.error(err);
+      showToast(describeAuthError(err));
+      return null;
+    }
+  };
+
   const setBusy = (eventId: string, on: boolean) =>
     setPending((prev) => {
       const next = new Set(prev);
@@ -441,12 +462,17 @@ export function VisitorProvider({
       setEntry('notice');
     },
     join: async (event) => {
-      if (!uid || pending.has(event.id) || joined.has(event.id)) return;
+      if (pending.has(event.id) || joined.has(event.id)) return;
       const joinsBefore = joined.size;
-      track('join_click', { eventId: event.id, price: event.price });
       setBusy(event.id, true);
+      const id = await ensureId();
+      if (!id) {
+        setBusy(event.id, false);
+        return;
+      }
+      track('join_click', { eventId: event.id, price: event.price });
       try {
-        const created = await joinEvent(event.id, uid, { priceSeen: event.price, source: getSource() });
+        const created = await joinEvent(event.id, id, { priceSeen: event.price, source: getSource() });
         // Price question: on the first join, then every third. Never blocks the join.
         if (created && joinsBefore % 3 === 0 && !me?.priceAnswers?.[event.id]) {
           setLadder({ event, nextPrice: nextPriceFor(event) });
@@ -472,10 +498,11 @@ export function VisitorProvider({
       }
     },
     toggleSaved: async (event) => {
-      if (!uid) return;
+      const id = await ensureId();
+      if (!id) return;
       const on = !saved.has(event.id);
       try {
-        await setSaved(uid, event.id, on);
+        await setSaved(id, event.id, on);
         showToast(on ? 'Saved. Find it under Saved events.' : 'Removed from Saved events.');
       } catch (err) {
         console.error(err);
@@ -607,9 +634,10 @@ export function VisitorProvider({
       showToast('Your public profile is deleted.');
     },
     setMode: async (mode) => {
-      if (!uid) return;
+      const id = await ensureId();
+      if (!id) return;
       try {
-        await setMode(uid, mode);
+        await setMode(id, mode);
         setSheet(null);
       } catch (err) {
         console.error(err);
@@ -617,9 +645,10 @@ export function VisitorProvider({
       }
     },
     setTiming: async (timing) => {
-      if (!uid) return;
+      const id = await ensureId();
+      if (!id) return;
       try {
-        await setPreferredTiming(uid, timing);
+        await setPreferredTiming(id, timing);
       } catch (err) {
         console.error(err);
         saveFailed();
@@ -647,7 +676,9 @@ export function VisitorProvider({
       await Promise.all(mine.map((f) => hideMyInitial(f.eventId, uid)));
     },
     invite: async () => {
-      const code = me?.shareCode ?? (uid ? shareCodeFor(uid) : '');
+      const id = await ensureId();
+      if (!id) return;
+      const code = me?.shareCode ?? shareCodeFor(id);
       const url = `${window.location.origin}/?ref=${encodeURIComponent(code)}`;
       track('invite_click');
       try {
@@ -668,14 +699,15 @@ export function VisitorProvider({
     closeOrganiser: () => setOrganiserEvent(null),
     answerLadder: (prompt, answer) => {
       setLadder(null);
-      if (!uid) return;
+      const id = uid ?? attachedUid.current;
+      if (!id) return;
       track('price_ladder_answer', {
         eventId: prompt.event.id,
         answer,
         priceAsked: prompt.nextPrice,
         priceSeen: prompt.event.price,
       });
-      recordPriceAnswer(uid, prompt.event.id, prompt.event.price, prompt.nextPrice, answer).catch((err) =>
+      recordPriceAnswer(id, prompt.event.id, prompt.event.price, prompt.nextPrice, answer).catch((err) =>
         console.warn('price answer not saved', err),
       );
     },
@@ -694,8 +726,9 @@ export function VisitorProvider({
       setSheet('initial');
     },
     showInitial: async (event, initial) => {
-      if (!uid) return;
-      await showMyInitial(event.id, uid, initial);
+      const id = await ensureId();
+      if (!id) return;
+      await showMyInitial(event.id, id, initial);
       setSheet(null);
     },
     hideInitial: async (event) => {
@@ -726,7 +759,14 @@ export function VisitorProvider({
         showToast(`That didn't work. Email ${CONTACT_EMAIL} and we'll delete them by hand.`);
       }
     },
-    deleteEverything: () => deleteAllMyData(events.map((e) => e.id)),
+    deleteEverything: async () => {
+      const report = await deleteAllMyData(events.map((e) => e.id));
+      setUid(null);
+      setMe(null);
+      setMyProposals([]);
+      setOrganiserStatus('none');
+      return report;
+    },
     editProposal: (p) => {
       setEditing(p);
       actions.setTab('propose');
@@ -772,7 +812,8 @@ export function VisitorProvider({
     bannerDismissed,
     toast,
     myProposals,
-    myProposalsLoaded,
+    // With no ID there are no proposals to wait for.
+    myProposalsLoaded: myProposalsLoaded || !uid,
     organiserStatus,
     editing,
     profile,

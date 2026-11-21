@@ -12,7 +12,7 @@ export function Proposals() {
   const {
     state: { proposalRows },
     actions: { run, setNotice },
-    meta: { canEdit },
+    meta: { isOwner: canEdit },
   } = useAdmin();
 
   const approve = (p: Proposal) => {

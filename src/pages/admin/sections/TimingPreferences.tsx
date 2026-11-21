@@ -7,7 +7,7 @@ import { downloadCsv } from '../../../lib/csv';
 export function TimingPreferences() {
   const {
     state: { timingRows },
-    meta: { canEdit },
+    meta: { isOwner: canEdit },
   } = useAdmin();
   if (!canEdit) return null;
   const exportTiming = () =>

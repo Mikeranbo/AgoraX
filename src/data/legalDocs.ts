@@ -1,12 +1,19 @@
 import { CONTACT_EMAIL, PILOT_CITY } from '../config/pilot';
-import type { NoticeSection } from './privacyNotice';
+import { LEGAL } from '../config/legal';
 
 /**
- * Terms of Use and Cookie Policy, rendered by LegalDocScreen. Like the privacy policy they
- * describe what the code actually does. Facts we cannot confirm from the code stay marked
- * [To be confirmed: …], and both need review by someone qualified before they are final.
+ * Terms of Use and Cookie Policy, rendered by LegalDocScreen. Like the privacy notice
+ * (src/data/privacyNotice.ts, version 1.1) they describe what the code actually does. The
+ * Cookie Policy lists every item section 5 of the notice mentions; keep the two in step.
  */
-export const LEGAL_DOCS_VERSION = 'draft-2026-11';
+export const LEGAL_DOCS_VERSION = '1.1-2026-11-21';
+
+export interface NoticeSection {
+  title: string;
+  paragraphs: string[];
+  /** Optional rows: [what, detail]. */
+  table?: [string, string][];
+}
 
 export interface LegalDoc {
   title: string;
@@ -22,8 +29,8 @@ export const TERMS: LegalDoc = {
     {
       title: '1. Who we are',
       paragraphs: [
-        `AgoraX is a student pilot run from ${PILOT_CITY} by Nikita Sondarev ("Mike"). Contact: ${CONTACT_EMAIL}.`,
-        '[To be confirmed: the legal name of the operator, a postal address and, once registered, the KvK number.]',
+        `AgoraX is a student pilot run from ${PILOT_CITY} by ${LEGAL.legalName}, a private person and a student at Hanze University of Applied Sciences. Hanze University is not involved in running the pilot.`,
+        `Address: ${LEGAL.postalAddress}. Email: ${CONTACT_EMAIL}. AgoraX is not a registered company yet, so there is no KvK number.`,
       ],
     },
     {
@@ -42,8 +49,8 @@ export const TERMS: LegalDoc = {
     {
       title: '4. Your anonymous account',
       paragraphs: [
-        'There is no sign-up or password. The site gives this browser a random ID, and your interests and settings are linked to it. If you clear your browser data or switch device, we cannot bring them back.',
-        'You can delete everything at any time under My account → Account & security.',
+        'There is no sign-up or password. Just looking around creates nothing. The first time you do something, for example tap "Interested", the site gives this browser a random ID, and your interests and settings are linked to it. If you clear your browser data or switch device, we cannot bring them back.',
+        'You can delete your contact details or everything at any time under Privacy & my data, linked at the bottom of every page.',
       ],
     },
     {
@@ -93,23 +100,30 @@ export const TERMS: LegalDoc = {
 export const COOKIES: LegalDoc = {
   title: 'Cookie Policy',
   intro:
-    "AgoraX sets no cookies of its own and uses no advertising or third-party tracking tools. It keeps a few small items in your browser's storage. Under Dutch law (Telecommunicatiewet, article 11.7a) only the items the site needs to work may be kept without asking; for statistics we ask first.",
+    "AgoraX sets no cookies of its own, and the site's hosting (Vercel) sets none either. It uses no advertising or third-party tracking tools. Just visiting stores nothing on your device and creates no ID. Under Dutch law (Telecommunicatiewet, article 11.7a) only what the site needs to do what you asked may be kept in your browser without asking, so each item below is saved only after you do the thing it belongs to. For statistics we ask first.",
   sections: [
     {
-      title: 'Needed for the site to work (no consent needed)',
-      paragraphs: ['These stay on your device and are only used to make the site work for you:'],
+      title: 'Before you do anything',
+      paragraphs: [
+        'Opening the site adds one to an anonymous visit count for the poster or shared link that brought you here. That count is kept in our database, not on your device, and no ID is involved.',
+      ],
+    },
+    {
+      title: 'Needed for what you asked (no consent needed)',
+      paragraphs: ["These are kept in your browser's storage, only from the moment you do the thing they belong to:"],
       table: [
-        ['Anonymous sign-in', "Firebase keeps a random ID for this browser (IndexedDB), so your interests stay yours. There's no name or password in it."],
-        ['Your choices', 'Your answer to the statistics question, your city, whether the menu is open, whether you saw the pilot note or closed the contact banner (localStorage).'],
-        ['Where you came from', 'Which poster or shared link brought you here, so we can count interest per poster (localStorage).'],
-        ['This visit', 'That the opening screen was already shown in this tab (sessionStorage, gone when you close the tab).'],
+        ['Anonymous sign-in', 'From your first action, for example tapping "Interested". Firebase keeps a random ID for this browser (IndexedDB), and the site notes that this browser has one (localStorage, agorax_id), so your interests stay yours. There is no name or password in it.'],
+        ['Where you came from', 'Which poster or shared link brought you here, saved when the ID is created, so interest can be counted per poster (localStorage, agorax_src).'],
+        ['Your settings', 'Your city and whether the menu is open, once you change them (localStorage, agorax_city and agorax_sidebar).'],
+        ['Notices you closed', 'That you closed the pilot notice or the contact banner (localStorage, agorax.pilotNotice.hidden and agorax_banner_dismissed), and that this tab already showed the opening screen (sessionStorage, agorax.entry.done, gone when you close the tab).'],
+        ['Your statistics answer', 'Your yes or no to the statistics question, once you tap one (localStorage, agorax_stats_consent).'],
       ],
     },
     {
       title: 'Statistics (only if you allow them)',
       paragraphs: [
-        'If you tap "Allow" on the statistics question, we count which events you see and open, how far you scroll and which "coming soon" items you tap. This is stored in our Firebase database with your random ID, without your name or contact details. Your browser also remembers which cards were already counted, so they are not counted twice.',
-        'If you tap "No thanks", or don\'t answer, nothing is counted. You can change your answer any time in My account → Privacy & my data.',
+        'If you tap "Allow" on the statistics question, we count which events you see and open, how far you scroll and which "coming soon" items you tap. This is stored in our Firebase database with your random ID, without your name or contact details. Your browser also remembers which cards were already counted, so they are not counted twice (localStorage, agorax_counted).',
+        'If you tap "No thanks", or don\'t answer, nothing is counted. You can change your answer any time under Privacy & my data, linked at the bottom of every page.',
       ],
     },
     {
@@ -120,13 +134,13 @@ export const COOKIES: LegalDoc = {
         ['YouTube', 'Only when you press play on a video, through its privacy-enhanced mode (youtube-nocookie.com).'],
         ['Vimeo', 'Only when you press play, with "do not track" switched on.'],
         ['Wikimedia Commons and Openverse', 'Only while you look for a photo when proposing an event.'],
-        ['Vercel', 'Hosts the site. [To be confirmed: that Vercel sets no cookies.]'],
+        ['Vercel', 'Hosts the site. It sets no cookies; it receives your IP address and browser details when the page loads.'],
       ],
     },
     {
       title: 'Clearing it',
       paragraphs: [
-        'You can delete all of it through your browser settings (site data for this website). You then start again as a new visitor, and your interests are no longer linked to you. To delete what we store on our side as well, use My account → Account & security → Delete my data and account.',
+        'You can delete all of it through your browser settings (site data for this website). You then start again as a new visitor, and your interests are no longer linked to you. To delete what we store on our side as well, use Privacy & my data → Delete everything.',
         `Questions: ${CONTACT_EMAIL}. Version ${LEGAL_DOCS_VERSION}.`,
       ],
     },

@@ -11,10 +11,7 @@ export const LegalDocScreen = ({ doc }: { doc: keyof typeof DOCS }) => {
   return (
     <div className="mx-auto max-w-2xl px-4 pt-16 sm:px-6">
       <ScreenTitle>{d.title}</ScreenTitle>
-      <p role="note" className="mb-6 rounded-sheet border border-amber-300/40 bg-amber-300/10 p-4 text-[14px] leading-relaxed text-amber-100">
-        <strong className="font-semibold">Draft ({LEGAL_DOCS_VERSION}).</strong> Written for the pilot and still to be reviewed by
-        someone qualified. Open points are marked.
-      </p>
+      <p className="-mt-3 mb-6 text-[14px] text-slate-400">Version {LEGAL_DOCS_VERSION}</p>
       <div className="sheet space-y-8 rounded-sheet p-4 sm:p-6">
         <p className="max-w-[65ch] text-[15px] leading-relaxed text-slate-200">{d.intro}</p>
         {d.sections.map((s) => (

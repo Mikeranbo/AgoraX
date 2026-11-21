@@ -8,11 +8,12 @@ export function Overview() {
   const waiting = proposals.filter((p) => p.status === 'new').length;
   return (
     <Section title="Overview" subtitle="Live — updates as people use the site">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Tile label="Visitors" value={stats.visitors} hint="distinct phones (uids in users)" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <Tile label="Visits" value={stats.visits} hint="page loads, counted without an ID" />
+        <Tile label="People who acted" value={stats.visitors} hint="have an ID (owner only)" />
         <Tile label="Total joins" value={stats.totalJoins} hint="participant documents" />
-        <Tile label="People who joined" value={stats.joiners} hint="at least one event" />
-        <Tile label="Contacts left" value={stats.contacts} hint={`${pct(stats.contacts, stats.visitors)} of visitors`} />
+        <Tile label="People who joined" value={stats.joiners} hint={`${pct(stats.joiners, stats.visits)} of visits`} />
+        <Tile label="Contacts left" value={stats.contacts} hint={`${pct(stats.contacts, stats.visits)} of visits`} />
         <Tile label="Avg events picked" value={stats.avgPicks.toFixed(1)} hint="per person who joined" />
         <Tile label="Help-run taps" value={stats.organiserTaps} hint="one per person per event" />
         <Tile label="Space offers" value={venueOffers.length} />

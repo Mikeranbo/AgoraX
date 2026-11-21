@@ -7,7 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Tab, useVisitor } from '../state/VisitorProvider';
 import { ProfileAvatar, displayNameOf } from '../components/Avatar';
 import { OrganiserBadge } from '../components/OrganiserBadge';
-import { CONTACT_EMAIL, PRIVACY_NOTICE_FINAL } from '../config/pilot';
+import { CONTACT_EMAIL, EXTRA_DATA_FEATURES } from '../config/pilot';
 import { LOCKED_FEATURES, LockedFeature } from '../data/features';
 import { PLAN_MAX, PLAN_MIN, applyToOrganise, withdrawApplication } from '../services/organiserAccount';
 import { errorClass, fieldClass, labelClass, primaryButtonClass } from '../components/ui';
@@ -232,9 +232,9 @@ export const ProfileScreen = () => {
             </div>
           )}
           <p className="mt-5 text-[13px] text-slate-400">
-            {PRIVACY_NOTICE_FINAL
+            {EXTRA_DATA_FEATURES
               ? 'Shown where you appear as an organiser. Your interests, saved events and contact details are never part of it.'
-              : 'Only you see this for now. Photos, a bio and organiser profiles open once our privacy notice is final.'}
+              : 'Only you see this. Photos, a bio and organiser profiles are not part of this pilot.'}
           </p>
         </div>
       </section>

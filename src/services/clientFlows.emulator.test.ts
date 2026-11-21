@@ -9,21 +9,33 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 
-const current = vi.hoisted(() => ({ uid: 'visitor', db: null as any }));
-vi.mock('../lib/firebase', () => ({
-  get db() {
-    return current.db;
-  },
-  auth: {
+const current = vi.hoisted(() => ({ uid: 'visitor', db: null as any, signedIn: false }));
+vi.mock('../lib/firebase', () => {
+  // No ID until the first action signs in (identity.ts); after that, whoever act() set.
+  const auth = {
     get currentUser() {
-      return { uid: current.uid, isAnonymous: true };
+      return current.signedIn ? { uid: current.uid, isAnonymous: true } : null;
     },
     authStateReady: async () => {},
-  },
-}));
+  };
+  return {
+    get db() {
+      return current.db;
+    },
+    getAuthLazy: () => auth,
+    currentUser: () => auth.currentUser,
+  };
+});
 
 // The anonymous account itself is deleted last by "Delete my data"; the auth stub has nothing to delete.
-vi.mock('firebase/auth', async (original) => ({ ...(await original<typeof import('firebase/auth')>()), deleteUser: vi.fn(async () => {}) }));
+vi.mock('firebase/auth', async (original) => ({
+  ...(await original<typeof import('firebase/auth')>()),
+  deleteUser: vi.fn(async () => {}),
+  signInAnonymously: vi.fn(async () => {
+    current.signedIn = true;
+    return { user: { uid: current.uid, isAnonymous: true } };
+  }),
+}));
 
 import {
   joinEvent,
@@ -41,7 +53,7 @@ import {
   setPreferredTiming,
   setMode,
 } from './firebaseService';
-import { touchUser, linkContact, setConsent, saveDisplayName, deleteMyContact } from './identity';
+import { ensureAnonymousAuth, linkContact, setConsent, saveDisplayName, deleteMyContact } from './identity';
 import { applyCounterFixes, grantAdmin, purgeNonSeedEvents, revokeAdmin } from './adminService';
 import { savePublicProfile, deletePublicProfile } from './profileService';
 import { writeProposal, deleteDraft } from './organiserService';
@@ -88,9 +100,9 @@ describe.skipIf(!host)('client flows against the rules', () => {
     await env?.cleanup();
   });
 
-  it('first visit creates the users doc', async () => {
+  it('the first action creates the ID and the users doc', async () => {
     act('visitor');
-    await touchUser();
+    await ensureAnonymousAuth();
     const me = await raw(async (db) => (await getDoc(doc(db, 'users', 'visitor'))).data());
     expect(me).toMatchObject({ uid: 'visitor', shareCode: 'visitor', hasContact: false });
   });

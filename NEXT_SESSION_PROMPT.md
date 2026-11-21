@@ -1,88 +1,121 @@
 # Prompt for the next Claude Code session
 
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
-`agorax-a8d07`, Vercel deploys `main` to https://agora-x.vercel.app.
+`agorax-a8d07` (Blaze, europe-west4), Vercel deploys `main` to https://agora-x.vercel.app.
 
-## Pending spec list (from Mike, 11 Nov 2026; keep this list here)
+## How Mike works
 
-1. Pilot disclaimer on the opening screen (honest: "this is a pilot, nothing is paid yet").
-2. No dates on any event.
-3. Filters: category, near me / elsewhere, and today / tomorrow shown as locked "coming soon".
-4. Collapsible sidebar that holds only event-related items.
-5. Settings, privacy and legal live inside My account, not the sidebar.
-6. Profile styled like a social profile: cover image and avatar.
-7. Two account types: participant and organiser. An organiser applies, an admin approves, and the
-   organiser then gets a badge and can create their own events.
-8. Full Privacy Policy and Terms pages (GDPR, Dutch law).
-9. "I am 16 or older" tick before contact capture.
-10. Analytics consent banner. Only track after consent, except strictly necessary data.
-11. Background doodles in a graffiti style: outlines only, with the gradient running the opposite way
-    to the buttons.
-12. Improv event: add at least 2 more photos.
+Mike (legal name Michael Aleinikov) is a Hanze IBS student building AgoraX alone; not a developer,
+limited usage. Give one complete answer; don't ask what the files can answer. Exact steps for anything
+he must do himself. Never ask for or use his passwords; stop at a Google sign-in page. On his PC,
+PowerShell blocks `npx`: use `npx.cmd` (Git Bash `npx` works).
 
-Status on 18 Nov 2026 (all built, tested and live):
-1. Done: the pilot notice in the entry flow, plus a line on the opening screen itself.
-2. Done: no event has a confirmed date; cards say "Date to be confirmed".
-3. Done: category chips, near / other locations, and Today / Tomorrow as locked "Soon" chips.
-4. Done: the menu holds only events (lists, picks, propose, my proposals, space, event ideas to come).
-5. Done: settings, privacy, legal, help and the non-event "coming soon" items live on My account.
-6. Done: profile with cover and avatar (was already built).
-7. Done: Account type on My account. Apply → admin approves on /admin → "Organiser applications"
-   → badge, and "Publish event" puts their event live (rules: `organiserApplications`,
-   `organiserPublishesEvent`). Taking approval back is a button there too.
-8. Drafted: Privacy Policy (updated), Terms of Use and Cookie Policy pages under Dutch law. Still
-   marked draft with [To be confirmed] points (legal name, address, KvK, Google/Vercel terms, retention);
-   they need a qualified review. The Imprint waits for the company details.
-9. Done: "I'm 16 or older" on every form that takes an email or number.
-10. Done: statistics are opt-in. A banner asks once; nothing is tracked before "Allow".
-11. Done: doodles are outlines with a rough marker filter, purple top left to blue bottom right
-    (the buttons run indigo to purple, 135°).
-12. Done: improv has 3 more Unsplash photos (Anita Jankovic ×2, Kyle Hinkson).
+## Decisions (21 Nov 2026)
 
-## State on 5 Nov 2026
+1. Mentor feedback (Henry): the page is overloaded; stock photos/videos and doodles hurt; the pilot
+   explanation is hidden; unclear what prices pay for; people are scared to host; posters convert
+   weakly and Hanze is strict about them. So: simplify, and compare two concepts on branches.
+2. `main` stays as it is (cut-out opening page). Restore tag: `cutout-hero-original` (main before
+   21 Nov). After the privacy work below, main is not changed again until a concept wins.
+3. Privacy: controller Michael Aleinikov, Suikerlaan 1, 9743 DA Groningen, mikhailalenikau@gmail.com,
+   no KvK. Pilot ends 31 March 2027; contact details deleted by 30 June 2027; statistics deleted
+   31 March 2027. Nothing stored on the device before the first action. Only the owner reads contact
+   details.
 
-- Live database matches `src/data/seedEvents.ts`: the 10 events that left the list (bouldering, padel,
-  boxing, fencing, basketball, ping-pong, swim & sauna, running, video games, cycling) were removed
-  with their 6 sign-ups via /admin, and the seed wrote 17 new + 23 refreshed = 40 events. A read-only
-  backup from before is in `..\backups\firestore-events-before-40-2026-11-05.json`.
+## State of main (21 Nov 2026)
+
+- Privacy notice 1.1 is live: `src/data/privacyNotice.ts` is `docs/PRIVACY_NOTICE_FINAL.md` word for
+  word (`src/data/privacyNotice.test.ts` fails if they differ). NOTICE_VERSION `1.1-2026-11-21`,
+  CONTACT_EMAIL mikhailalenikau@gmail.com. Terms, Cookie Policy and Imprint name the operator; no
+  "[To be confirmed]" left. The old draft notice file was removed.
+- Nothing on the device before the first action (Telecommunicatiewet 11.7a):
+  - Firebase Auth starts lazily (`getAuthLazy()` in `src/lib/firebase.ts`); the anonymous ID is made
+    by the first action (Interested, a form, Save, ...). A returning browser is recognised by
+    `agorax_id` / the old `agorax_src` / Firebase's IndexedDB and restored on load.
+  - The Firebase SDK's IndexedDB "heartbeat" is switched off in `src/lib/firebase.ts`.
+  - `?src` and `?ref` stay in memory and are written to `users/{uid}` when the ID is made.
+  - Page loads only add +1 to `visits/{src}` (no ID). /admin "Visits" and "Visits from posters" use it.
+  - `once()` is memory-only; the pilot-notice flag and statistics answer are stored only on a click.
+  - `e2e/storage.spec.ts` proves it: fresh load with `?src=test` and a shared link leave
+    localStorage, sessionStorage, IndexedDB and cookies empty; the first "I'm interested" creates the
+    ID with `src=test`.
+- Firestore rules: events, initials, venues and public profiles are readable without an ID. Only role
+  `owner` reads `users` (contact details), helper offers, space offers, proposals and suggestions, and
+  decides proposals and organiser applications. `editor` edits events and media. Owner-only
+  "contact wipe" update on users. Rules tests: `npm run test:rules` (251 checks + 16 client flows).
+- Footer on every page: "Privacy & my data" (delete contact details, delete everything, statistics
+  Allow / No thanks). With no ID it says nothing is stored and creates nothing.
+- /admin (owner): "Contact data" section with "Delete all contact data" (two-step confirm). It wipes
+  numbers, emails, names, consents and shown initials; delete WhatsApp/Gmail chats by hand.
+- `VITE_PRIVACY_NOTICE_FINAL=true` is set in Vercel (Production and Preview). Public profiles and the
+  launch/invitation emails are NOT covered by notice 1.1, so they need a second flag,
+  `VITE_EXTRA_DATA_FEATURES=true`, which stays unset in Vercel (tests switch it on).
+- Vercel: plan **Hobby** (team "mikeranbo's projects"). Vercel's DPA only covers Pro/Enterprise, so
+  moving hosting to Firebase Hosting is an open decision. Live responses set no cookies (checked).
+- Tests on 21 Nov: lint, build, `npm test` (110 passed), `npm run test:rules` (all passed),
+  e2e 59 tests (all passed after two wording fixes; 4 device skips).
+
+## Concept branches (both from the updated main)
+
+- `concept-simple` (mentor's version): Events page explains itself at the top (pick → we count → it
+  happens, or nobody pays), nav is only Events and My picks, 12 visible events with plain "what you do /
+  what's included / what you bring / what the price pays for", photos only, "Help run this" only on the
+  event page, one footer line "Want to run or host something? Tell us" with one short form, contact
+  sheet right after the first "I'd go", then the price question once. Flags live in
+  `src/config/concept.ts` (sidebar, account types, locked items, filters, doodles are hidden, not
+  deleted). Events have an optional `visible` field, toggled on /admin; without it the default 12 are
+  shown.
+- `concept-current` (Mike's version, cleaned): main without the cut-out opening hero (slim top bar
+  with the logo instead), without the city / location / date filter box, and photos only.
+- Preview links (Vercel branch aliases):
+  https://agora-x-git-concept-simple-mikeranbos-projects.vercel.app and
+  https://agora-x-git-concept-current-mikeranbos-projects.vercel.app
+  Preview deployments on the Hobby plan may ask for a Vercel login (Deployment Protection) unless it
+  is switched off in Vercel → agora-x → Settings → Deployment Protection.
+- Each branch's own copy of this file has its test status at the bottom.
+
+### The 12 events on concept-simple (and why)
+
+Free or cheap, runnable by Mike alone with no instructor or special venue, and asked for by students
+(interviews: `../../AgoraX-interviews.xlsx`; survey: `../../AgoraX survey responses.xlsx`):
+
+1. Chess Challenge: three survey answers asked for chess.
+2. Film Club: movies in the interviews, three survey asks for a film night.
+3. Photo Walk & Share: two survey asks for photo walks; a phone is enough.
+4. Mafia / Werewolf Night: asked for in the survey; one host and cards.
+5. Reading Meetup: two survey asks for a reading night; free.
+6. Board-Game Discovery: game nights are what students already organise; people bring games.
+7. Park Games: sport is the most common hobby; a park needs no booking.
+8. Walk & Talk Groningen: walking in the survey; free, suits newcomers.
+9. International Potluck: cooking and dinners in interviews and survey; shared kitchen.
+10. Tote-Bag Painting: art asks in the survey; €5 = bag + fabric paint (the real cost per person).
+11. Hiking Trip: hiking and walking in the survey; own train ticket.
+12. Karaoke Night: parties and drinks are the biggest interview theme; the bar lends the room.
+
+All except tote-bag painting have no real cost, so they show as Free on concept-simple.
+
+## Still open (not done yet)
+
+- Reply to Henry with the research: 22 student interviews; 11 of the 19 with a hobby went to no
+  related event last month.
+- Choose the winning concept, then merge it into main (`git merge` the branch; check rules and tests).
+- Hosting: move to Firebase Hosting if staying on Vercel Hobby (no DPA).
+- Distribution: WhatsApp/Telegram class groups, study associations, ESN, Instagram, short lecture
+  pitches, flyers handed out in person.
+- Install WhatsApp Business to message students.
+- Check the name "AgoraX" against trademarks (BOIP/EUIPO).
+- Older open points (docs/SECURITY.md): retired `contactKeys`, API key restriction, App Check,
+  `npm audit fix` (never `--force`), unused `@google/genai`.
+- The visit counter accepts +1 from anyone, so a script could inflate it; fine for a pilot.
+
+## Admins and data
+
 - Admins: `0iWlXrItViTi0MWyWvJOLaApjfG3` owner "Mike (founder)"; `LUhMLDBO3CP0OsuSGlpUCUyNTqM2` editor
-  "Claude (co-founder)" (the Claude desktop browser pane, granted from the console).
-- Storage: default bucket `agorax-a8d07.firebasestorage.app` (europe-west4). The Storage service
-  agent has the "Firebase Rules Firestore Service Agent" role (granted in Cloud Console, 5 Nov).
-  `storage.rules` allow editors and the event's organiser to upload photos (jpeg/png/webp, 10 MB)
-  and videos (mp4/webm, 50 MB) to `events/<id>/`; only editors delete. Gallery photos from the device
-  are scaled to 2000 px and saved as JPEG (no camera metadata) before upload. Tested live as the
-  editor on 5 Nov: photo and video uploaded, shown on Photo Walk & Share, then deleted; a GIF is refused.
-- Event page: Meetup-style two columns on wide screens (sticky sign-up card on the right), header
-  edge to edge; the footer is a full-width band on every screen.
-
-## State on 24 Oct 2026
-
-- `ec69644` (security + pilot UX) plus a CRLF-safe privacy-notice test are on `main` and live.
-  The new `firestore.rules` were deployed first, then the frontend (Vercel).
-- Backup of the pre-integration state: `D:\proects\work\agora x\code\backups\code3-before-ec69644-2026-10-23\`
-  and local branch `backup/before-ec69644`. Keep it.
-- Tests: lint, build, `npm test` (110 passed, 16 emulator tests skipped there), `npm run test:rules`
-  (189/189 + 16/16), `npm run test:e2e` (47 passed, 4 device skips, 1 flaky page-setup timeout that
-  passes on rerun).
-- Live smoke test done: 33 events load, join → leave → rejoin → leave moves the count 1→2→1→2→1,
-  no console or permission errors, /admin for a non-admin shows "Not authorised" and no Claim owner.
-
-## Still to do (ask me before anything that touches production)
-
-1. **Owner access: done (24 Oct).** `admins/0iWlXrItViTi0MWyWvJOLaApjfG3` (my own browser,
-   `grantedBy` "console") is the only owner; I confirmed /admin works. The orphaned Claude-pane owner
-   `admins/Z0l8tHn15BZHUPTLKzqxguqo17k2` (grantedBy `bootstrap`, 22 Oct) was deleted; its Auth user
-   and other records were left alone.
-2. **Fix counts** is a separate step: only when I ask, on /admin → Events, if the button shows
-   (docs/SECURITY.md, "Migration and compatibility"). Not run yet.
-3. Privacy notice: docs/PRIVACY_NOTICE_DRAFT.md lists open points (controller details, legal bases,
-   processors). New personal-data features stay off until `VITE_PRIVACY_NOTICE_FINAL=true` is set in
-   Vercel; only flip it when the notice is final.
-4. Recommended in SECURITY.md, each needing my decision: delete retired `contactKeys` (hashed
-   emails/phones), restrict the Firebase web API key to our domains, Firebase App Check, an
-   `npm audit fix` pass (never `--force`), removing the unused `@google/genai` dependency.
-5. Optional: the flaky phone e2e page-setup timeout ([phone] e2e/profile.spec.ts:102).
+  "Claude (co-founder)" (the Claude desktop browser pane). Editors can no longer read contact details.
+- Storage bucket `agorax-a8d07.firebasestorage.app`: photos jpeg/png/webp ≤10 MB, videos ≤50 MB in
+  `events/<id>/`, uploaded by editors and the event's organiser.
+- Backups: `..\backups\firestore-events-before-40-2026-11-05.json`,
+  `..\backups\code3-before-ec69644-2026-10-23\`, local branch `backup/before-ec69644`.
 
 ## Local emulator preview (never point it at production)
 
@@ -90,3 +123,5 @@ Status on 18 Nov 2026 (all built, tested and live):
 2. Seed: `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node --input-type=module -e "import seed from './e2e/seed.mjs'; await seed();"`
 3. PowerShell: `$env:VITE_FIREBASE_EMULATORS = '1'; npx.cmd vite --port 5173 --strictPort --host 127.0.0.1`
 4. Open http://127.0.0.1:5173. A plain `npm run dev` talks to the real Firebase project.
+5. Browser tests without Playwright's own browser: set `PW_CHROMIUM_PATH` to
+   `C:\Program Files\Google\Chrome\Application\chrome.exe`.

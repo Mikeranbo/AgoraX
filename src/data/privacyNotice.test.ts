@@ -1,46 +1,28 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { NOTICE_SECTIONS, NOTICE_STATUS } from './privacyNotice';
+import { NOTICE_CHAPTERS, NOTICE_DATE_LINE, noticeMarkdown } from './privacyNotice';
+import { CONTACT_EMAIL, NOTICE_VERSION } from '../config/pilot';
 
-const DOC = 'docs/PRIVACY_NOTICE_DRAFT.md';
-const START = '<!-- notice:start (generated from src/data/privacyNotice.ts; run UPDATE_NOTICE=1 npx vitest run src/data/privacyNotice.test.ts) -->';
-const END = '<!-- notice:end -->';
-
-/** The notice as Markdown, exactly as the app shows it. */
-export function noticeMarkdown(): string {
-  const out = [`> **Draft (${NOTICE_STATUS.version}).** ${NOTICE_STATUS.note}`, ''];
-  for (const s of NOTICE_SECTIONS) {
-    out.push(`### ${s.title}`, '');
-    s.paragraphs.forEach((p) => out.push(p, ''));
-    if (s.table) {
-      out.push('| | |', '| --- | --- |');
-      s.table.forEach(([what, detail]) => out.push(`| ${what} | ${detail.replace(/\|/g, '\\|')} |`));
-      out.push('');
-    }
-  }
-  return out.join('\n').trim();
-}
+const FINAL = 'docs/PRIVACY_NOTICE_FINAL.md';
 
 describe('privacy notice', () => {
-  it('the review document carries the same text the app shows', () => {
+  it('the app shows docs/PRIVACY_NOTICE_FINAL.md word for word', () => {
     // Windows checkouts with core.autocrlf=true have CRLF line endings; compare as LF.
-    const doc = readFileSync(DOC, 'utf8').replace(/\r\n/g, '\n');
-    const block = `${START}\n${noticeMarkdown()}\n${END}`;
-    if (process.env.UPDATE_NOTICE) {
-      const before = doc.slice(0, doc.indexOf(START));
-      const after = doc.slice(doc.indexOf(END) + END.length);
-      writeFileSync(DOC, before + block + after);
-      return;
-    }
-    expect(doc).toContain(block);
+    const doc = readFileSync(FINAL, 'utf8').replace(/\r\n/g, '\n');
+    expect(noticeMarkdown()).toBe(doc);
   });
 
-  it('stays marked as a draft while any fact is still to be confirmed', () => {
-    const open = JSON.stringify(NOTICE_SECTIONS).includes('[To be confirmed');
-    if (open) expect(NOTICE_STATUS.draft).toBe(true);
+  it('names the current controller and version only', () => {
+    const text = JSON.stringify(NOTICE_CHAPTERS);
+    expect(text).toContain('Michael Aleinikov');
+    expect(text).toContain(CONTACT_EMAIL);
+    expect(text).not.toMatch(/sondarev|Nikita/i);
+    expect(text).not.toContain('[To be confirmed');
+    expect(NOTICE_DATE_LINE).toContain('1.1');
+    expect(NOTICE_VERSION).toBe('1.1-2026-11-21');
   });
 
   it('never claims certification or approval', () => {
-    expect(JSON.stringify(NOTICE_SECTIONS)).not.toMatch(/GDPR[- ]certified|fully compliant|legally approved/i);
+    expect(JSON.stringify(NOTICE_CHAPTERS)).not.toMatch(/GDPR[- ]certified|fully compliant|legally approved/i);
   });
 });

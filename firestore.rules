@@ -38,7 +38,8 @@ service cloud.firestore {
       return get(myAdminDoc()).data.role;
     }
 
-    // owner + editor may change content and see contact details; viewer sees aggregates only.
+    // owner + editor may change events and their media; viewer sees aggregates only.
+    // Contact details, helper offers, space offers, proposals and suggestions: owner only.
     function isEditor() {
       return isAdmin() && adminRole() in ['owner', 'editor'];
     }
@@ -391,14 +392,35 @@ service cloud.firestore {
 
     // meta/bootstrap (the old first-owner lock) is no longer read or written: the safety net denies it.
 
+    // The owner's "Delete all contact data": removes the contact fields and nothing else.
+    function isContactWipe() {
+      let d = incoming();
+      let fields = ['name', 'email', 'phone', 'consents', 'consent', 'consentAt', 'wantsToOrganise', 'hasSpace'];
+      return changedKeys().hasOnly(fields.concat(['hasContact'])) &&
+             !d.keys().hasAny(fields) &&
+             d.get('hasContact', false) == false;
+    }
+
     match /users/{userId} {
-      allow read: if isOwner(userId) || isEditor();
-      allow create, update: if isOwner(userId) && isValidUser(userId);
+      allow read: if isOwner(userId) || isAdminOwner();
+      allow create: if isOwner(userId) && isValidUser(userId);
+      allow update: if (isOwner(userId) && isValidUser(userId)) || (isAdminOwner() && isContactWipe());
       allow delete: if isOwner(userId);
     }
 
+    // Visits per poster or link (?src=), counted on page load with no ID and nothing stored on
+    // the device: anyone may add exactly 1, nobody may set or lower a count. Admins read totals.
+    match /visits/{src} {
+      allow read: if isAdmin();
+      allow create: if src.matches('^[a-z0-9_-]{1,40}$') &&
+                       incoming().keys().hasOnly(['count']) && incoming().count == 1;
+      allow update: if incoming().keys().hasOnly(['count']) &&
+                       existing().count is int && incoming().count == existing().count + 1;
+    }
+
     match /events/{eventId} {
-      allow read: if isSignedIn();
+      // Public: the page shows the events before anyone has an ID.
+      allow read: if true;
       allow create: if (isEditor() && isValidEvent(incoming())) || organiserPublishesEvent(eventId);
       // The counter steps are listed first so ordinary visitors never trigger an admin lookup.
       allow update: if (isSignedIn() && (joinStep(eventId) || interestStep(eventId) ||
@@ -426,7 +448,7 @@ service cloud.firestore {
       // Opt-in: a joiner's first initial, shown on the event's list. Only people who joined
       // can add one, only their own, and only a single character.
       match /faces/{userId} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow create, update: if isOwner(userId) &&
                                  incoming().keys().hasOnly(['initial', 'ts']) &&
                                  incoming().initial is string && incoming().initial.size() == 1 &&
@@ -438,7 +460,7 @@ service cloud.firestore {
       // "I'd help run this", saved against the event. No contact details in here.
       // Sending the offer again updates the answer without counting twice.
       match /helpers/{userId} {
-        allow read: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdminOwner();
         allow create: if isOwner(userId) && isValidHelper(incoming()) &&
                          counterMoves(eventId, 'organiserInterest', 1);
         allow update: if isOwner(userId) && isValidHelper(incoming());
@@ -457,15 +479,15 @@ service cloud.firestore {
     }
 
     match /{path=**}/helpers/{userId} {
-      allow read: if isAdmin();
+      allow read: if isAdminOwner();
     }
 
     match /{path=**}/faces/{userId} {
-      allow read: if isSignedIn();
+      allow read: if true;
     }
 
     match /venues/{venueId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update: if isEditor() && isValidVenue(incoming());
       allow delete: if isEditor();
     }
@@ -478,8 +500,8 @@ service cloud.firestore {
     }
 
     match /profiles/{publicId} {
-      // Public to anyone signed in who has the id; never listable except by admins.
-      allow get: if isSignedIn();
+      // Public to anyone who has the id; never listable except by admins.
+      allow get: if true;
       allow list: if isAdmin();
       allow create, update: if ownsProfileAfter(publicId) && isValidProfile();
       allow delete: if ownsProfileBefore(publicId);
@@ -499,6 +521,7 @@ service cloud.firestore {
 
     match /organiserApplications/{applicantUid} {
       // The applicant sees their own; admins see all. It is one short text, no contact details.
+      // Only the owner decides (editors work on events and media only).
       allow get: if isOwner(applicantUid) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(applicantUid) &&
@@ -507,13 +530,13 @@ service cloud.firestore {
                        incoming().status == 'pending' &&
                        incoming().plan is string && incoming().plan.size() >= 10 && incoming().plan.size() <= 500 &&
                        incoming().ts == request.time;
-      // Editors decide; only the decision fields change.
-      allow update: if isEditor() &&
+      // The owner decides; only the decision fields change.
+      allow update: if isAdminOwner() &&
                        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'decidedAt', 'decidedBy']) &&
                        incoming().status in ['pending', 'approved', 'rejected'] &&
                        incoming().decidedAt == request.time && incoming().decidedBy == request.auth.uid;
       // Withdrawing, or applying again after a "no", starts from scratch.
-      allow delete: if isOwner(applicantUid) || isEditor();
+      allow delete: if isOwner(applicantUid) || isAdminOwner();
     }
 
     // An approved organiser puts their own proposal live: one batch writes the proposal
@@ -574,14 +597,14 @@ service cloud.firestore {
              okOrganiserLink(data);
     }
 
-    // Student proposals: visible to their author and admins. The author can keep editing
-    // while it is a draft and send it once ('new'); after that only editors change it.
+    // Student proposals: visible to their author and the owner. The author can keep editing
+    // while it is a draft and send it once ('new'); after that only the owner changes it.
     match /proposals/{proposalId} {
       allow create: if isOwnRecord(incoming()) &&
                        ((incoming().status in ['draft', 'new'] && isValidProposal(incoming())) ||
                         organiserPublishesProposal(proposalId));
-      allow read: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
-      allow update: if (isEditor() && incoming().status in ['new', 'approved', 'rejected']) ||
+      allow read: if isAdminOwner() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow update: if (isAdminOwner() && incoming().status in ['new', 'approved', 'rejected']) ||
                        (isOwnRecord(existing()) && existing().status == 'draft' &&
                         incoming().uid == existing().uid && incoming().status in ['draft', 'new'] &&
                         isValidProposal(incoming())) ||
@@ -632,7 +655,8 @@ service cloud.firestore {
                        incoming().text.size() > 0 && incoming().text.size() <= 1000 &&
                        incoming().source is string && incoming().source.size() <= 40 &&
                        incoming().ts == request.time;
-      allow read: if isAdmin();
+      // Free text can carry anything, so the owner only.
+      allow read: if isAdminOwner();
     }
 
     // The person's name and contact are on users/{uid} (consent 'space'), not in here.
@@ -644,13 +668,13 @@ service cloud.firestore {
                        incoming().capacity >= 1 && incoming().capacity <= 5000 &&
                        incoming().source is string && incoming().source.size() <= 40 &&
                        incoming().ts == request.time;
-      allow read: if isAdmin();
+      allow read: if isAdminOwner();
     }
 
     // Retired: account linking by a claimed email/phone or a client-supplied uid is unsafe
     // without verified ownership (docs/SECURITY.md). Old requests stay readable for review.
     match /mergeRequests/{docId} {
-      allow read: if isEditor();
+      allow read: if isAdminOwner();
     }
 
     // Retired lookup keys (hash of an email/phone → uid). Nobody can read or add them any

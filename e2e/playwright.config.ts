@@ -4,8 +4,8 @@ import { defineConfig } from '@playwright/test';
  * Browser tests against the local Firebase emulators only (npm run test:e2e starts them under
  * the demo-agorax project). Both dev servers run with VITE_FIREBASE_EMULATORS=1, so the app
  * cannot reach the real project:
- *  - :5179 with VITE_PRIVACY_NOTICE_FINAL=true, so the profile and opt-in tools can be tested;
- *  - :5180 with the default settings, to prove those tools stay off while the notice is a draft.
+ *  - :5179 with VITE_PRIVACY_NOTICE_FINAL and VITE_EXTRA_DATA_FEATURES, so the profile and opt-in tools can be tested;
+ *  - :5180 with the default settings, to prove those tools stay off unless switched on.
  * PW_CHROMIUM_PATH points at a preinstalled Chromium when Playwright's own download is not used.
  */
 const DEFAULT_BUILD = 'privacy-default.spec.ts';
@@ -34,7 +34,7 @@ export default defineConfig({
       cwd: '..',
       url: 'http://127.0.0.1:5179',
       reuseExistingServer: true,
-      env: { VITE_FIREBASE_EMULATORS: '1', VITE_PRIVACY_NOTICE_FINAL: 'true' },
+      env: { VITE_FIREBASE_EMULATORS: '1', VITE_PRIVACY_NOTICE_FINAL: 'true', VITE_EXTRA_DATA_FEATURES: 'true' },
     },
     {
       command: 'npx vite --port 5180 --strictPort --host 127.0.0.1',

@@ -14,7 +14,7 @@ export function OrganiserApplications() {
   const {
     state: { usersById, addError },
     actions: { run, setNotice },
-    meta: { canEdit },
+    meta: { isOwner: canEdit },
   } = useAdmin();
   const [list, setList] = useState<OrganiserApplication[]>([]);
 

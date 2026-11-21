@@ -7,7 +7,7 @@ import { countersToFix } from './recount';
 
 /** What this admin's role may load. The rules refuse the rest, so don't subscribe to it. */
 export interface AdminAccess {
-  /** users/{uid}: names, contact details, price answers (owner + editor). */
+  /** users/{uid} (names, contact details, price answers), helper and space offers, proposals, suggestions: owner only. */
   people: boolean;
   /** The admins list (owner only). */
   admins: boolean;
@@ -41,6 +41,7 @@ export function useAdminData(access: AdminAccess) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [venueOffers, setVenueOffers] = useState<VenueOffer[]>([]);
   const [admins, setAdmins] = useState<AdminDoc[]>([]);
+  const [visits, setVisits] = useState<{ id: string; count?: number }[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
   const addError = useCallback((message: string) => {
@@ -52,13 +53,16 @@ export function useAdminData(access: AdminAccess) {
     const unsubs = [
       subscribeCollection<Event>('events', setEvents, (e) => addError(`events: ${e.message}`)),
       subscribeParticipants(setParticipants, (e) => addError(`participants: ${e.message}`)),
-      subscribeHelpers(setHelpers, (e) => addError(`helpers: ${e.message}`)),
-      subscribeCollection<Proposal>('proposals', setProposals, (e) => addError(`proposals: ${e.message}`)),
-      subscribeCollection<Suggestion>('suggestions', setSuggestions, (e) => addError(`suggestions: ${e.message}`)),
-      subscribeCollection<VenueOffer>('venueOffers', setVenueOffers, (e) => addError(`venueOffers: ${e.message}`)),
+      subscribeCollection<{ count?: number }>('visits', setVisits, (e) => addError(`visits: ${e.message}`)),
     ];
     if (access.people) {
-      unsubs.push(subscribeCollection<UserDoc>('users', setUsers, (e) => addError(`users: ${e.message}`)));
+      unsubs.push(
+        subscribeCollection<UserDoc>('users', setUsers, (e) => addError(`users: ${e.message}`)),
+        subscribeHelpers(setHelpers, (e) => addError(`helpers: ${e.message}`)),
+        subscribeCollection<Proposal>('proposals', setProposals, (e) => addError(`proposals: ${e.message}`)),
+        subscribeCollection<Suggestion>('suggestions', setSuggestions, (e) => addError(`suggestions: ${e.message}`)),
+        subscribeCollection<VenueOffer>('venueOffers', setVenueOffers, (e) => addError(`venueOffers: ${e.message}`)),
+      );
     }
     if (access.admins) {
       unsubs.push(
@@ -86,6 +90,9 @@ export function useAdminData(access: AdminAccess) {
     const sum = (field: 'impressions' | 'opens') => events.reduce((a, e) => a + num(e[field]), 0);
 
     return {
+      /** Page loads, from the anonymous visits/{source} counter (no ID involved). */
+      visits: visits.reduce((a, v) => a + num(v.count), 0),
+      /** People with an ID: they did at least one thing. */
       visitors: users.length,
       totalJoins: joins.length,
       joiners: joiners.size,
@@ -98,7 +105,7 @@ export function useAdminData(access: AdminAccess) {
       interestByEvent,
       joins,
     };
-  }, [events, users, participants, helpers]);
+  }, [events, users, participants, helpers, visits]);
 
   const eventRows = useMemo(
     () =>
@@ -120,12 +127,15 @@ export function useAdminData(access: AdminAccess) {
   );
 
   const sourceRows = useMemo(() => {
-    const map = new Map<string, { visitors: number; joins: number; contacts: number }>();
+    const map = new Map<string, { visits: number; visitors: number; joins: number; contacts: number }>();
     const row = (s?: string) => {
       const key = s || 'direct';
-      if (!map.has(key)) map.set(key, { visitors: 0, joins: 0, contacts: 0 });
+      if (!map.has(key)) map.set(key, { visits: 0, visitors: 0, joins: 0, contacts: 0 });
       return map.get(key)!;
     };
+    visits.forEach((v) => {
+      row(v.id).visits += num(v.count);
+    });
     users.forEach((u) => {
       const r = row(u.source);
       r.visitors++;
@@ -134,8 +144,8 @@ export function useAdminData(access: AdminAccess) {
     stats.joins.forEach((p) => {
       row(p.source).joins++;
     });
-    return [...map.entries()].map(([source, v]) => ({ source, ...v })).sort((a, b) => b.joins - a.joins || b.visitors - a.visitors);
-  }, [users, stats]);
+    return [...map.entries()].map(([source, v]) => ({ source, ...v })).sort((a, b) => b.joins - a.joins || b.visits - a.visits);
+  }, [users, stats, visits]);
 
   const ladderRows = useMemo(() => {
     const byEvent = new Map<string, { yes: number; no: number; depends: number; priceAsked: number }>();
@@ -187,13 +197,14 @@ export function useAdminData(access: AdminAccess) {
   const targets = useMemo(
     () =>
       kpiTargets({
+        visits,
         users,
         joinerUids: new Set(stats.joins.map((p) => p.uid)),
         joinsByEvent: stats.joinsByEvent,
         helperUids: helpers.map((h) => h.uid),
         spaceUids: venueOffers.map((o) => o.uid),
       }),
-    [users, stats, helpers, venueOffers],
+    [visits, users, stats, helpers, venueOffers],
   );
 
   // "When would suit you?" per event, among the people interested in it. A preference, not availability.

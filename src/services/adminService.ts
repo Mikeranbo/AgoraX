@@ -22,6 +22,7 @@ import { SEED_EVENTS } from '../data/seedEvents';
 import { eventFromProposal } from '../data/proposals';
 import { selectEventsToPurge } from '../data/purge';
 import { chunk } from '../lib/batch';
+import { CONTACT_FIELDS, contactWipe } from './identity';
 import type { CounterFix } from '../pages/admin/recount';
 
 type OnError = (error: Error) => void;
@@ -265,4 +266,32 @@ export async function grantAdmin(targetUid: string, role: AdminRole, label: stri
 
 export async function revokeAdmin(targetUid: string) {
   await deleteDoc(doc(db, 'admins', targetUid));
+}
+
+// ---------------------------------------------------------------- contact data
+
+/**
+ * The owner's "Delete all contact data" (end of the pilot, or on request): removes every
+ * WhatsApp number, email, first name and consent from users/{uid}, and every initial shown on
+ * an event. Interests and counts stay; without contact details they identify nobody. The rules
+ * let only an owner do this, and only remove those fields.
+ */
+export async function deleteAllContactData(): Promise<{ people: number; initials: number }> {
+  const users = await getDocs(collection(db, 'users'));
+  const withContact = users.docs.filter((d) => {
+    const u = d.data();
+    return u.hasContact === true || CONTACT_FIELDS.some((f) => f in u);
+  });
+  for (const group of chunk(withContact, 400)) {
+    const batch = writeBatch(db);
+    group.forEach((d) => batch.update(d.ref, contactWipe()));
+    await batch.commit();
+  }
+  const faces = await getDocs(collectionGroup(db, 'faces'));
+  for (const group of chunk(faces.docs, 400)) {
+    const batch = writeBatch(db);
+    group.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  return { people: withContact.length, initials: faces.size };
 }

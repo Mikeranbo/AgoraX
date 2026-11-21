@@ -25,13 +25,14 @@ export function Header() {
 export function Banners() {
   const {
     state: { errors, notice, clearErrors },
-    meta: { canEdit },
+    meta: { isOwner, canEdit },
   } = useAdmin();
   return (
     <>
-      {!canEdit && (
+      {!isOwner && (
         <div className="mb-5 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
-          Viewer access shows event totals only. Visitor counts, price answers, names and contact details need editor access.
+          {canEdit ? 'Editor access: you can edit events and their photos.' : 'Viewer access shows totals only.'} Names, contact details,
+          helper and space offers, proposals and suggestions are visible to the owner only.
         </div>
       )}
       {errors.length > 0 && (

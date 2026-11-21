@@ -4,7 +4,7 @@ import { useVisitor } from '../state/VisitorProvider';
 import { maskPhone } from '../data/contact';
 import { CONTACT_EMAIL } from '../config/pilot';
 import { PilotExplainer } from '../components/PilotExplainer';
-import { Block, ScreenTitle, Switch } from './SettingsScreens';
+import { Block, DeleteEverything, ScreenTitle } from './SettingsScreens';
 
 const Row = ({ label, value, onClick }: { label: string; value: React.ReactNode; onClick?: () => void }) => {
   const body = (
@@ -35,6 +35,37 @@ export const MyDataScreen = () => {
   return (
     <div className="mx-auto max-w-xl px-4 pt-16 sm:px-6">
       <ScreenTitle>Privacy &amp; my data</ScreenTitle>
+      <p className="mb-6 max-w-[60ch] text-[15px] leading-relaxed text-slate-300">
+        {state.uid
+          ? 'What we hold about this browser, and how to delete it. Everything here works straight away.'
+          : "This browser has no ID yet: just looking around stores nothing, on your device or with us. An ID is made the first time you do something, like tapping Interested."}
+      </p>
+
+      <Block title="Statistics">
+        <div className="px-4 py-3.5">
+          <p className="text-[15px] text-white">Count which cards I see and open, without my name</p>
+          <p className="mt-1 text-[13px] leading-snug text-slate-400">
+            {!state.statsAsked ? 'You haven\'t answered yet, so nothing is counted.' : state.statsOff ? 'Your answer: no. Nothing is counted.' : 'Your answer: yes.'} Your
+            interests always count.
+          </p>
+          <div className="mt-3 flex gap-2" role="group" aria-label="Your statistics answer">
+            <button
+              aria-pressed={state.statsAsked && !state.statsOff}
+              onClick={() => actions.setStatsOff(false)}
+              className={`min-h-11 rounded-sheet border px-4 text-[15px] font-bold ${state.statsAsked && !state.statsOff ? 'border-brand-primary bg-brand-action/30 text-white' : 'border-sheet-line text-slate-200 hover:border-slate-500'}`}
+            >
+              Allow
+            </button>
+            <button
+              aria-pressed={state.statsAsked && state.statsOff}
+              onClick={() => actions.setStatsOff(true)}
+              className={`min-h-11 rounded-sheet border px-4 text-[15px] font-bold ${state.statsAsked && state.statsOff ? 'border-brand-primary bg-brand-action/30 text-white' : 'border-sheet-line text-slate-200 hover:border-slate-500'}`}
+            >
+              No thanks
+            </button>
+          </div>
+        </div>
+      </Block>
 
       <Block title="Contact details">
         {hasContact ? (
@@ -77,13 +108,8 @@ export const MyDataScreen = () => {
         )}
       </Block>
 
-      <Block title="Privacy switches">
-        <Switch
-          label="Count my visits in AgoraX statistics"
-          hint="Which cards you saw and opened, without your name. Applies to this device. Your interests always count."
-          checked={!state.statsOff}
-          onChange={(on) => actions.setStatsOff(!on)}
-        />
+      {(shownInitials > 0 || me?.publicId) && (
+      <Block title="Shown to others">
         <div className="flex items-center justify-between gap-4 px-4 py-3">
           <p className="text-[15px] text-white">
             Initial shown on {shownInitials} {shownInitials === 1 ? 'event' : 'events'}
@@ -103,11 +129,15 @@ export const MyDataScreen = () => {
           </div>
         )}
       </Block>
+      )}
 
-      <div className="sheet mb-8 overflow-hidden rounded-sheet">
-        <Row label="Messages we may send you" value="Notification preferences" onClick={() => actions.setTab('notifications')} />
-        <Row label="Everything, including this account" value="Delete my data" onClick={() => actions.setTab('account')} />
-      </div>
+      <DeleteEverything />
+
+      {state.uid && (
+        <div className="sheet mb-8 overflow-hidden rounded-sheet">
+          <Row label="Messages we may send you" value="Notification preferences" onClick={() => actions.setTab('notifications')} />
+        </div>
+      )}
 
       <button onClick={() => actions.setTab('notice')} className="min-h-11 text-[15px] font-semibold text-slate-200 underline underline-offset-4">
         Privacy notice: what we keep, why, and for how long
@@ -167,13 +197,13 @@ const FAQ: [string, string][] = [
   ['Is this a booking?', "No. AgoraX is a pilot. Saying you're interested isn't a booking or a ticket, and it doesn't guarantee the event will happen."],
   ['Do I pay anything?', 'No. Nothing is paid through AgoraX. Prices are estimates of what an event might cost if it ran.'],
   ['What happens when a proposal reaches its target?', "We look at whether we can find hosts, a venue and a date. Only the best-supported, workable ones go ahead; we aim for one to three in this pilot."],
-  ['Do I need an account?', 'No login. Your interests are saved in this browser under a random ID.'],
+  ['Do I need an account?', 'No login. The first time you do something, your interests are saved in this browser under a random ID. Just looking around stores nothing.'],
   ['Can I change my mind?', 'Yes. Tap Withdraw on the proposal or in My interests.'],
   ['Who can see what I picked?', 'Nobody, unless you tap "Show my initial" on it. Then only the one letter you choose is shown.'],
   ['Are the organiser earnings real?', "They're illustrative estimates at the target number of people, not an offer or guaranteed income."],
   ['Who are the organisers?', "Students and student groups describe themselves. AgoraX doesn't check or verify them."],
   ['I use AgoraX on two devices.', 'For now your interests stay on the device you used. Keeping them across devices is on our list of ideas.'],
-  ['How do I get my data deleted?', `Account & security → Delete my data, or email ${CONTACT_EMAIL}.`],
+  ['How do I get my data deleted?', `Privacy & my data (linked at the bottom of every page) → Delete everything, or email ${CONTACT_EMAIL}.`],
 ];
 
 export const FaqScreen = () => (

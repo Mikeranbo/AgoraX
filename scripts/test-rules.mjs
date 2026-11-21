@@ -101,8 +101,49 @@ await check('visitor cannot read another users doc', assertFails(getDoc(doc(mall
 await check('visitor cannot list users', assertFails(getDocs(collection(mallory, 'users'))));
 await check('viewer cannot read contact details', assertFails(getDoc(doc(vic, 'users', 'zoe'))));
 await check('viewer cannot list users', assertFails(getDocs(collection(vic, 'users'))));
-await check('editor can list users', assertSucceeds(getDocs(collection(erin, 'users'))));
+await check('editor cannot list users (contact details are owner only)', assertFails(getDocs(collection(erin, 'users'))));
+await check('editor cannot read a users doc', assertFails(getDoc(doc(erin, 'users', 'zoe'))));
 await check('owner can list users', assertSucceeds(getDocs(collection(alice, 'users'))));
+await check('owner can read a users doc', assertSucceeds(getDoc(doc(alice, 'users', 'zoe'))));
+
+// ------------------------------------------------------------------ no ID before the first action
+await check('signed-out can read the events', assertSucceeds(getDocs(collection(anon, 'events'))));
+await check('signed-out can read one event', assertSucceeds(getDoc(doc(anon, 'events', 'board-games'))));
+await check('signed-out cannot change an event', assertFails(updateDoc(doc(anon, 'events', 'board-games'), { title: 'x' })));
+await check('signed-out cannot move a counter', assertFails(updateDoc(doc(anon, 'events', 'board-games'), { participantsCount: increment(1), joins: increment(1) })));
+await check('signed-out cannot read users', assertFails(getDocs(collection(anon, 'users'))));
+
+// ------------------------------------------------------------------ anonymous visit count
+const visit = (db, src) => setDoc(doc(db, 'visits', src), { count: increment(1) }, { merge: true });
+await check('signed-out visit creates the count', assertSucceeds(visit(anon, 'poster-a')));
+await check('signed-out visit adds one', assertSucceeds(visit(anon, 'poster-a')));
+await expectEqual('two visits count 2', (async () => {
+  let n;
+  await env.withSecurityRulesDisabled(async (ctx) => { n = (await getDoc(doc(ctx.firestore(), 'visits', 'poster-a'))).data()?.count; });
+  return n;
+})(), 2);
+await check('signed-in visit adds one too', assertSucceeds(visit(bob, 'poster-a')));
+await check('count cannot jump', assertFails(setDoc(doc(anon, 'visits', 'poster-a'), { count: increment(5) }, { merge: true })));
+await check('count cannot go down', assertFails(setDoc(doc(anon, 'visits', 'poster-a'), { count: increment(-1) }, { merge: true })));
+await check('count cannot be set', assertFails(setDoc(doc(anon, 'visits', 'poster-a'), { count: 1000 })));
+await check('new count must start at 1', assertFails(setDoc(doc(anon, 'visits', 'poster-b'), { count: 7 })));
+await check('visit cannot carry an ID or anything else', assertFails(setDoc(doc(anon, 'visits', 'poster-c'), { count: 1, uid: 'bob' })));
+await check('visit id must be a clean source', assertFails(visit(anon, 'Poster A!')));
+await check('visit count cannot be deleted', assertFails(deleteDoc(doc(anon, 'visits', 'poster-a'))));
+await check('signed-out cannot read visit counts', assertFails(getDoc(doc(anon, 'visits', 'poster-a'))));
+await check('visitor cannot read visit counts', assertFails(getDocs(collection(bob, 'visits'))));
+await check('viewer can read visit counts', assertSucceeds(getDocs(collection(vic, 'visits'))));
+
+// ------------------------------------------------------------------ owner deletes all contact data
+await check('editor cannot wipe contact details', assertFails(updateDoc(doc(erin, 'users', 'zoe'), { hasContact: false, name: deleteField(), email: deleteField() })));
+await check('owner cannot change someone\'s email', assertFails(updateDoc(doc(alice, 'users', 'zoe'), { email: 'other@example.com' })));
+await check('owner cannot touch other fields while wiping', assertFails(updateDoc(doc(alice, 'users', 'zoe'), { hasContact: false, email: deleteField(), joinedEvents: [] })));
+await check('owner wipes contact details', assertSucceeds(updateDoc(doc(alice, 'users', 'zoe'), { hasContact: false, name: deleteField(), email: deleteField(), phone: deleteField(), consents: deleteField() })));
+await expectEqual('wiped email is gone', (async () => {
+  let v;
+  await env.withSecurityRulesDisabled(async (ctx) => { v = (await getDoc(doc(ctx.firestore(), 'users', 'zoe'))).data()?.email; });
+  return v;
+})(), undefined);
 
 // ------------------------------------------------------------------ contact keys + merges (attack 3)
 await check('visitor cannot look up a contact hash', assertFails(getDoc(doc(mallory, 'contactKeys', 'k-bob'))));
@@ -263,7 +304,7 @@ await check('joiner can show an initial', assertSucceeds(face(bob, 'bob', 'B')))
 await check('two letters denied', assertFails(face(bob, 'bob', 'BB')));
 await check('cannot show an initial for someone else', assertFails(face(mallory, 'bob')));
 await check('anyone signed in can read initials', assertSucceeds(getDocs(collectionGroup(mallory, 'faces'))));
-await check('signed-out cannot read initials', assertFails(getDocs(collectionGroup(anon, 'faces'))));
+await check('signed-out can read initials (shown on public events)', assertSucceeds(getDocs(collectionGroup(anon, 'faces'))));
 await check('leave also removes the initial', assertSucceeds((() => {
   const b = writeBatch(bob);
   b.delete(pRef(bob, 'board-games', 'bob'));
@@ -338,7 +379,8 @@ await check('someone else cannot edit the profile', assertFails(setDoc(doc(mallo
 await check('users.publicId must be claimed by that user', assertFails(updateDoc(doc(mallory, 'users', 'mallory'), { publicId: pidBob })));
 await check('users.publicId cannot be changed', assertFails(updateDoc(doc(bob, 'users', 'bob'), { publicId: pidZoe })));
 await check('signed-in visitors can read a profile', assertSucceeds(getDoc(doc(mallory, 'profiles', pidBob))));
-await check('signed-out cannot read a profile', assertFails(getDoc(doc(anon, 'profiles', pidBob))));
+await check('signed-out can read a public profile by id', assertSucceeds(getDoc(doc(anon, 'profiles', pidBob))));
+await check('signed-out cannot list profiles', assertFails(getDocs(collection(anon, 'profiles'))));
 await check('visitors cannot list profiles', assertFails(getDocs(collection(mallory, 'profiles'))));
 await check('profile cannot carry contact details', assertFails(setDoc(doc(bob, 'profiles', pidBob), profile({ email: 'bob@example.com' }))));
 await check('profile cannot claim verification', assertFails(setDoc(doc(bob, 'profiles', pidBob), profile({ verified: true }))));
@@ -382,7 +424,9 @@ await check('draft cannot be approved by its author', assertFails(setDoc(draftRe
 await check('organiser submits the draft', assertSucceeds(setDoc(draftRef, draft({ title: 'Pottery night', status: 'new', organiserPublicId: pidCara }))));
 await check('submitted proposal is locked for its author', assertFails(setDoc(draftRef, draft({ title: 'Changed', status: 'new' }))));
 await check('submitted proposal cannot be deleted by its author', assertFails(deleteDoc(draftRef)));
-await check('editor approves the proposal', assertSucceeds(updateDoc(doc(erin, 'proposals', 'cara-draft-1'), { status: 'approved', eventId: 'board-games' })));
+await check('editor cannot read proposals', assertFails(getDoc(doc(erin, 'proposals', 'cara-draft-1'))));
+await check('editor cannot approve a proposal', assertFails(updateDoc(doc(erin, 'proposals', 'cara-draft-1'), { status: 'approved', eventId: 'board-games' })));
+await check('owner approves the proposal', assertSucceeds(updateDoc(doc(alice, 'proposals', 'cara-draft-1'), { status: 'approved', eventId: 'board-games' })));
 await check('organiser deletes an unsent draft', assertSucceeds((async () => {
   await setDoc(doc(cara, 'proposals', 'cara-draft-3'), draft());
   await deleteDoc(doc(cara, 'proposals', 'cara-draft-3'));
@@ -416,7 +460,8 @@ const publish = (db, { pid, eid, uid = 'cara', event: extraEvent = {} }) => {
   return b.commit();
 };
 await check('pending applicant cannot publish an event', assertFails(publish(cara, { pid: 'cara-pub-0', eid: 'cara-event-0' })));
-await check('editor approves the application', assertSucceeds(updateDoc(appRef(erin, 'cara'), { status: 'approved', decidedAt: serverTimestamp(), decidedBy: 'erin' })));
+await check('editor cannot decide an application', assertFails(updateDoc(appRef(erin, 'cara'), { status: 'approved', decidedAt: serverTimestamp(), decidedBy: 'erin' })));
+await check('owner approves the application', assertSucceeds(updateDoc(appRef(alice, 'cara'), { status: 'approved', decidedAt: serverTimestamp(), decidedBy: 'alice' })));
 await check('approved organiser publishes their own event', assertSucceeds(publish(cara, { pid: 'cara-pub-1', eid: 'cara-event-1' })));
 await check('published event cannot start with joins', assertFails(publish(cara, { pid: 'cara-pub-2', eid: 'cara-event-2', event: { participantsCount: 5 } })));
 await check('published event cannot be confirmed', assertFails(publish(cara, { pid: 'cara-pub-3', eid: 'cara-event-3', event: { status: 'Confirmed' } })));
@@ -435,6 +480,15 @@ await check('after withdrawing, publishing is denied', assertFails(publish(cara,
 // ------------------------------------------------------------------ suggestions + space offers (unchanged flow)
 await check('suggestion saves', assertSucceeds(addDoc(collection(bob, 'suggestions'), { uid: 'bob', text: 'More chess', source: 'test', ts: serverTimestamp() })));
 await check('space offer saves', assertSucceeds(addDoc(collection(bob, 'venueOffers'), { uid: 'bob', spaceType: 'room', capacity: 20, source: 'test', ts: serverTimestamp() })));
+await check('editor cannot read space offers', assertFails(getDocs(collection(erin, 'venueOffers'))));
+await check('editor cannot read suggestions', assertFails(getDocs(collection(erin, 'suggestions'))));
+await check('editor cannot read helper offers', assertFails(getDocs(collectionGroup(erin, 'helpers'))));
+await check('viewer cannot read space offers', assertFails(getDocs(collection(vic, 'venueOffers'))));
+await check('owner reads space offers', assertSucceeds(getDocs(collection(alice, 'venueOffers'))));
+await check('owner reads suggestions', assertSucceeds(getDocs(collection(alice, 'suggestions'))));
+await check('owner reads helper offers', assertSucceeds(getDocs(collectionGroup(alice, 'helpers'))));
+await check('owner reads proposals', assertSucceeds(getDocs(collection(alice, 'proposals'))));
+await check('editor can still edit an event', assertSucceeds(updateDoc(doc(erin, 'events', 'board-games'), { title: 'Board games', description: 'd', category: 'Games', status: 'Pending', media: [] })));
 
 await env.cleanup();
 console.log(failed ? `${failed} failed` : 'all passed');

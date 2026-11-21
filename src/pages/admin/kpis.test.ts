@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { kpiTargets } from './kpis';
 
 const base = {
+  visits: [] as { id: string; count?: number }[],
   users: [] as { id: string; source?: string; hasContact?: boolean }[],
   joinerUids: new Set<string>(),
   joinsByEvent: new Map<string, number>(),
@@ -11,19 +12,19 @@ const base = {
 
 describe('kpiTargets (AGORAX_BUILD_PLAN success criteria)', () => {
   it('counts only poster visits toward the 200-visit target', () => {
-    const users = [
-      { id: 'a', source: 'ub' },
-      { id: 'b', source: 'direct' },
-      { id: 'c', source: 'share' },
-      { id: 'd', source: 'bernoulli' },
+    const visits = [
+      { id: 'ub', count: 3 },
+      { id: 'direct', count: 50 },
+      { id: 'share', count: 7 },
+      { id: 'bernoulli', count: 2 },
     ];
-    const t = kpiTargets({ ...base, users });
-    expect(t[0]).toMatchObject({ actual: 2, target: 200, met: false });
+    const t = kpiTargets({ ...base, visits });
+    expect(t[0]).toMatchObject({ actual: 5, target: 200, met: false });
   });
 
-  it('measures pick and contact rates against all visitors', () => {
+  it('measures pick and contact rates against all visits', () => {
     const users = Array.from({ length: 10 }, (_, i) => ({ id: `u${i}`, source: 'ub', hasContact: i < 2 }));
-    const t = kpiTargets({ ...base, users, joinerUids: new Set(['u0', 'u1', 'u2', 'u3']) });
+    const t = kpiTargets({ ...base, visits: [{ id: 'ub', count: 10 }], users, joinerUids: new Set(['u0', 'u1', 'u2', 'u3']) });
     expect(t[1]).toMatchObject({ actual: 40, target: 40, met: true });
     expect(t[2]).toMatchObject({ actual: 20, target: 15, met: true });
   });

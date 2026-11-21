@@ -18,6 +18,7 @@ import { SpaceOffers } from './admin/sections/SpaceOffers';
 import { Suggestions } from './admin/sections/Suggestions';
 import { Admins } from './admin/sections/Admins';
 import { MostWanted } from './admin/sections/MostWanted';
+import { ContactData } from './admin/sections/ContactData';
 
 export default function AdminPage() {
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -84,6 +85,7 @@ function Dashboard({ uid, admin }: { uid: string; admin: AdminDoc }) {
           <SpaceOffers />
           <Suggestions />
           <MostWanted />
+          {admin.role === 'owner' && <ContactData />}
           {admin.role === 'owner' && <Admins />}
         </main>
         <Editor />

@@ -3,7 +3,7 @@ import { Lock } from 'lucide-react';
 import { Modal } from './Modal';
 import { useVisitor } from '../state/VisitorProvider';
 import { LOCKED_FEATURES, LockedFeature } from '../data/features';
-import { PRIVACY_NOTICE_FINAL } from '../config/pilot';
+import { EXTRA_DATA_FEATURES } from '../config/pilot';
 import type { OrganiserIdentity, PublicProfile, UserMode } from '../types';
 import { ProfileAvatar } from './Avatar';
 import { ProfileImageField } from './ProfileImageField';
@@ -36,7 +36,7 @@ export const LockedSheet = () => {
   );
 };
 
-/** While the privacy notice is a draft: the private display name only, as before. */
+/** Public profiles are not part of this pilot: the private display name only. */
 const PrivateNameForm = () => {
   const { state, actions } = useVisitor();
   const [name, setName] = useState(state.me?.displayName ?? '');
@@ -68,7 +68,7 @@ const PrivateNameForm = () => {
         <input id="display-name" maxLength={40} autoComplete="nickname" className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <p className="rounded-sheet border border-sheet-line p-3 text-[13px] leading-relaxed text-slate-300">
-        Profile photos, a bio and an organiser profile open once our privacy notice is final. Until then we don't collect them.
+        Profile photos, a bio and organiser profiles aren't part of this pilot, so we don't collect them.
       </p>
       {error && <p role="alert" className={errorClass}>{error}</p>}
       <button type="submit" disabled={busy} className={primaryButtonClass}>
@@ -191,7 +191,7 @@ export const ProfileSheet = () => {
   const { state, actions } = useVisitor();
   return (
     <Modal isOpen={state.sheet === 'profile'} onClose={actions.closeSheet} title="Edit profile">
-      {PRIVACY_NOTICE_FINAL ? <PublicProfileForm /> : <PrivateNameForm />}
+      {EXTRA_DATA_FEATURES ? <PublicProfileForm /> : <PrivateNameForm />}
     </Modal>
   );
 };
