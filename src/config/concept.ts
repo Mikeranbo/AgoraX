@@ -20,7 +20,7 @@ export const VARIANT_STAMPS: VariantStamp[] = ['simple', 'current', 'simple-test
 export const VARIANT_KEY = 'agorax_variant';
 
 interface ConceptFlags {
-  /** Page A: explainer on top, the shortlist, plain answers on every card, the short flows. */
+  /** Page A: explainer on top, every event as one list, plain answers on every card, the short flows. */
   simple: boolean;
   /** Sidebar, the More menu, My account, profiles and the organiser account types. */
   menuAndAccount: boolean;

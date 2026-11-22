@@ -6,7 +6,7 @@ import { downloadCsv } from '../../../lib/csv';
 import { seedEvents } from '../../../services/firebaseService';
 import { SEED_EVENTS } from '../../../data/seedEvents';
 import { applyCounterFixes, deleteEvent, purgeNonSeedEvents, setEventStatus, setEventVisible } from '../../../services/adminService';
-import { isShortlisted } from '../../../data/simpleEvents';
+import { isOnPageA } from '../../../data/simpleEvents';
 import { Event, EventStatus } from '../../../types';
 
 const STATUS_OPTIONS: EventStatus[] = ['Pending', 'Confirmed', 'Cancelled'];
@@ -107,7 +107,7 @@ export function EventsTable() {
               <Td>
                 <input
                   type="checkbox"
-                  checked={isShortlisted(e)}
+                  checked={isOnPageA(e)}
                   disabled={!canEdit}
                   onClick={(ev) => ev.stopPropagation()}
                   onChange={(ev) => void run('Show or hide', () => setEventVisible(e.id, ev.target.checked))}

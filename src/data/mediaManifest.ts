@@ -683,6 +683,90 @@ export const MEDIA_MANIFEST: Record<string, SeedMedia[]> = {
       "link": "https://unsplash.com/photos/boy-in-red-and-white-nike-soccer-jersey-shirt-standing-on-brown-sand-during-daytime-lGKa7Laza0A"
     }
   ],
+  "ping-pong-tournament": [
+    {
+      "kind": "image",
+      "base": "/media/ping-pong-tournament/1",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1385,
+      "credit": "Photo: Alejandro Stuardo / Unsplash",
+      "link": "https://unsplash.com/photos/women-playing-table-tennis-in-hall-7hRdtdDBWbU"
+    },
+    {
+      "kind": "image",
+      "base": "/media/ping-pong-tournament/2",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1167,
+      "credit": "Photo: Inkiipow / Unsplash",
+      "link": "https://unsplash.com/photos/two-ping-pong-paddles-and-a-ping-pong-ball-on-a-blue-table-7h9wGq4IUdE"
+    }
+  ],
+  "padel-tournament": [
+    {
+      "kind": "image",
+      "base": "/media/padel-tournament/1",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 2880,
+      "credit": "Photo: Ashford Marx / Unsplash",
+      "link": "https://unsplash.com/photos/two-men-playing-padel-tennis-on-a-blue-court-Stb4Tx7YqXI"
+    },
+    {
+      "kind": "image",
+      "base": "/media/padel-tournament/2",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1280,
+      "credit": "Photo: Manuel Pappacena / Unsplash",
+      "link": "https://unsplash.com/photos/padel-racket-on-court-zTwzxr4BbTA"
+    }
+  ],
+  "tennis-tournament": [
+    {
+      "kind": "image",
+      "base": "/media/tennis-tournament/1",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1280,
+      "credit": "Photo: Babak Eshaghian / Unsplash",
+      "link": "https://unsplash.com/photos/two-men-with-tennis-rackets-on-court-vsM2ejn_kwI"
+    },
+    {
+      "kind": "image",
+      "base": "/media/tennis-tournament/2",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1440,
+      "credit": "Photo: Scott Hendrickson / Unsplash",
+      "link": "https://unsplash.com/photos/a-group-of-people-playing-tennis-on-a-tennis-court-s2Cr7Wjj2MI"
+    }
+  ],
   "photography-challenge": [
     {
       "kind": "video",

@@ -64,7 +64,7 @@ export const SimpleIntro = () => (
   </section>
 );
 
-/** The four plain answers. Events outside the shortlist fall back to what their data says. */
+/** The four plain answers. Events without written answers (approved proposals) fall back to what their data says. */
 export function answersFor(event: Event) {
   const copy = SIMPLE_EVENTS[event.id];
   const hook = (event.description || '').split(/\n\s*\n/)[0];

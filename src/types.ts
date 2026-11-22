@@ -7,8 +7,8 @@ export type EventCategory =
   | 'Study'
   | 'Tech & Ideas'
   | 'Outdoor'
-  // Legacy categories — kept so older documents keep rendering.
   | 'Sports'
+  // Legacy categories — kept so older documents keep rendering.
   | 'Workshop'
   | 'Concert'
   | 'Cultural'
@@ -19,6 +19,7 @@ export type EventCategory =
 export const PUBLIC_CATEGORIES: EventCategory[] = [
   'Networking',
   'Games',
+  'Sports',
   'Creative',
   'Social',
   'Study',
@@ -26,7 +27,7 @@ export const PUBLIC_CATEGORIES: EventCategory[] = [
   'Outdoor',
 ];
 
-export const LEGACY_CATEGORIES: EventCategory[] = ['Sports', 'Workshop', 'Concert', 'Cultural', 'Fitness', 'Startup'];
+export const LEGACY_CATEGORIES: EventCategory[] = ['Workshop', 'Concert', 'Cultural', 'Fitness', 'Startup'];
 
 /**
  * One item in an event's gallery. The list is ordered and the first item is the cover.
@@ -48,7 +49,7 @@ export type EventStatus = 'Pending' | 'Confirmed' | 'Cancelled';
 
 export interface Event {
   id: string;
-  /** concept-simple: shown in the list (set on /admin). Missing: the default shortlist decides. */
+  /** Page A: false takes it off the list (the "On page A" tick on /admin). Missing: shown. */
   visible?: boolean;
   title: string;
   description: string;

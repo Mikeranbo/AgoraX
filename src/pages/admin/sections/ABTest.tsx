@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAdmin } from '../AdminContext';
 import { Section, Table, Td, num, pct } from '../ui';
-import { isShortlisted } from '../../../data/simpleEvents';
+import { isOnPageA } from '../../../data/simpleEvents';
 import type { Variant } from '../../../config/concept';
 
 const PAGES: { v: Variant; label: string }[] = [
@@ -10,7 +10,8 @@ const PAGES: { v: Variant; label: string }[] = [
 ];
 
 /**
- * The A/B test, numbers only: page A (simple, 12 events) next to page B (current, 40 events).
+ * The A/B test, numbers only: page A (simple design) next to page B (current design). Both list the
+ * same events at the same prices, unless /admin took an event off page A.
  * Only real visits count: ?v= test visits are not in the visit counts, and their records carry a
  * "-test" variant, so they are shown apart. People, contacts, offers and messages need the owner role.
  */
@@ -50,12 +51,12 @@ export function ABTest() {
     ['Messages (A: "Tell us", B: ideas box)', (x) => ownerOnly(x.messages)],
   ];
 
-  // Shown on both pages: on A's shortlist (B shows every event).
-  const shared = events.filter((e) => isShortlisted(e) && e.status !== 'Cancelled');
+  // Shown on both pages: everything /admin didn't take off page A (B shows every event).
+  const shared = events.filter((e) => isOnPageA(e) && e.status !== 'Cancelled');
   const testPicks = testA.joins + testB.joins;
 
   return (
-    <Section title="A/B test" subtitle="A shows 12 events, B shows 40, so compare the percentages. Percent = of that page's visits.">
+    <Section title="A/B test" subtitle={`Both pages list the same ${shared.length} events at the same prices; only the design differs. Percent = of that page's visits.`}>
       <Table head={['', ...PAGES.map((p) => p.label)]}>
         {rows.map(([label, value]) => (
           <tr key={label}>

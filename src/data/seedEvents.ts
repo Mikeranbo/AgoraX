@@ -1,9 +1,9 @@
 /**
  * AgoraX — seed events for the Groningen demand test.
  *
- * These are the 40 events shown on the validation landing page. ACLO already covers sports
- * (bouldering, padel, boxing, fencing, basketball, table tennis, swimming, running, cycling and
- * e-sports), so those are not on the list.
+ * These are the 43 events shown on the validation landing page, on page A and page B alike.
+ * ACLO already runs sports training, so the sports here are fun tournaments (ping-pong, padel,
+ * tennis): you train at ACLO, you compete with us.
  * Prices are the LOW tier (we are optimising for signups, not margin).
  *
  * Earnings shown to a potential organiser are calculated, never stored:
@@ -24,6 +24,7 @@ export const PLATFORM_FEE = 0.07;
 export type SeedCategory =
   | 'Networking'
   | 'Games'
+  | 'Sports'
   | 'Creative'
   | 'Social'
   | 'Study'
@@ -396,6 +397,67 @@ export const SEED_EVENTS: SeedEvent[] = [
     ],
   },
 
+  // ---------------------------------------------------------------- Sports
+  // You train at ACLO; with us you play fun tournaments. Numbers from the old Ping-Pong Challenge
+  // and Padel Cup entries; tennis is modelled on padel with indoor court hire.
+  {
+    ...base,
+    slug: 'ping-pong-tournament',
+    title: 'Ping-Pong Tournament',
+    category: 'Sports',
+    description: text(
+      'Train at ACLO, play for fun with us: a ping-pong tournament for every level.',
+      'We book free tables at the uni and bring bats and balls. You play short matches against people at a similar level, so most games are close.',
+      'The evening ends with a quick knockout between the players with the most wins. The other tables keep playing for fun.',
+      "If you train at ACLO, you get to play people outside your usual group. If you only play once a year, you'll still find someone at your level.",
+    ),
+    price: 3, minParticipants: 12, durationHours: 2, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
+    venueNote: 'Uni tables free · bats and balls', emoji: '🏓', accent: '#2E7FD6',
+    steps: [
+      { icon: 'shuffle', title: 'Get your matches', text: 'We pair you with people at a similar level.' },
+      { icon: 'timer', title: 'Play short matches', text: 'One game to 11, then on to the next opponent.' },
+      { icon: 'trophy', title: 'Quick knockout', text: 'The players with the most wins finish with a knockout.' },
+    ],
+  },
+  {
+    ...base,
+    slug: 'padel-tournament',
+    title: 'Padel Tournament',
+    category: 'Sports',
+    description: text(
+      'Train at ACLO, play for fun with us: a padel tournament where you play with everyone.',
+      "We book two courts for two and a half hours. Matches are short doubles, and partners change after every match, so by the end you've played with most of the group.",
+      'Rackets can be shared, so you can come without one. Bring sports shoes. Beginners are welcome, since padel is quick to pick up.',
+      'The pairs with the most wins play a friendly final while the others watch and cheer.',
+    ),
+    price: 12, minParticipants: 16, durationHours: 2.5, hostsNeeded: 1, fixedCost: 120, perPersonCost: 0,
+    venueNote: 'Two padel courts for 2.5 hours', bringYourOwn: 'Sports shoes', emoji: '🎾', accent: '#2F9E6B',
+    steps: [
+      { icon: 'users', title: 'Get a partner', text: 'A new partner every match, so you play with everyone.' },
+      { icon: 'repeat', title: 'Rotate courts', text: 'Short doubles matches on two courts, then swap.' },
+      { icon: 'trophy', title: 'Play the final', text: 'The pairs with the most wins play a friendly final.' },
+    ],
+  },
+  {
+    ...base,
+    slug: 'tennis-tournament',
+    title: 'Tennis Tournament',
+    category: 'Sports',
+    description: text(
+      'Train at ACLO, play for fun with us: an indoor doubles tournament for every level.',
+      "We book two indoor courts for two and a half hours, so the weather doesn't matter. Matches are short, first to four games, and partners change every match.",
+      'Bring sports shoes and a racket if you have one; a few rackets can be shared. If you can keep a rally going, you can play.',
+      'The best pairs play a final in the last half hour.',
+    ),
+    price: 12, minParticipants: 16, durationHours: 2.5, hostsNeeded: 1, fixedCost: 140, perPersonCost: 0,
+    venueNote: 'Two indoor tennis courts for 2.5 hours', bringYourOwn: 'Sports shoes, and a racket if you have one', emoji: '🎾', accent: '#E0A33A',
+    steps: [
+      { icon: 'users', title: 'Get a partner', text: 'Doubles, with a new partner every match.' },
+      { icon: 'timer', title: 'Short matches', text: 'First to four games, then everyone moves on.' },
+      { icon: 'trophy', title: 'Play the final', text: 'The best pairs play a final in the last half hour.' },
+    ],
+  },
+
   // ------------------------------------------------------------- Creative
   {
     ...base,
@@ -443,7 +505,7 @@ export const SEED_EVENTS: SeedEvent[] = [
     description: text(
       'Pour your own scented candles in a uni room, then take them home.',
       'We bring the wax, wicks, scents and jars. You melt the wax, mix a scent you like and pour. While the candles set, there is time to talk and decorate your jar.',
-      "It's calm and easy, so it works well if you want something creative without much pressure. Most of the €18 pays for materials.",
+      "It's calm and easy, so it works well if you want something creative without much pressure. About €8 of the €18 pays for materials.",
       'You leave with candles you made yourself. They make good gifts.',
     ),
     price: 18, minParticipants: 10, durationHours: 2, hostsNeeded: 1, fixedCost: 0, perPersonCost: 8,
@@ -637,7 +699,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       'Learn your first salsa steps with an instructor, then dance.',
       'A teacher takes the first hour through the basic step and a few simple turns. The second hour is social dancing: the music goes on, partners change, and you practise what you just learned.',
       "You don't need a partner or any experience. Everyone dances with everyone, so you'll meet most of the room.",
-      'The €9 mostly covers the instructor. Wear shoes that turn easily on the floor.',
+      'The €9 pays the instructor and the host. Wear shoes that turn easily on the floor.',
     ),
     price: 9, minParticipants: 16, durationHours: 2, hostsNeeded: 1, fixedCost: 60, perPersonCost: 0,
     venueNote: 'Uni room free · instructor', emoji: '💃', accent: '#D64F8B',

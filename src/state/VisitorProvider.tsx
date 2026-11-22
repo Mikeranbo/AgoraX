@@ -45,7 +45,6 @@ import type { LadderPrompt } from '../components/PriceLadderSheet';
 import type { ContactValues } from '../components/ContactForm';
 import { LIST_ID } from '../components/ui';
 import { CONCEPT } from '../config/concept';
-import { withSimplePrice } from '../data/simpleEvents';
 
 /** Screens. The bottom bar shows three of them; the sidebar and account menu reach the rest. */
 export type Tab =
@@ -316,7 +315,7 @@ export function VisitorProvider({
     unsubscribers.push(
       subscribeToEvents(
         (list) => {
-          setEvents(CONCEPT.simple ? list.map(withSimplePrice) : list);
+          setEvents(list);
           setEventsLoaded(true);
           setEventsError(false);
         },

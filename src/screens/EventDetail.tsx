@@ -9,7 +9,7 @@ import { MediaEditor } from '../components/MediaEditor';
 import { Modal } from '../components/Modal';
 import { StepArt } from '../components/StepArt';
 import { ProfileImage, colourFor } from '../components/Avatar';
-import { canOfferHosting, formatDuration } from '../data/earnings';
+import { canOfferHosting, formatDuration, keepPerHost } from '../data/earnings';
 import { cityOf } from '../data/location';
 import { editableMedia, mediaFor } from '../data/media';
 import { stepsFor } from '../data/seedEvents';
@@ -125,12 +125,27 @@ export const EventDetail = ({ event }: { event: Event }) => {
   const remaining = Math.max(0, event.minParticipants - count);
   const canHost = canOfferHosting(event) && !cancelled;
   const estimate = hostEstimate(event);
+  /** Page A: what a host keeps at the minimum headcount, in whole euros (0 = nothing to earn). */
+  const keep = canHost ? Math.max(0, keepPerHost(event)) : 0;
   const duration = formatDuration(event.durationHours);
   const where = [event.venueNote, cityOf(event)].filter(Boolean).join(' · ');
   const [hook, ...about] = (event.description || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const steps = stepsFor(event.slug ?? event.id);
   const media = mediaFor(event);
   const canEditMedia = state.isAdmin || (!!event.organiserPublicId && event.organiserPublicId === state.me?.publicId);
+
+  const joinButton = (
+    <button
+      onClick={() => void (joined ? actions.leave(event) : actions.join(event))}
+      disabled={busy}
+      aria-pressed={joined}
+      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 font-display text-[17px] font-bold text-white disabled:opacity-60 ${
+        joined ? 'border border-brand-primary/60 bg-brand-action/20' : 'gradient-brand'
+      }`}
+    >
+      {busy ? 'Saving…' : joined ? <><Check size={18} strokeWidth={3} aria-hidden="true" /> {CONCEPT.simple ? 'Picked · undo' : 'Interested · withdraw'}</> : CONCEPT.simple ? "I'd go" : "I'm interested"}
+    </button>
+  );
 
   const share = async () => {
     const code = state.me?.shareCode ?? (state.uid ? shareCodeFor(state.uid) : '');
@@ -244,18 +259,33 @@ export const EventDetail = ({ event }: { event: Event }) => {
               {cancelled ? (
                 <p className="text-[15px] text-slate-300">This one is cancelled.</p>
               ) : (
-                <button
-                  onClick={() => void (joined ? actions.leave(event) : actions.join(event))}
-                  disabled={busy}
-                  aria-pressed={joined}
-                  className={`inline-flex min-h-12 items-center gap-2 rounded-xl px-5 font-display text-[17px] font-bold text-white disabled:opacity-60 ${
-                    joined ? 'border border-brand-primary/60 bg-brand-action/20' : 'gradient-brand'
-                  }`}
-                >
-                  {busy ? 'Saving…' : joined ? <><Check size={18} strokeWidth={3} aria-hidden="true" /> {CONCEPT.simple ? 'Picked · undo' : 'Interested · withdraw'}</> : CONCEPT.simple ? "I'd go" : "I'm interested"}
-                </button>
+                !CONCEPT.simple && joinButton
               )}
             </div>
+            {/* Page A: "Help run this" right next to "I'd go", with what a host would keep. */}
+            {CONCEPT.simple && !cancelled && (
+              <div className="mt-4">
+                {/* Two equal columns: they stay side by side on a phone and in the narrow laptop column. */}
+                <div className={canHost ? 'grid grid-cols-2 gap-2' : 'flex'}>
+                  {joinButton}
+                  {canHost && (
+                    <button
+                      onClick={() => actions.helpRun(event)}
+                      aria-label={keep > 0 ? `Help run this · keep ~€${keep}` : undefined}
+                      className="flex min-h-12 flex-col items-center justify-center rounded-xl border border-white/40 px-3 py-1 text-center font-display leading-tight font-bold text-white hover:border-white/70 hover:bg-white/5"
+                    >
+                      <span className="text-[16px]">Help run this</span>
+                      {keep > 0 && <span className="text-[13px] font-semibold text-slate-200">keep ~€{keep}</span>}
+                    </button>
+                  )}
+                </div>
+                {keep > 0 && (
+                  <p className="mt-2 text-[13px] leading-snug text-slate-300">
+                    The host keeps the ticket money after costs: an estimated €{keep} if {event.minParticipants} people come.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="mt-4">
               <People event={event} remaining={remaining} />
             </div>
@@ -372,30 +402,6 @@ export const EventDetail = ({ event }: { event: Event }) => {
             {event.organiserPublicId && <OrganiserCard publicId={event.organiserPublicId} />}
           </section>
 
-          {CONCEPT.simple && !cancelled && (
-            <section aria-labelledby="help-heading" className={card}>
-              <h2 id="help-heading" className={heading}>Help run this</h2>
-              <p className="mt-2 max-w-[60ch] text-[15px] leading-relaxed text-slate-200">
-                Like the idea and want to make it happen? Tell us and we'll talk it through. You don't pay anything or promise anything by
-                offering.
-              </p>
-              {organizeNote ? (
-                <p role="status" className="mt-3 max-w-[52ch] text-[14px] font-semibold text-white">
-                  Thanks. We'll get in touch about it. This doesn't make you the organiser.
-                </p>
-              ) : (
-                <button
-                  onClick={() => {
-                    actions.helpRun(event);
-                    setOrganizeNote(true);
-                  }}
-                  className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-white/30 px-4 text-[15px] font-bold text-white hover:border-white/60 hover:bg-white/5"
-                >
-                  Help run this
-                </button>
-              )}
-            </section>
-          )}
           </div>
           </div>
         </div>
