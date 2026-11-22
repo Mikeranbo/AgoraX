@@ -44,6 +44,7 @@ import { shareCodeFor } from '../data/share';
 import type { LadderPrompt } from '../components/PriceLadderSheet';
 import type { ContactValues } from '../components/ContactForm';
 import { LIST_ID } from '../components/ui';
+import { CONCEPT } from '../config/concept';
 
 /** Screens. The bottom bar shows three of them; the sidebar and account menu reach the rest. */
 export type Tab =
@@ -232,6 +233,8 @@ function entryDoneThisTab(): boolean {
 /** Where a visit starts: the opening messages, or (for a shared event link) the notice or the page. */
 function firstEntryStage(skip: boolean): EntryStage {
   if (skip || entryDoneThisTab()) return 'done';
+  // concept-current: no opening hero, so a visit starts at the pilot notice.
+  if (!CONCEPT.openingHero) return readFlag(NOTICE_HIDDEN_KEY) ? 'done' : 'notice';
   if (urlEventId()) return readFlag(NOTICE_HIDDEN_KEY) ? 'done' : 'notice';
   return 'intro';
 }

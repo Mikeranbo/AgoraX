@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../AdminContext';
-import { Section } from '../ui';
+import { Section, Table, Td, formatTs } from '../ui';
+import { downloadCsv } from '../../../lib/csv';
 import { deleteAllContactData } from '../../../services/adminService';
 
 /**
@@ -9,9 +10,31 @@ import { deleteAllContactData } from '../../../services/adminService';
  */
 export function ContactData() {
   const {
-    state: { stats },
+    state: { stats, users, events },
     actions: { run, setNotice },
   } = useAdmin();
+  // Who to message, and about what: everyone with a number or email, with the events they picked.
+  const titles = new Map(events.map((e) => [e.id, e.title]));
+  const picksOf = new Map<string, string[]>();
+  stats.joins.forEach((p) => picksOf.set(p.uid, [...(picksOf.get(p.uid) ?? []), titles.get(p.eventId) ?? p.eventId]));
+  const people = users
+    .filter((u) => u.hasContact && (u.email || u.phone))
+    .map((u) => ({
+      id: u.id,
+      name: u.name ?? '',
+      phone: u.phone ?? '',
+      email: u.email ?? '',
+      picks: picksOf.get(u.id) ?? [],
+      source: u.source ?? 'direct',
+      consents: Object.keys(u.consents ?? {}).join(', '),
+      since: formatTs(u.createdAt),
+    }));
+  const exportPeople = () =>
+    downloadCsv(
+      'agorax-contacts',
+      ['name', 'whatsapp', 'email', 'picked', 'source', 'consents', 'since'],
+      people.map((p) => [p.name, p.phone, p.email, p.picks.join('; '), p.source, p.consents, p.since]),
+    );
   const [step, setStep] = useState<'idle' | 'confirm' | 'busy'>('idle');
 
   const wipe = () =>
@@ -26,7 +49,22 @@ export function ContactData() {
     });
 
   return (
-    <Section title="Contact data" subtitle="Keep until 30 June 2027 at the latest (privacy notice, section 6)">
+    <Section title="Contact data" subtitle="Keep until 30 June 2027 at the latest (privacy notice, section 6)" onExport={exportPeople}>
+      <div className="mb-3">
+        <Table head={['Name', 'WhatsApp', 'Email', 'Picked', 'Source', 'Agreed to', 'Since']} empty="Nobody has left a number or email yet.">
+          {people.map((p) => (
+            <tr key={p.id}>
+              <Td className="text-white">{p.name}</Td>
+              <Td className="whitespace-nowrap text-white">{p.phone}</Td>
+              <Td className="text-white">{p.email}</Td>
+              <Td className="min-w-[14rem]">{p.picks.join(', ') || '—'}</Td>
+              <Td>{p.source}</Td>
+              <Td>{p.consents}</Td>
+              <Td className="whitespace-nowrap">{p.since}</Td>
+            </tr>
+          ))}
+        </Table>
+      </div>
       <div className="glass rounded-2xl p-4 text-sm text-slate-300 space-y-3">
         <p>
           {stats.contacts} {stats.contacts === 1 ? 'person has' : 'people have'} left a WhatsApp number or email. Deleting removes every number,

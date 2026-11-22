@@ -125,3 +125,16 @@ All except tote-bag painting have no real cost, so they show as Free on concept-
 4. Open http://127.0.0.1:5173. A plain `npm run dev` talks to the real Firebase project.
 5. Browser tests without Playwright's own browser: set `PW_CHROMIUM_PATH` to
    `C:\Program Files\Google\Chrome\Application\chrome.exe`.
+
+## This branch: concept-current (22 Nov 2026)
+
+- Branched from main after the privacy work. Flags in `src/config/concept.ts`: `openingHero` off (a
+  first visit starts at the pilot notice; a slim bar with the logo sits above the list, hidden on a
+  laptop while the sidebar shows the logo), `placeAndDateFilters` off (city, "Use my location",
+  All / Near / Other, Today / Tomorrow, "How near works"), `videos` off (photos only). Search,
+  category chips and the Proposals / Scheduled switch stay.
+- Also here: the "Help run this" form creates the ID on submit (on main it silently does nothing
+  for a visitor without an ID yet; fix waiting for Mike's OK), and /admin → Contact data lists every
+  person with a number or email, their picks and source (CSV export).
+- Tests: lint, build, `npm test` 110 passed; e2e 59 passed, 4 device skips, including
+  `e2e/full-path.spec.ts` (?src=test → pick → contact → /admin shows it) at 390 and 1280 px.

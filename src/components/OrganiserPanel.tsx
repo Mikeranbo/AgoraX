@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { ensureAnonymousAuth } from '../services/identity';
 import { Modal } from './Modal';
 import { Event, RanBefore } from '../types';
 import { earningsFor, eur } from '../data/earnings';
@@ -37,6 +38,10 @@ const Breakdown = ({ event }: { event: Event }) => {
         <p className="text-[15px] text-slate-300">
           This one is free for everyone, so there's nothing to earn and nothing to pay. You run it because you'd
           like it to exist.
+        </p>
+      ) : e.perHost <= 0 ? (
+        <p className="text-[15px] text-slate-300">
+          The price only covers the materials, so there's nothing to earn. You run it because you'd like it to exist.
         </p>
       ) : (
         <div className="rounded-sheet bg-brand-dark px-4 py-2">
@@ -88,10 +93,12 @@ const HelperForm = ({ event, onDone }: { event: Event; onDone: () => void }) => 
     if (busy) return;
     const problem = validateHelperForm({ firstName, phone, email, ranBefore, consent }) ?? (age16 ? null : AGE_PROBLEM);
     setError(problem ?? '');
-    if (problem || !ranBefore || !state.uid) return;
+    if (problem || !ranBefore) return;
     setBusy(true);
     try {
-      await submitHelperInterest(event.id, state.uid, { firstName, phone, email, ranBefore });
+      // Sending the offer is an action, so it may create this browser's ID if there is none yet.
+      const uid = state.uid ?? (await ensureAnonymousAuth()).uid;
+      await submitHelperInterest(event.id, uid, { firstName, phone, email, ranBefore });
       track('organiser_interest_click', { eventId: event.id, ranBefore });
       onDone();
     } catch (err) {
