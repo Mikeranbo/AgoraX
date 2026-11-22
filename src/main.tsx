@@ -3,6 +3,10 @@ import {createRoot} from 'react-dom/client';
 import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
+import { CONCEPT } from './config/concept';
+
+// No doodles: the page sits on plain navy instead of the gradient board (index.css).
+if (!CONCEPT.doodles) document.documentElement.dataset.plain = '';
 
 // Students on mobile data never download the admin code (react-best-practices: bundle-dynamic-imports).
 const AdminPage = lazy(() => import('./pages/AdminPage.tsx'));

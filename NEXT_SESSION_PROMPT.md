@@ -125,3 +125,24 @@ All except tote-bag painting have no real cost, so they show as Free on concept-
 4. Open http://127.0.0.1:5173. A plain `npm run dev` talks to the real Firebase project.
 5. Browser tests without Playwright's own browser: set `PW_CHROMIUM_PATH` to
    `C:\Program Files\Google\Chrome\Application\chrome.exe`.
+
+## This branch: concept-simple (22 Nov 2026)
+
+- Branched from main after the privacy work. Flags in `src/config/concept.ts` (switched off, not
+  deleted): menu and account, coming-soon items and votes, place and date filters, the Scheduled
+  switch, doodles (plain navy), videos, the opening hero and the pilot notice on entry (the
+  explainer on top says it; "About the pilot" in the footer still opens the notice).
+- Shortlist: `src/data/simpleEvents.ts` (12 events, the four plain answers, the shown price).
+  /admin → Events has a "Shown" tick per event; it writes `visible` on the event and overrides
+  the default 12. Hidden events keep their data and sign-ups.
+- Shown prices: Free where there is no real cost; tote-bag painting €5 (bag + paint). The price
+  question steps up from the shown price (Free → €2, €5 → €7) and is asked once, after the
+  contact sheet that follows the first "I'd go".
+- "Tell us" (footer) saves a suggestion tagged [Run] / [Host] / [Idea] plus the contact on
+  users/{uid} with that purpose's consent; /admin shows them with the contact (owner only).
+- Also here: "Help run this" creates the ID on submit (main still waits for Mike's OK on that fix),
+  and /admin → Contact data lists each person, their picks and source (CSV export).
+- Tests: lint, build, `npm test` 110 passed; e2e on this build: `concept-simple.spec.ts` (shortlist,
+  no dates or videos, full path ?src=test → I'd go → contact → price question → /admin) and
+  `storage.spec.ts`, 18 passed at 390 and 1280 px. The menu/account/filter specs are skipped on this
+  branch in `e2e/playwright.config.ts` because those parts are hidden here.

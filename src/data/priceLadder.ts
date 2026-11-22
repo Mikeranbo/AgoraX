@@ -25,6 +25,7 @@ export const PRICE_LADDER: Record<string, LadderTier> = Object.fromEntries(
 /** The price to ask about for this event — always strictly above what the person saw. */
 export function nextPriceFor(event: Pick<Event, 'slug' | 'id' | 'price'>): number {
   const tier = PRICE_LADDER[event.slug ?? event.id];
-  const candidate = tier ? tier.nextPrice : step(event.price);
+  // Below the seed tier (concept-simple shows real costs), step up from the price actually shown.
+  const candidate = tier && event.price >= tier.basePrice ? tier.nextPrice : step(event.price);
   return Math.max(candidate, event.price + 1);
 }

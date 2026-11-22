@@ -5,6 +5,7 @@
  */
 import type { Event, EventMedia } from '../types';
 import { MEDIA_MANIFEST, SeedMedia } from './mediaManifest';
+import { CONCEPT } from '../config/concept';
 
 export interface MediaItem {
   kind: EventMedia['kind'];
@@ -81,6 +82,10 @@ export function editableMedia(e: Pick<Event, 'media' | 'slug' | 'imageUrls' | 'i
 
 /** The gallery to show, cover first. Empty means: show the event's emoji on its colour. */
 export function mediaFor(e: Pick<Event, 'media' | 'slug' | 'imageUrls' | 'imageCredit'>): MediaItem[] {
+  return CONCEPT.videos ? allMediaFor(e) : allMediaFor(e).filter((m) => m.kind === 'image');
+}
+
+function allMediaFor(e: Pick<Event, 'media' | 'slug' | 'imageUrls' | 'imageCredit'>): MediaItem[] {
   if (e.media && e.media.length > 0) return e.media.map(fromStored);
   const seed = e.slug ? MEDIA_MANIFEST[e.slug] : undefined;
   if (seed && seed.length > 0) return seed.map(fromSeed);

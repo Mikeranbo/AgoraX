@@ -60,6 +60,11 @@
     background: linear-gradient(180deg, #171c36 0%, #1e2450 42%, #2a2b60 78%, #352a66 100%);
   }
 
+  /* Concept flag "doodles" off: plain navy, no gradient. */
+  html[data-plain] body::before {
+    background: #171c36;
+  }
+
   /* No native scrollbar; <ScrollRail /> draws a decorative one. */
   html {
     scrollbar-width: none;

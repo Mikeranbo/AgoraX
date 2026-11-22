@@ -1,6 +1,7 @@
 import React from 'react';
 import { ListChecks, Plus, Star } from 'lucide-react';
 import { Tab, useVisitor } from '../state/VisitorProvider';
+import { CONCEPT } from '../config/concept';
 
 const TabButton = ({ tab, label, children }: { tab: Tab; label: string; children: React.ReactNode }) => {
   const { state, actions } = useVisitor();
@@ -28,6 +29,17 @@ export const TabBar = () => {
       className="sheet fixed inset-x-3 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-md rounded-2xl lg:hidden"
     >
       <div className="flex items-stretch px-2">
+        {CONCEPT.simple ? (
+          <>
+            <TabButton tab="events" label="Events">
+              <ListChecks size={22} />
+            </TabButton>
+            <TabButton tab="picks" label={meta.picks.length ? `My picks (${meta.picks.length})` : 'My picks'}>
+              <Star size={22} />
+            </TabButton>
+          </>
+        ) : (
+        <>
         <TabButton tab="events" label="Proposals">
           <ListChecks size={22} />
         </TabButton>
@@ -39,6 +51,8 @@ export const TabBar = () => {
         <TabButton tab="picks" label={meta.picks.length ? `Interests (${meta.picks.length})` : 'Interests'}>
           <Star size={22} />
         </TabButton>
+        </>
+        )}
       </div>
     </nav>
   );

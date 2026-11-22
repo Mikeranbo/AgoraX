@@ -9,6 +9,12 @@ import { defineConfig } from '@playwright/test';
  * PW_CHROMIUM_PATH points at a preinstalled Chromium when Playwright's own download is not used.
  */
 const DEFAULT_BUILD = 'privacy-default.spec.ts';
+/**
+ * Branch concept-simple hides the menu, My account, the location and date filters and the opening
+ * screens (src/config/concept.ts), which these files test. They still run on main and concept-current;
+ * here concept-simple.spec.ts and storage.spec.ts cover the page.
+ */
+const HIDDEN_ON_THIS_BRANCH = ['navigation.spec.ts', 'filters.spec.ts', 'organiser.spec.ts', 'pilot.spec.ts', 'profile.spec.ts', DEFAULT_BUILD];
 
 export default defineConfig({
   testDir: '.',
@@ -23,9 +29,10 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'phone', testIgnore: DEFAULT_BUILD, use: { baseURL: 'http://127.0.0.1:5179', viewport: { width: 390, height: 844 }, hasTouch: true } },
-    { name: 'laptop', testIgnore: DEFAULT_BUILD, use: { baseURL: 'http://127.0.0.1:5179', viewport: { width: 1280, height: 800 } } },
-    { name: 'default-build', testMatch: DEFAULT_BUILD, use: { baseURL: 'http://127.0.0.1:5180', viewport: { width: 390, height: 844 } } },
+    { name: 'phone', testIgnore: HIDDEN_ON_THIS_BRANCH, use: { baseURL: 'http://127.0.0.1:5179', viewport: { width: 390, height: 844 }, hasTouch: true } },
+    { name: 'laptop', testIgnore: HIDDEN_ON_THIS_BRANCH, use: { baseURL: 'http://127.0.0.1:5179', viewport: { width: 1280, height: 800 } } },
+    // default-build: its checks need My account, which this branch hides.
+    { name: 'default-build', testMatch: DEFAULT_BUILD, testIgnore: DEFAULT_BUILD, use: { baseURL: 'http://127.0.0.1:5180', viewport: { width: 390, height: 844 } } },
   ],
   // cwd: the repo root. Playwright otherwise runs these from e2e/, where Vite finds no index.html.
   webServer: [

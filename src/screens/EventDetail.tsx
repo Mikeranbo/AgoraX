@@ -18,6 +18,8 @@ import { subscribeProfile } from '../services/profileService';
 import { saveEventMedia } from '../services/mediaService';
 import { track } from '../services/analytics';
 import { errorClass, primaryButtonClass } from '../components/ui';
+import { CONCEPT } from '../config/concept';
+import { EventAnswers } from '../components/simple/SimpleParts';
 
 /** How far the content card reaches up over the gallery (px). */
 const OVERLAP = 96;
@@ -164,14 +166,14 @@ export const EventDetail = ({ event }: { event: Event }) => {
                 <ImagePlus size={20} aria-hidden="true" />
               </button>
             )}
-            <button
+            {!CONCEPT.simple && <button
               onClick={() => void actions.toggleSaved(event)}
               aria-pressed={saved}
               aria-label={saved ? `Saved: ${event.title}. Remove from saved` : `Save ${event.title}`}
               className={roundButton}
             >
               {saved ? <BookmarkCheck size={20} className="text-x-cyan" /> : <Bookmark size={20} />}
-            </button>
+            </button>}
             <button onClick={() => void share()} aria-label={`Share ${event.title}`} className={roundButton}>
               <Share2 size={20} />
             </button>
@@ -194,7 +196,7 @@ export const EventDetail = ({ event }: { event: Event }) => {
             <span className="rounded-full bg-[#0f172a]/80 px-2.5 py-0.5 leading-5 font-semibold text-white">{event.category}</span>
             {event.season === 'spring' && <span className="rounded-full bg-[#0f172a]/80 px-2.5 py-0.5 leading-5 font-semibold text-white">Spring trip</span>}
             {event.byApprovedOrganiser && <OrganiserBadge small />}
-            <span className="px-1 font-semibold text-slate-300">{dateLabel(event)}</span>
+            {!CONCEPT.simple && <span className="px-1 font-semibold text-slate-300">{dateLabel(event)}</span>}
           </div>
           <h1 className="mt-2 font-display text-[28px] leading-[1.08] font-bold tracking-[-0.02em] text-white min-[760px]:text-[40px]">{event.title}</h1>
           {hook && <p className="mt-2 max-w-[60ch] text-[15px] leading-snug text-slate-200 min-[760px]:text-[17px]">{hook}</p>}
@@ -215,10 +217,12 @@ export const EventDetail = ({ event }: { event: Event }) => {
           <section aria-labelledby="signup-heading" className={`${card} @4xl:sticky @4xl:top-[76px]`}>
             <h2 id="signup-heading" className="sr-only">Sign up</h2>
             <ul className="mb-4 space-y-1.5 border-b border-white/10 pb-4 text-[14px] text-slate-200">
-              <li className="flex items-start gap-2.5">
-                <CalendarDays size={18} className="mt-px shrink-0 text-slate-400" aria-hidden="true" />
-                <span><span className="sr-only">When: </span>{dateLabel(event)}</span>
-              </li>
+              {!CONCEPT.simple && (
+                <li className="flex items-start gap-2.5">
+                  <CalendarDays size={18} className="mt-px shrink-0 text-slate-400" aria-hidden="true" />
+                  <span><span className="sr-only">When: </span>{dateLabel(event)}</span>
+                </li>
+              )}
               {where && (
                 <li className="flex items-start gap-2.5">
                   <MapPin size={18} className="mt-px shrink-0 text-slate-400" aria-hidden="true" />
@@ -235,7 +239,7 @@ export const EventDetail = ({ event }: { event: Event }) => {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <p>
                 <span className="block font-display text-[44px] leading-none font-extrabold tracking-[-0.02em] text-white tabular-nums">{priceLabel(event)}</span>
-                <span className="mt-1 block text-[12px] text-slate-400">{event.price > 0 ? 'indicative price per person' : 'free to join'}</span>
+                <span className="mt-1 block text-[12px] text-slate-400">{CONCEPT.simple ? 'nothing to pay now' : event.price > 0 ? 'indicative price per person' : 'free to join'}</span>
               </p>
               {cancelled ? (
                 <p className="text-[15px] text-slate-300">This one is cancelled.</p>
@@ -248,14 +252,14 @@ export const EventDetail = ({ event }: { event: Event }) => {
                     joined ? 'border border-brand-primary/60 bg-brand-action/20' : 'gradient-brand'
                   }`}
                 >
-                  {busy ? 'Saving…' : joined ? <><Check size={18} strokeWidth={3} aria-hidden="true" /> Interested · withdraw</> : "I'm interested"}
+                  {busy ? 'Saving…' : joined ? <><Check size={18} strokeWidth={3} aria-hidden="true" /> {CONCEPT.simple ? 'Picked · undo' : 'Interested · withdraw'}</> : CONCEPT.simple ? "I'd go" : "I'm interested"}
                 </button>
               )}
             </div>
             <div className="mt-4">
               <People event={event} remaining={remaining} />
             </div>
-            {canHost && (
+            {canHost && !CONCEPT.simple && (
               <button
                 onClick={() => {
                   actions.helpRun(event);
@@ -266,7 +270,7 @@ export const EventDetail = ({ event }: { event: Event }) => {
                 {estimate ? `Organize · ${estimate} for a host` : 'Organize'}
               </button>
             )}
-            {organizeNote && (
+            {organizeNote && !CONCEPT.simple && (
               <p role="status" className="mt-2 max-w-[52ch] text-[14px] font-semibold text-white">
                 We'll contact you about a possible collaboration. This doesn't make you the organiser.
               </p>
@@ -275,12 +279,22 @@ export const EventDetail = ({ event }: { event: Event }) => {
               <InitialToggle event={event} small />
             </div>
             <p className="mt-2 text-[12px] text-slate-400">
-              Prices and potential earnings are hypothetical, not promises. Interest isn't a booking: no payment, and no guarantee it goes ahead.
+              {CONCEPT.simple
+                ? "Picking isn't a booking. Nothing is paid now, and it only goes ahead if enough people pick it."
+                : "Prices and potential earnings are hypothetical, not promises. Interest isn't a booking: no payment, and no guarantee it goes ahead."}
             </p>
           </section>
           </div>
 
           <div className="min-w-0 space-y-6 @4xl:col-start-1 @4xl:row-start-1">
+          {CONCEPT.simple && (
+            <section aria-labelledby="plain-heading" className={card}>
+              <h2 id="plain-heading" className={heading}>In short</h2>
+              <div className="mt-3">
+                <EventAnswers event={event} size="page" />
+              </div>
+            </section>
+          )}
           {about.length > 0 && (
             <section aria-labelledby="about-heading" className={card}>
               <h2 id="about-heading" className={heading}>About</h2>
@@ -335,8 +349,12 @@ export const EventDetail = ({ event }: { event: Event }) => {
                   <dd className="text-white">{event.bringYourOwn}</dd>
                 </>
               )}
-              <dt className="text-slate-400">When</dt>
-              <dd className="text-white">{dateLabel(event)}</dd>
+              {!CONCEPT.simple && (
+                <>
+                  <dt className="text-slate-400">When</dt>
+                  <dd className="text-white">{dateLabel(event)}</dd>
+                </>
+              )}
               <dt className="text-slate-400">Needed to run</dt>
               <dd className="text-white">{event.minParticipants} interested people</dd>
               {typeof event.hostsNeeded === 'number' && (
@@ -353,6 +371,31 @@ export const EventDetail = ({ event }: { event: Event }) => {
             )}
             {event.organiserPublicId && <OrganiserCard publicId={event.organiserPublicId} />}
           </section>
+
+          {CONCEPT.simple && !cancelled && (
+            <section aria-labelledby="help-heading" className={card}>
+              <h2 id="help-heading" className={heading}>Help run this</h2>
+              <p className="mt-2 max-w-[60ch] text-[15px] leading-relaxed text-slate-200">
+                Like the idea and want to make it happen? Tell us and we'll talk it through. You don't pay anything or promise anything by
+                offering.
+              </p>
+              {organizeNote ? (
+                <p role="status" className="mt-3 max-w-[52ch] text-[14px] font-semibold text-white">
+                  Thanks. We'll get in touch about it. This doesn't make you the organiser.
+                </p>
+              ) : (
+                <button
+                  onClick={() => {
+                    actions.helpRun(event);
+                    setOrganizeNote(true);
+                  }}
+                  className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-white/30 px-4 text-[15px] font-bold text-white hover:border-white/60 hover:bg-white/5"
+                >
+                  Help run this
+                </button>
+              )}
+            </section>
+          )}
           </div>
           </div>
         </div>
