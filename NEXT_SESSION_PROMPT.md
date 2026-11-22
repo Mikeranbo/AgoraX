@@ -6,6 +6,12 @@ Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Fi
 ## Page A shows all events, real prices, tournaments (22 Nov 2026, evening)
 
 Mike's decisions of 22 Nov (evening), merged into main from branch `page-a-all-events`:
+Live and checked on 22 Nov 2026: seeded through /admin (3 created, 40 updated); in fresh browsers page A
+lists 43 events with prices, the tournaments show on both pages, nothing is stored before a click,
+and "Help run this" works on page A as the first action (the test offer was deleted again).
+The A/B numbers from before this change (A 4 visits, B 8) were collected with the old 12-event page A.
+Tests: lint, build, `npm test` 124, rules 272 checks + 16 client flows, e2e 93 passed (6 skips).
+
 
 - Page A (simple design) lists every event page B lists: 43, with the same category chips, as one
   list. The "On page A" tick on /admin still takes an event off page A (`visible: false`); without it
