@@ -75,3 +75,19 @@ test('Delete everything removes the ID and what this browser kept', async ({ pag
   expect(stored.local).toEqual([]);
   expect(stored.session).toEqual([]);
 });
+
+test('"Help run this" works as the very first action: the offer creates the ID', async ({ page }) => {
+  await openSite(page, { path: '/?e=chess' });
+  await page.getByRole('button', { name: /^Organize/ }).click();
+  const panel = page.getByRole('dialog', { name: 'Organize this event' });
+  await panel.getByRole('button', { name: "I'd help run this" }).click();
+  await panel.getByLabel('First name').fill('Robin');
+  await panel.getByLabel('Email').fill('robin@example.com');
+  await panel.getByText('Sort of').click();
+  await panel.getByLabel("I'm 16 or older.").check();
+  await panel.getByRole('checkbox', { name: /running this event/ }).check();
+  expect((await deviceStorage(page)).idb).toEqual([]);
+  await panel.getByRole('button', { name: 'Send' }).click();
+  await expect(panel.getByText("you're on the list of possible hosts")).toBeVisible();
+  expect((await deviceStorage(page)).idb).toContain('firebaseLocalStorageDb');
+});
