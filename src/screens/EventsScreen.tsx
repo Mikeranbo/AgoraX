@@ -10,7 +10,7 @@ import { CITIES, NEAR_KM } from '../data/location';
 import { PILOT_CITY } from '../config/pilot';
 import { useWideScreen } from '../state/useWideScreen';
 import { CONCEPT } from '../config/concept';
-import { isShortlisted } from '../data/simpleEvents';
+import { isOnPageA } from '../data/simpleEvents';
 import { SimpleIntro } from '../components/simple/SimpleParts';
 import { Logo } from '../components/Logo';
 
@@ -183,8 +183,8 @@ export const EventsScreen = () => {
   const filters = { view: state.view, category: state.filter, date: state.dateFilter, place: state.place, search: query };
   const active = hasActiveFilters(filters);
 
-  // concept-simple: only the shortlist (the default 12, or what /admin marked as shown).
-  const listed = useMemo(() => (CONCEPT.simple ? state.events.filter(isShortlisted) : state.events), [state.events]);
+  // Page A lists every event page B lists, unless /admin took one off page A.
+  const listed = useMemo(() => (CONCEPT.simple ? state.events.filter(isOnPageA) : state.events), [state.events]);
   const shown = useMemo(
     () => filterEvents(listed, filters, new Date()),
     [listed, state.view, state.filter, state.dateFilter, state.place, query],

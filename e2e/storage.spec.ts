@@ -37,6 +37,23 @@ test('a shared event link with no clicks stores nothing either', async ({ page, 
   expect(await context.cookies()).toEqual([]);
 });
 
+test('page B writes agorax.entry.done only when the pilot notice is closed with a tap', async ({ page }) => {
+  await page.goto('/?src=test');
+  const notice = page.getByRole('dialog', { name: 'A quick note: this is a pilot' });
+  const pageA = page.getByRole('heading', { name: "Pick the events you'd actually go to." });
+  await expect(notice.or(pageA).first()).toBeVisible({ timeout: 20_000 });
+  test.skip(!(await notice.isVisible()), 'page A has no pilot notice');
+  await page.waitForTimeout(2000);
+  expect((await deviceStorage(page)).session).toEqual([]);
+  await notice.getByRole('button', { name: 'Got it — explore' }).click();
+  await expect(notice).toBeHidden();
+  expect((await deviceStorage(page)).session).toEqual(['agorax.entry.done']);
+  // A reload in the same tab doesn't show the notice again.
+  await page.reload();
+  await expect(page.locator('article').first()).toBeVisible({ timeout: 20_000 });
+  await expect(notice).toHaveCount(0);
+});
+
 test('the first "I\'m interested" creates the ID; the source is attached to it', async ({ page }) => {
   await openSite(page, { answerStats: false, path: '/?src=test' });
   // Closing the pilot notice is a click; it may only keep that answer, nothing else.
@@ -86,7 +103,7 @@ test('Delete everything removes the ID and what this browser kept', async ({ pag
 
 test('"Help run this" works as the very first action: the offer creates the ID', async ({ page }) => {
   await openSite(page, { path: '/?e=chess' });
-  // Page B: "Organize" in the sign-up card. Page A: "Help run this" below the details.
+  // Page B: "Organize" in the sign-up card. Page A: "Help run this" next to "I'd go".
   await page.getByRole('button', { name: /^(Organize|Help run this)/ }).first().click();
   const panel = page.getByRole('dialog', { name: 'Organize this event' });
   await panel.getByRole('button', { name: "I'd help run this" }).click();

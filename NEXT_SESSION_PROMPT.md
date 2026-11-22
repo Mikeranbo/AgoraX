@@ -3,6 +3,34 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07` (Blaze, europe-west4), Vercel deploys `main` to https://agora-x.vercel.app.
 
+## Page A shows all events, real prices, tournaments (22 Nov 2026, evening)
+
+Mike's decisions of 22 Nov (evening), merged into main from branch `page-a-all-events`:
+
+- Page A (simple design) lists every event page B lists: 43, with the same category chips, as one
+  list. The "On page A" tick on /admin still takes an event off page A (`visible: false`); without it
+  every event shows (`isOnPageA` in `src/data/simpleEvents.ts`). The old shortlist of 12 is gone.
+- Real prices on page A: the seed price, as on page B (no more "Free"). The price question steps up
+  from the shown price as before (`nextPriceFor`). Every event has its four plain answers in
+  `src/data/simpleEvents.ts`; "What the price pays for" starts with the price and names the cost per
+  person (`simpleEvents.test.ts` checks both against `seedEvents.ts`).
+- Opened event on page A: "Help run this" sits next to "I'd go" (two equal columns). Where a host
+  keeps something at the minimum: "Help run this / keep ~€X" and the line "The host keeps the ticket
+  money after costs: an estimated €X if N people come." Free events: only "Help run this". It opens the
+  same host panel and form. The old section below the details is gone.
+- New category Sports (now a public category, after Games) with three tournaments, on both pages:
+  Ping-Pong Tournament (€3, min 12, no costs, host keeps ~€33), Padel Tournament (€12, min 16, courts
+  €120, ~€59), Tennis Tournament (€12, min 16, two indoor courts €140, ~€39). Ping-pong and padel
+  numbers are the old Ping-Pong Challenge / Padel Cup entries; tennis is modelled on padel. Message:
+  "Train at ACLO, play for fun with us". Photos in `public/media/*-tournament` (Unsplash, credits in
+  `public/media/CREDITS.md`).
+- Two descriptions corrected to match their numbers: Candle Making ("About €8 of the €18 pays for
+  materials") and Beginner Salsa ("The €9 pays the instructor and the host").
+- Page B's `agorax.entry.done` (sessionStorage) is written only when the pilot notice is closed with
+  a tap; `e2e/storage.spec.ts` now proves it.
+- /admin → A/B test: both pages list the same events, so "Picks per event shown on both pages" covers
+  all of them.
+
 ## A/B test: LIVE on main since 22 Nov 2026 (privacy notice 1.2)
 
 Mike approved notice 1.2 on 22 Nov 2026 (adds the page version in §2, §3, §5 and §6). Firestore rules
@@ -21,7 +49,8 @@ Test links: https://agora-x.vercel.app/?v=simple (page A) and https://agora-x.ve
   them, by exactly 1). Test visits are not counted at all.
 - /admin → "A/B test" (top): A and B side by side: visits, picked at least one (count, % of visits),
   left a contact (count, %), average picks per picker, help-run offers, messages, and picks per
-  event for the 12 events on both pages. Picks from test visits are listed apart.
+  event for every event on both pages (since 22 Nov evening both pages list the same 43). Picks from
+  test visits are listed apart.
 - Mike should use https://agora-x.vercel.app/?v=simple and ?v=current himself, so his own taps
   don't count. Progress bars stay shared across both pages.
 - Tests (22 Nov, fresh emulators): lint, build, `npm test` 116 passed, `npm run test:rules` 272 checks

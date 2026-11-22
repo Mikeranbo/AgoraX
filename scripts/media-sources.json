@@ -498,6 +498,72 @@
         "licence": "Unsplash License"
       }
     ],
+    "ping-pong-tournament": [
+      {
+        "type": "image",
+        "source": "unsplash",
+        "id": "1786025148408-f6ac4cc0dc0f",
+        "page": "https://unsplash.com/photos/women-playing-table-tennis-in-hall-7hRdtdDBWbU",
+        "author": "Alejandro Stuardo",
+        "profile": "https://unsplash.com/@astuardom",
+        "licence": "Unsplash License",
+        "checked": "2026-11-22"
+      },
+      {
+        "type": "image",
+        "source": "unsplash",
+        "id": "1646978567314-32cfd5a8854e",
+        "page": "https://unsplash.com/photos/two-ping-pong-paddles-and-a-ping-pong-ball-on-a-blue-table-7h9wGq4IUdE",
+        "author": "Inkiipow",
+        "profile": "https://unsplash.com/@inkiipow",
+        "licence": "Unsplash License",
+        "checked": "2026-11-22"
+      }
+    ],
+    "padel-tournament": [
+      {
+        "type": "image",
+        "source": "unsplash",
+        "id": "1770230901556-4e1c0bacfb09",
+        "page": "https://unsplash.com/photos/two-men-playing-padel-tennis-on-a-blue-court-Stb4Tx7YqXI",
+        "author": "Ashford Marx",
+        "profile": "https://unsplash.com/@ashford_marx",
+        "licence": "Unsplash License",
+        "checked": "2026-11-22"
+      },
+      {
+        "type": "image",
+        "source": "unsplash",
+        "id": "1612534847738-b3af9bc31f0c",
+        "page": "https://unsplash.com/photos/padel-racket-on-court-zTwzxr4BbTA",
+        "author": "Manuel Pappacena",
+        "profile": "https://unsplash.com/@manupappa",
+        "licence": "Unsplash License",
+        "checked": "2026-11-22"
+      }
+    ],
+    "tennis-tournament": [
+      {
+        "type": "image",
+        "source": "unsplash",
+        "id": "1758887249807-995900199120",
+        "page": "https://unsplash.com/photos/two-men-with-tennis-rackets-on-court-vsM2ejn_kwI",
+        "author": "Babak Eshaghian",
+        "profile": "https://unsplash.com/@babak22ir",
+        "licence": "Unsplash License",
+        "checked": "2026-11-22"
+      },
+      {
+        "type": "image",
+        "source": "unsplash",
+        "id": "1705646152746-e3c9085ed34a",
+        "page": "https://unsplash.com/photos/a-group-of-people-playing-tennis-on-a-tennis-court-s2Cr7Wjj2MI",
+        "author": "Scott Hendrickson",
+        "profile": "https://unsplash.com/@desertlivin",
+        "licence": "Unsplash License",
+        "checked": "2026-11-22"
+      }
+    ],
     "photography-challenge": [
       {
         "type": "video",
