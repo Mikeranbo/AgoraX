@@ -3,14 +3,13 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07` (Blaze, europe-west4), Vercel deploys `main` to https://agora-x.vercel.app.
 
-## A/B test (branch ab-test, 22 Nov 2026): built and tested, NOT merged or deployed
+## A/B test: LIVE on main since 22 Nov 2026 (privacy notice 1.2)
 
-Waiting for Mike's approval of privacy notice 1.2 (notice 1.1 does not mention saving the page
-version). On "yes": put the 1.2 wording into docs/PRIVACY_NOTICE_FINAL.md and src/data/privacyNotice.ts
-(the word-for-word test must pass; NOTICE_VERSION '1.2-…'), run
-`npx.cmd firebase deploy --only firestore:rules --project agorax-a8d07`, merge ab-test into main, push,
-then check live in a fresh browser: both pages across reloads, nothing stored before a click,
-?v=simple and ?v=current.
+Mike approved notice 1.2 on 22 Nov 2026 (adds the page version in §2, §3, §5 and §6). Firestore rules
+deployed, ab-test merged into main and live. Checked live in fresh browsers: page A and page B both
+appear across reloads, nothing is stored before a click, ?v=simple and ?v=current open the right page
+and store nothing. The live check added 2 real visits under ?src=livecheck (one A, one B).
+Test links: https://agora-x.vercel.app/?v=simple (page A) and https://agora-x.vercel.app/?v=current (page B).
 
 - One link, two pages: `src/config/concept.ts` picks page A (`simple`) or B (`current`) when the page
   loads. `?v=` forces a page (stamped `simple-test` / `current-test`, never counted); a saved
