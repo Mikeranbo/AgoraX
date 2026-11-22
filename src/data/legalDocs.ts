@@ -3,10 +3,10 @@ import { LEGAL } from '../config/legal';
 
 /**
  * Terms of Use and Cookie Policy, rendered by LegalDocScreen. Like the privacy notice
- * (src/data/privacyNotice.ts, version 1.1) they describe what the code actually does. The
+ * (src/data/privacyNotice.ts, version 1.2) they describe what the code actually does. The
  * Cookie Policy lists every item section 5 of the notice mentions; keep the two in step.
  */
-export const LEGAL_DOCS_VERSION = '1.1-2026-11-21';
+export const LEGAL_DOCS_VERSION = '1.2-2026-11-22';
 
 export interface NoticeSection {
   title: string;
@@ -105,7 +105,7 @@ export const COOKIES: LegalDoc = {
     {
       title: 'Before you do anything',
       paragraphs: [
-        'Opening the site adds one to an anonymous visit count for the poster or shared link that brought you here. That count is kept in our database, not on your device, and no ID is involved.',
+        'Opening the site adds one to an anonymous visit count for the poster or shared link that brought you here, and for the version of the page you were shown. That count is kept in our database, not on your device, and no ID is involved.',
       ],
     },
     {
@@ -117,6 +117,7 @@ export const COOKIES: LegalDoc = {
         ['Your settings', 'Your city and whether the menu is open, once you change them (localStorage, agorax_city and agorax_sidebar).'],
         ['Notices you closed', 'That you closed the pilot notice or the contact banner (localStorage, agorax.pilotNotice.hidden and agorax_banner_dismissed), and that this tab already showed the opening screen (sessionStorage, agorax.entry.done, gone when you close the tab).'],
         ['Your statistics answer', 'Your yes or no to the statistics question, once you tap one (localStorage, agorax_stats_consent).'],
+        ['Which version of the page you got', 'We are comparing two versions of this page. From your first action, the browser remembers which one you got, so it stays the same (localStorage, agorax_variant).'],
       ],
     },
     {

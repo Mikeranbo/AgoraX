@@ -160,6 +160,11 @@ export async function setEventStatus(id: string, status: EventStatus) {
   await updateDoc(doc(db, 'events', id), { status });
 }
 
+/** concept-simple: show or hide an event in the list. Hidden events keep their data and sign-ups. */
+export async function setEventVisible(id: string, visible: boolean) {
+  await updateDoc(doc(db, 'events', id), { visible });
+}
+
 /**
  * Deletes the event document only. Firestore does not cascade, and the rules let people
  * remove just their own participant document, so old joins stay behind as orphans — the

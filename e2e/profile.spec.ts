@@ -138,10 +138,10 @@ test('notification preferences: each purpose switches on and off, and the change
   await expect(page.getByRole('switch', { name: 'When AgoraX launches' })).toHaveAttribute('aria-checked', 'false');
 });
 
-test('the privacy notice is version 1.1 and names the controller', async ({ page }) => {
+test('the privacy notice is version 1.2 and names the controller', async ({ page }) => {
   await openSite(page);
   await fromAccountMenu(page, 'Privacy Policy');
-  await expect(page.getByText('Version 1.1 · 21 November 2026')).toBeVisible();
+  await expect(page.getByText('Version 1.2 · 22 November 2026')).toBeVisible();
   await expect(page.getByText('Michael Aleinikov').first()).toBeVisible();
   await expect(page.getByText('To be confirmed')).toHaveCount(0);
   await expect(page.getByText('Autoriteit Persoonsgegevens', { exact: true }).first()).toBeVisible();

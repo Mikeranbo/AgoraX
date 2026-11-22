@@ -1,5 +1,5 @@
 /**
- * The privacy notice, version 1.1 (21 November 2026), exactly as approved in
+ * The privacy notice, version 1.2 (22 November 2026), exactly as approved in
  * docs/PRIVACY_NOTICE_FINAL.md. PrivacyNoticeScreen renders it; privacyNotice.test.ts checks
  * that noticeMarkdown() still equals that file word for word. Change both together, never one.
  *
@@ -16,7 +16,7 @@ export interface NoticeChapter {
 }
 
 export const NOTICE_TITLE = "AgoraX privacy notice";
-export const NOTICE_DATE_LINE = "Version 1.1 · 21 November 2026";
+export const NOTICE_DATE_LINE = "Version 1.2 · 22 November 2026";
 
 export const NOTICE_INTRO: NoticeBlock[] = [
   {
@@ -59,11 +59,11 @@ export const NOTICE_CHAPTERS: NoticeChapter[] = [
         "rows": [
           [
             "Just by visiting",
-            "Nothing is stored on your device and no ID is created. We only add one to an anonymous visit count for the poster or shared link that brought you here."
+            "Nothing is stored on your device and no ID is created. We only add one to an anonymous visit count for the poster or shared link that brought you here, and for the version of the page you were shown."
           ],
           [
             "From your first action (for example tapping \"Interested\")",
-            "A random ID for this browser, created by the anonymous sign-in (there are no accounts or passwords), when you first and last used the pilot, and which poster or shared link brought you here."
+            "A random ID for this browser, created by the anonymous sign-in (there are no accounts or passwords), when you first and last used the pilot, which poster or shared link brought you here, and which of the two versions of the page you were shown."
           ],
           [
             "When you use the pilot",
@@ -110,6 +110,10 @@ export const NOTICE_CHAPTERS: NoticeChapter[] = [
           [
             "Counting which events students are interested in, linked to the random browser ID, to decide which events to run",
             "Legitimate interest (6(1)(f)): testing demand for the pilot. The data is pseudonymous and low-impact, and you can remove it at any time."
+          ],
+          [
+            "Comparing two versions of the page, to see which one helps students find events they would go to, using the version saved with the random browser ID",
+            "Legitimate interest (6(1)(f)): improving the pilot. The data is pseudonymous and low-impact, and is deleted with the rest of your pilot data."
           ],
           [
             "Telling you whether an event you picked goes ahead, is cancelled or won't happen",
@@ -202,7 +206,7 @@ export const NOTICE_CHAPTERS: NoticeChapter[] = [
     "blocks": [
       {
         "kind": "p",
-        "text": "AgoraX sets no cookies of its own, and the site's hosting sets none either. It keeps a few small items in your browser's storage: the anonymous sign-in, which poster or link brought you here, your settings, whether you closed a notice, your answer to the statistics question, and (only after you allow statistics) which cards were already counted. The Cookie Policy lists each item. You can clear them at any time in your browser settings."
+        "text": "AgoraX sets no cookies of its own, and the site's hosting sets none either. It keeps a few small items in your browser's storage: the anonymous sign-in, which poster or link brought you here, your settings, whether you closed a notice, your answer to the statistics question, which version of the page you were shown (from your first action, so it stays the same), and (only after you allow statistics) which cards were already counted. The Cookie Policy lists each item. You can clear them at any time in your browser settings."
       }
     ]
   },
@@ -225,7 +229,7 @@ export const NOTICE_CHAPTERS: NoticeChapter[] = [
             "Until you delete them or withdraw consent, and at the latest until **30 June 2027**. Then they are deleted, including our WhatsApp and Gmail conversations with you."
           ],
           [
-            "Interests, price answers, proposals, offers to help or of a space, organiser applications",
+            "Interests, price answers, the page version you were shown, proposals, offers to help or of a space, organiser applications",
             "Deleted or made fully anonymous by **30 June 2027**."
           ],
           [

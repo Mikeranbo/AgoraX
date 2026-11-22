@@ -6,6 +6,7 @@ import { acceptReferrer, resolveSource, shareCodeFor } from '../data/share';
 import { contactKeyFor, normaliseEmail, normalisePhone } from '../data/contact';
 import { CONSENT_VERSION, ConsentPurpose } from '../data/consent';
 import { NOTICE_VERSION } from '../config/pilot';
+import { COUNTS_IN_AB_TEST, VARIANT, VARIANT_KEY, VARIANT_STAMP } from '../config/concept';
 
 /**
  * Identity model: nobody signs in. A visitor becomes a Firebase *anonymous* user on their
@@ -26,6 +27,7 @@ const ID_KEY = 'agorax_id';
 export const APP_STORAGE_KEYS = [
   SRC_KEY,
   ID_KEY,
+  VARIANT_KEY,
   'agorax_ref',
   'agorax_city',
   'agorax_sidebar',
@@ -106,6 +108,8 @@ async function createUserDoc(user: User) {
       shareCode: own,
       referredBy: acceptReferrer(sessionRef, own),
       hasContact: false,
+      // A/B test: the page this person saw when they first acted. Set once, never changed.
+      variant: VARIANT_STAMP,
     },
     { merge: true },
   );
@@ -127,6 +131,8 @@ export function ensureAnonymousAuth(): Promise<User> {
         user = (await signInAnonymously(auth)).user;
         safeSet(ID_KEY, '1');
         if (!safeGet(SRC_KEY)) safeSet(SRC_KEY, sessionSource);
+        // From now on this browser always gets the same page.
+        if (!safeGet(VARIANT_KEY)) safeSet(VARIANT_KEY, VARIANT_STAMP);
         try {
           await createUserDoc(user);
         } catch (err) {
@@ -235,8 +241,12 @@ async function touchUser(user: User): Promise<void> {
  */
 export function countVisit(): void {
   if (!once('visit')) return;
+  // ?v= test visits (and browsers that saved a test variant) are not counted at all.
+  if (!COUNTS_IN_AB_TEST) return;
   const src = resolveSource(urlParams(), null);
-  setDoc(doc(db, 'visits', src), { count: increment(1) }, { merge: true }).catch((err) => console.warn('visit not counted', err));
+  setDoc(doc(db, 'visits', src), { count: increment(1), [VARIANT]: increment(1) }, { merge: true }).catch((err) =>
+    console.warn('visit not counted', err),
+  );
 }
 
 // ---------------------------------------------------------------- contact
@@ -280,6 +290,8 @@ export async function linkContact(input: ContactInput): Promise<void> {
     payload.createdAt = serverTimestamp();
     payload.source = sessionSource;
   }
+  // An ID made before the A/B test has no variant yet: the contact is filed under this page.
+  if (!existing.data()?.variant) payload.variant = VARIANT_STAMP;
   if (input.name?.trim()) payload.name = input.name.trim();
   if (email) payload.email = email;
   if (phone) payload.phone = phone;

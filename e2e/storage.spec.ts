@@ -1,6 +1,9 @@
 import { test, expect, Page } from '@playwright/test';
 import { card, goToList, openSite, seed } from './helpers';
 
+/** The main button and its picked state, on every concept. */
+const JOIN = /^(I'm interested|I'd go)$/;
+
 /**
  * Telecommunicatiewet 11.7a / privacy notice 1.1 section 2: opening the site stores nothing on
  * the device and creates no ID. Each test runs in a fresh browser context.
@@ -41,8 +44,8 @@ test('the first "I\'m interested" creates the ID; the source is attached to it',
   expect(stored.idb).toEqual([]);
   expect(stored.local).not.toContain('agorax_id');
   await goToList(page);
-  await card(page, 'Pottery evening').getByRole('button', { name: "I'm interested" }).click();
-  await expect(card(page, 'Pottery evening').getByText('Interested')).toBeVisible();
+  await card(page, 'Pottery evening').getByRole('button', { name: JOIN }).click();
+  await expect(card(page, 'Pottery evening').getByRole('button', { name: /^Withdraw interest in/ })).toBeVisible();
   stored = await deviceStorage(page);
   expect(stored.idb).toContain('firebaseLocalStorageDb');
   expect(stored.local).toEqual(expect.arrayContaining(['agorax_id', 'agorax_src']));
@@ -50,7 +53,8 @@ test('the first "I\'m interested" creates the ID; the source is attached to it',
 });
 
 test('Privacy & my data with no ID: nothing to delete, and opening it creates nothing', async ({ page }) => {
-  await openSite(page, { answerStats: false });
+  // Answering the statistics question stores only that answer (and keeps the banner off the footer).
+  await openSite(page);
   await page.getByRole('contentinfo').getByRole('button', { name: 'Privacy & my data' }).click();
   await expect(page.getByText('This browser has no ID yet').first()).toBeVisible();
   expect((await deviceStorage(page)).idb).toEqual([]);
@@ -64,9 +68,13 @@ test('Privacy & my data with no ID: nothing to delete, and opening it creates no
 test('Delete everything removes the ID and what this browser kept', async ({ page }) => {
   await openSite(page);
   await goToList(page);
-  await card(page, 'Pottery evening').getByRole('button', { name: "I'm interested" }).click();
-  await expect(card(page, 'Pottery evening').getByText('Interested')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await card(page, 'Pottery evening').getByRole('button', { name: JOIN }).click();
+  await expect(card(page, 'Pottery evening').getByRole('button', { name: /^Withdraw interest in/ })).toBeVisible();
+  // Close whatever asks next (the price question, or on concept-simple the contact sheet first).
+  for (let i = 0; i < 3 && (await page.getByRole('dialog').count()) > 0; i++) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  }
   await page.getByRole('contentinfo').getByRole('button', { name: 'Privacy & my data' }).click();
   await page.getByRole('button', { name: 'Delete my data and account' }).click();
   await page.getByRole('button', { name: 'Yes, delete it all' }).click();
@@ -78,7 +86,8 @@ test('Delete everything removes the ID and what this browser kept', async ({ pag
 
 test('"Help run this" works as the very first action: the offer creates the ID', async ({ page }) => {
   await openSite(page, { path: '/?e=chess' });
-  await page.getByRole('button', { name: /^Organize/ }).click();
+  // Page B: "Organize" in the sign-up card. Page A: "Help run this" below the details.
+  await page.getByRole('button', { name: /^(Organize|Help run this)/ }).first().click();
   const panel = page.getByRole('dialog', { name: 'Organize this event' });
   await panel.getByRole('button', { name: "I'd help run this" }).click();
   await panel.getByLabel('First name').fill('Robin');

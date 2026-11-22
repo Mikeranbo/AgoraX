@@ -22,19 +22,6 @@ test('scheduled events and proposals are separate lists', async ({ page }) => {
   await expect(card(page, 'Chess café')).toHaveCount(0);
 });
 
-test('Today and Tomorrow are shown locked, as coming soon', async ({ page }) => {
-  await openSite(page);
-  await goToList(page);
-  for (const day of ['Today', 'Tomorrow']) {
-    await page.getByRole('button', { name: `${day}: coming soon` }).click();
-    await expect(page.getByRole('dialog', { name: 'Filter by day (today, tomorrow)' })).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-  }
-  // Nothing was filtered.
-  await expect(card(page, 'Chess café')).toHaveCount(1);
-});
-
 test('an empty scheduled list explains itself instead of showing proposals', async ({ page }) => {
   await openSite(page);
   await goToList(page);
@@ -45,55 +32,23 @@ test('an empty scheduled list explains itself instead of showing proposals', asy
   await expect(card(page, 'Pub quiz night')).toBeVisible();
 });
 
-test('near / other locations combine with categories, and Clear filters resets them', async ({ page }) => {
+// concept-current removed the location and date filter box (src/config/concept.ts).
+test('the city, location and date filters are gone; search, categories and Proposals / Scheduled stay', async ({ page }) => {
   await openSite(page);
   await goToList(page);
-  await page.getByRole('button', { name: 'Near Groningen' }).click();
-  await expect(card(page, 'Drenthe walk')).toHaveCount(1); // Assen, ~25 km
-  await expect(card(page, 'Chess café')).toHaveCount(1); // no city: the pilot city
-  await expect(card(page, 'Amsterdam museum day')).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Other locations' }).click();
-  await expect(card(page, 'Amsterdam museum day')).toHaveCount(1);
-  await expect(card(page, 'Chess café')).toHaveCount(0);
-
-  await page.getByRole('group', { name: 'Categories' }).getByRole('button', { name: 'Outdoor', exact: true }).click();
-  await expect(page.getByText('Nothing matches these filters.')).toBeVisible();
-  await page.getByRole('button', { name: 'Near Groningen' }).click();
-  await expect(card(page, 'Drenthe walk')).toHaveCount(1);
-  await expect(card(page, 'Pottery evening')).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Clear filters' }).first().click();
-  await expect(page.getByRole('button', { name: 'All locations', pressed: true })).toBeVisible();
-  await expect(page.getByRole('group', { name: 'Categories' }).getByRole('button', { name: 'All', exact: true, pressed: true })).toBeVisible();
-  await expect(card(page, 'Amsterdam museum day')).toHaveCount(1);
+  await expect(page.getByRole('combobox', { name: 'City' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Use my location' })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Location' })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Date, coming soon' })).toHaveCount(0);
+  await expect(page.getByText('How "near" works')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Search events' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Categories' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Scheduled' })).toBeVisible();
+  await expect(page.locator('video')).toHaveCount(0);
 });
 
-test('the browser is asked for a location only after "Use my location", and only the city is kept', async ({ browser }, info) => {
-  const context = await browser.newContext({
-    ...info.project.use,
-    geolocation: { latitude: 52.37, longitude: 4.89 },
-    permissions: ['geolocation'],
-  });
-  await context.addInitScript(() => {
-    const original = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
-    (window as any).__geoCalls = 0;
-    navigator.geolocation.getCurrentPosition = (...args: Parameters<Geolocation['getCurrentPosition']>) => {
-      (window as any).__geoCalls++;
-      return original(...args);
-    };
-  });
-  const page = await context.newPage();
-  await openSite(page);
-  await goToList(page);
-  expect(await page.evaluate(() => (window as any).__geoCalls)).toBe(0);
-  await page.getByRole('button', { name: 'Use my location' }).click();
-  await expect(page.getByRole('button', { name: 'Near Amsterdam', pressed: true })).toBeVisible();
-  expect(await page.evaluate(() => (window as any).__geoCalls)).toBe(1);
-  await expect(card(page, 'Amsterdam museum day')).toHaveCount(1);
-  await expect(card(page, 'Chess café')).toHaveCount(0);
-  const stored = await page.evaluate(() => JSON.stringify(localStorage));
-  expect(stored).toContain('Amsterdam');
-  expect(stored).not.toMatch(/52\.37|4\.89/);
-  await context.close();
+test('no opening hero: the first visit starts at the pilot notice, under a slim bar with the logo', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('dialog', { name: 'A quick note: this is a pilot' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /to explore/ })).toHaveCount(0);
 });

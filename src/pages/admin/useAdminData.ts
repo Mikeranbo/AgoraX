@@ -19,6 +19,8 @@ export interface Suggestion {
   text: string;
   source?: string;
   ts?: any;
+  /** A/B test: the page the message was sent from. */
+  variant?: string;
 }
 
 /** Who someone is, from users/{uid} — the only place contact details are kept. */
@@ -41,7 +43,7 @@ export function useAdminData(access: AdminAccess) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [venueOffers, setVenueOffers] = useState<VenueOffer[]>([]);
   const [admins, setAdmins] = useState<AdminDoc[]>([]);
-  const [visits, setVisits] = useState<{ id: string; count?: number }[]>([]);
+  const [visits, setVisits] = useState<{ id: string; count?: number; simple?: number; current?: number }[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
   const addError = useCallback((message: string) => {
@@ -53,7 +55,7 @@ export function useAdminData(access: AdminAccess) {
     const unsubs = [
       subscribeCollection<Event>('events', setEvents, (e) => addError(`events: ${e.message}`)),
       subscribeParticipants(setParticipants, (e) => addError(`participants: ${e.message}`)),
-      subscribeCollection<{ count?: number }>('visits', setVisits, (e) => addError(`visits: ${e.message}`)),
+      subscribeCollection<{ count?: number; simple?: number; current?: number }>('visits', setVisits, (e) => addError(`visits: ${e.message}`)),
     ];
     if (access.people) {
       unsubs.push(
@@ -235,6 +237,8 @@ export function useAdminData(access: AdminAccess) {
 
   return {
     events,
+    visits,
+    helpers,
     users,
     proposals,
     suggestions,

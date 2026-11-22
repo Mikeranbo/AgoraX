@@ -19,6 +19,7 @@ import { db, currentUser } from '../lib/firebase';
 import { ensureAnonymousAuth, getSource, linkContact } from './identity';
 import { statsOff } from './analytics';
 import { onceOnDevice } from './session';
+import { VARIANT_STAMP } from '../config/concept';
 import { Event, EventCategory, Venue, UserDoc, PriceAnswer, RanBefore, SpaceType, PreferredTiming, UserMode } from '../types';
 import { splitContact } from '../data/forms';
 import { SEED_EVENTS } from '../data/seedEvents';
@@ -115,6 +116,8 @@ export const joinEvent = async (eventId: string, userId: string, meta: JoinMeta)
         joinedAt: serverTimestamp(),
         priceSeen: meta.priceSeen,
         source: meta.source,
+        // A/B test: which page this pick was made on (with the price that page showed).
+        variant: VARIANT_STAMP,
       });
       tx.update(eventRef, { participantsCount: increment(1), joins: increment(1) });
       tx.set(
@@ -241,7 +244,7 @@ export const submitHelperInterest = async (eventId: string, userId: string, v: H
   try {
     created = await runTransaction(db, async (tx) => {
       const existing = await tx.get(helperRef);
-      tx.set(helperRef, { ranBefore: v.ranBefore, ts: serverTimestamp() });
+      tx.set(helperRef, { ranBefore: v.ranBefore, ts: serverTimestamp(), variant: VARIANT_STAMP });
       if (existing.exists()) return false;
       tx.update(eventRef, { organiserInterest: increment(1) });
       return true;
@@ -326,6 +329,7 @@ export const submitSuggestion = async (input: { text: string }) => {
       text: input.text.trim(),
       source: getSource(),
       ts: serverTimestamp(),
+      variant: VARIANT_STAMP,
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'suggestions');

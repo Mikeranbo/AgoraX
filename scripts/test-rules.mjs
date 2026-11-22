@@ -477,6 +477,48 @@ await check('approved organiser publishes from a draft', assertSucceeds((async (
 await check('applicant withdraws the application', assertSucceeds(deleteDoc(appRef(cara, 'cara'))));
 await check('after withdrawing, publishing is denied', assertFails(publish(cara, { pid: 'cara-pub-7', eid: 'cara-event-7' })));
 
+// ------------------------------------------------------------------ A/B test: variant stamps and per-page visits
+const abby = as('abby');
+const abel = as('abel');
+const abVisit = (db, src, fields) => setDoc(doc(db, 'visits', src), fields, { merge: true });
+await check('A/B: a visit to page A counts in the total and for A', assertSucceeds(abVisit(anon, 'ab-poster', { count: increment(1), simple: increment(1) })));
+await check('A/B: a visit to page B counts in the total and for B', assertSucceeds(abVisit(anon, 'ab-poster', { count: increment(1), current: increment(1) })));
+await check('A/B: an older client counting only the total still works', assertSucceeds(abVisit(anon, 'ab-poster', { count: increment(1) })));
+await expectEqual('A/B: total 3', (async () => { let n; await env.withSecurityRulesDisabled(async (ctx) => { n = (await getDoc(doc(ctx.firestore(), 'visits', 'ab-poster'))).data(); }); return `${n.count}/${n.simple}/${n.current}`; })(), '3/1/1');
+await check('A/B: one visit cannot count for both pages', assertFails(abVisit(anon, 'ab-poster', { count: increment(1), simple: increment(1), current: increment(1) })));
+await check('A/B: a page count cannot move without the total', assertFails(abVisit(anon, 'ab-poster', { simple: increment(1) })));
+await check('A/B: a page count cannot jump', assertFails(abVisit(anon, 'ab-poster', { count: increment(1), simple: increment(2) })));
+await check('A/B: a page count cannot go down', assertFails(abVisit(anon, 'ab-poster', { count: increment(1), current: increment(-1) })));
+await check('A/B: no other page names', assertFails(abVisit(anon, 'ab-poster', { count: increment(1), other: increment(1) })));
+await check('A/B: a new source can start on a page', assertSucceeds(abVisit(anon, 'ab-new', { count: increment(1), current: increment(1) })));
+await check('A/B: a new source cannot start above 1', assertFails(setDoc(doc(anon, 'visits', 'ab-new2'), { count: 1, simple: 2 })));
+
+await check('A/B: the users doc takes the page when the ID is made', assertSucceeds(setDoc(doc(abby, 'users', 'abby'), touch('abby', { variant: 'simple' }))));
+await check('A/B: the page cannot be changed later', assertFails(updateDoc(doc(abby, 'users', 'abby'), { variant: 'current' })));
+await check('A/B: an unknown page is refused', assertFails(setDoc(doc(abel, 'users', 'abel'), touch('abel', { variant: 'c' }))));
+await check('A/B: an older ID can take its page once', assertSucceeds(updateDoc(doc(bob, 'users', 'bob'), { variant: 'current-test' })));
+await check('A/B: a pick records its page', assertSucceeds((async () => {
+  const b = writeBatch(abby);
+  b.set(pRef(abby, 'mixed', 'abby'), { joinedAt: serverTimestamp(), priceSeen: 0, source: 'test', variant: 'simple' });
+  b.update(doc(abby, 'events', 'mixed'), { participantsCount: increment(1), joins: increment(1) });
+  await b.commit();
+})()));
+await check('A/B: a pick with an unknown page is refused', assertFails((async () => {
+  const b = writeBatch(abel);
+  b.set(pRef(abel, 'mixed', 'abel'), { joinedAt: serverTimestamp(), priceSeen: 0, source: 'test', variant: 'b' });
+  b.update(doc(abel, 'events', 'mixed'), { participantsCount: increment(1), joins: increment(1) });
+  await b.commit();
+})()));
+await check('A/B: a helper offer records its page', assertSucceeds((async () => {
+  const b = writeBatch(abby);
+  b.set(hRef(abby, 'mixed', 'abby'), { ranBefore: 'no', ts: serverTimestamp(), variant: 'simple' });
+  b.update(doc(abby, 'events', 'mixed'), { organiserInterest: increment(1) });
+  await b.commit();
+})()));
+await check('A/B: a message records its page', assertSucceeds(addDoc(collection(abby, 'suggestions'), { uid: 'abby', text: '[Run] Salsa', source: 'test', ts: serverTimestamp(), variant: 'simple' })));
+await check('A/B: a message with an unknown page is refused', assertFails(addDoc(collection(abby, 'suggestions'), { uid: 'abby', text: 'x', source: 'test', ts: serverTimestamp(), variant: 'z' })));
+await check('A/B: analytics record their page', assertSucceeds(addDoc(collection(abby, 'analytics'), { uid: 'abby', name: 'page_view', payload: {}, source: 'test', ts: serverTimestamp(), variant: 'simple-test' })));
+
 // ------------------------------------------------------------------ suggestions + space offers (unchanged flow)
 await check('suggestion saves', assertSucceeds(addDoc(collection(bob, 'suggestions'), { uid: 'bob', text: 'More chess', source: 'test', ts: serverTimestamp() })));
 await check('space offer saves', assertSucceeds(addDoc(collection(bob, 'venueOffers'), { uid: 'bob', spaceType: 'room', capacity: 20, source: 'test', ts: serverTimestamp() })));

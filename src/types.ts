@@ -48,6 +48,8 @@ export type EventStatus = 'Pending' | 'Confirmed' | 'Cancelled';
 
 export interface Event {
   id: string;
+  /** concept-simple: shown in the list (set on /admin). Missing: the default shortlist decides. */
+  visible?: boolean;
   title: string;
   description: string;
   category: EventCategory;
@@ -163,6 +165,8 @@ export interface Proposal {
 export interface HelperDoc {
   uid: string;
   eventId: string;
+  /** A/B test: the page the offer was sent from. */
+  variant?: string;
   ranBefore: RanBefore;
   ts?: any;
 }
@@ -170,6 +174,8 @@ export interface HelperDoc {
 /** Shape of users/{uid}. Everything beyond uid/createdAt/lastSeenAt/source is optional. */
 export interface UserDoc {
   uid: string;
+  /** A/B test: the page shown when this ID was made (set once). */
+  variant?: string;
   createdAt?: any;
   lastSeenAt?: any;
   source?: string;
@@ -237,6 +243,8 @@ export interface OrganiserIdentity {
 export interface ParticipantDoc {
   eventId: string;
   uid: string;
+  /** A/B test: the page the pick was made on. */
+  variant?: string;
   joinedAt?: any;
   priceSeen?: number;
   source?: string;

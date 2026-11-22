@@ -19,6 +19,7 @@ import { Suggestions } from './admin/sections/Suggestions';
 import { Admins } from './admin/sections/Admins';
 import { MostWanted } from './admin/sections/MostWanted';
 import { ContactData } from './admin/sections/ContactData';
+import { ABTest } from './admin/sections/ABTest';
 
 export default function AdminPage() {
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -73,6 +74,7 @@ function Dashboard({ uid, admin }: { uid: string; admin: AdminDoc }) {
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
           <Banners />
+          <ABTest />
           <Overview />
           <Funnel />
           <EventsTable />

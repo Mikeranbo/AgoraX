@@ -22,7 +22,8 @@ export async function openSite(page: Page, { answerStats = true, path = '/' }: {
   // Retried as a whole: a cold dev server can reload the page once while it optimises dependencies.
   await expect(async () => {
     // A retry after the notice did close: already on the events page.
-    if (!(await notice.isVisible()) && !(await intro.isVisible()) && (await page.getByRole('radio', { name: 'Proposals' }).isVisible())) return;
+    // (Page A has no opening screens at all: the cards, or a shared event, are there straight away.)
+    if (!(await notice.isVisible()) && !(await intro.isVisible()) && ((await page.getByRole('radio', { name: 'Proposals' }).isVisible()) || (await page.locator('article').first().isVisible()) || (await page.getByRole('button', { name: 'Back to all proposals' }).isVisible()))) return;
     if (!(await notice.isVisible())) {
       await expect(intro).toBeVisible({ timeout: 5_000 });
       await leaveIntro(page);
@@ -43,7 +44,8 @@ export const card = (page: Page, title: string) => page.locator('article', { has
 
 /** The list is the page itself now (the entry flow replaced the opening section). */
 export async function goToList(page: Page) {
-  await expect(page.getByRole('radio', { name: 'Proposals' })).toBeVisible();
+  // (concept-simple has no Proposals / Scheduled switch.)
+  await expect(page.getByRole('radio', { name: 'Proposals' }).or(page.locator('article')).first()).toBeVisible();
   // The list is ready once the first card has rendered.
   await expect(page.locator('article').first()).toBeVisible();
 }

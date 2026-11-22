@@ -44,6 +44,8 @@ import { shareCodeFor } from '../data/share';
 import type { LadderPrompt } from '../components/PriceLadderSheet';
 import type { ContactValues } from '../components/ContactForm';
 import { LIST_ID } from '../components/ui';
+import { CONCEPT } from '../config/concept';
+import { withSimplePrice } from '../data/simpleEvents';
 
 /** Screens. The bottom bar shows three of them; the sidebar and account menu reach the rest. */
 export type Tab =
@@ -64,7 +66,7 @@ export type Tab =
   | 'imprint';
 /** The entry flow: the opening messages, the pilot notice, then the events page. */
 export type EntryStage = 'intro' | 'notice' | 'done';
-export type Sheet = 'contact' | 'space' | 'initial' | 'profile' | 'locked' | 'mode' | null;
+export type Sheet = 'contact' | 'space' | 'initial' | 'profile' | 'locked' | 'mode' | 'tellus' | null;
 export type Filter = EventCategory | 'All';
 /** Proposals are ideas without a date; scheduled events are confirmed with a real date. */
 export type View = 'proposals' | 'scheduled';
@@ -232,6 +234,8 @@ function entryDoneThisTab(): boolean {
 /** Where a visit starts: the opening messages, or (for a shared event link) the notice or the page. */
 function firstEntryStage(skip: boolean): EntryStage {
   if (skip || entryDoneThisTab()) return 'done';
+  // concept flags: without the opening hero a visit starts at the notice, or right on the page.
+  if (!CONCEPT.openingHero) return CONCEPT.pilotNoticeOnEntry && !readFlag(NOTICE_HIDDEN_KEY) ? 'notice' : 'done';
   if (urlEventId()) return readFlag(NOTICE_HIDDEN_KEY) ? 'done' : 'notice';
   return 'intro';
 }
@@ -294,6 +298,13 @@ export function VisitorProvider({
   const [profile, setProfile] = useState<PublicProfile | null>(null);
 
   const scrollBeforeOpen = useRef(0);
+  /** concept-simple: the price question waits until the contact sheet after the first pick closes. */
+  const ladderAfterContact = useRef<LadderPrompt | null>(null);
+  const showWaitingLadder = () => {
+    const next = ladderAfterContact.current;
+    ladderAfterContact.current = null;
+    if (next) setLadder(next);
+  };
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Opening the page stores nothing on the device and creates no ID (Telecommunicatiewet 11.7a):
@@ -305,7 +316,7 @@ export function VisitorProvider({
     unsubscribers.push(
       subscribeToEvents(
         (list) => {
-          setEvents(list);
+          setEvents(CONCEPT.simple ? list.map(withSimplePrice) : list);
           setEventsLoaded(true);
           setEventsError(false);
         },
@@ -473,8 +484,19 @@ export function VisitorProvider({
       track('join_click', { eventId: event.id, price: event.price });
       try {
         const created = await joinEvent(event.id, id, { priceSeen: event.price, source: getSource() });
-        // Price question: on the first join, then every third. Never blocks the join.
-        if (created && joinsBefore % 3 === 0 && !me?.priceAnswers?.[event.id]) {
+        if (CONCEPT.simple) {
+          // After the first pick: how to reach you, then the price question, once only.
+          const first = created && joinsBefore === 0 && Object.keys(me?.priceAnswers ?? {}).length === 0;
+          if (first) {
+            const prompt = { event, nextPrice: nextPriceFor(event) };
+            if (me?.hasContact) setLadder(prompt);
+            else {
+              ladderAfterContact.current = prompt;
+              setSheet('contact');
+            }
+          }
+        } else if (created && joinsBefore % 3 === 0 && !me?.priceAnswers?.[event.id]) {
+          // Price question: on the first join, then every third. Never blocks the join.
           setLadder({ event, nextPrice: nextPriceFor(event) });
         }
       } catch (err) {
@@ -740,11 +762,15 @@ export function VisitorProvider({
         saveFailed();
       }
     },
-    closeSheet: () => setSheet(null),
+    closeSheet: () => {
+      setSheet(null);
+      showWaitingLadder();
+    },
     submitContact: async (values) => {
       await linkContact({ phone: values.phone, email: values.email, purpose: 'updates', alsoConsent: values.alsoConsent });
       track('contact_submit', { via: 'banner', hasPhone: values.phone !== '', hasEmail: values.email !== '' });
       setSheet(null);
+      showWaitingLadder();
     },
     deleteContact: async () => {
       try {

@@ -28,6 +28,9 @@ import { ScrollRail } from './components/ScrollRail';
 import { SiteFooter } from './components/SiteFooter';
 import { ContactForm } from './components/ContactForm';
 import { Modal } from './components/Modal';
+import { CONCEPT } from './config/concept';
+import { SimpleFooter, SimpleHeader } from './components/simple/SimpleParts';
+import { TellUsSheet } from './components/TellUsForm';
 
 const Loading = () => (
   <div className="grid min-h-dvh place-items-center" role="status" aria-label="Loading">
@@ -56,8 +59,9 @@ const Sheets = () => {
       <PriceLadderSheet />
       <Modal isOpen={state.sheet === 'contact'} onClose={actions.closeSheet} title="Hear whether it goes ahead">
         <p className="mb-5 text-[15px] text-slate-300">
-          Leave an email or WhatsApp number and we'll tell you whether the events you're interested in go ahead, are cancelled or won't
-          happen.
+          {CONCEPT.simple
+            ? "Leave an email or WhatsApp number and we'll tell you whether the events you picked go ahead, are cancelled or won't happen."
+            : "Leave an email or WhatsApp number and we'll tell you whether the events you're interested in go ahead, are cancelled or won't happen."}
         </p>
         <ContactForm onSubmit={actions.submitContact} />
       </Modal>
@@ -66,6 +70,7 @@ const Sheets = () => {
       <LockedSheet />
       <ProfileSheet />
       <ModeSheet />
+      <TellUsSheet />
     </>
   );
 };
@@ -114,28 +119,33 @@ const Shell = () => {
   if (state.phase === 'error') return <Failed message={state.authError} />;
 
   // The page and the bars fixed to it start where the open laptop sidebar ends.
-  const navWidth = wide && state.sidebarOpen ? '20rem' : '0px';
+  const navWidth = CONCEPT.menuAndAccount && wide && state.sidebarOpen ? '20rem' : '0px';
   // Behind the entry flow the page waits, slightly smaller, and grows to full size as it opens.
   const entering = state.entry !== 'done';
 
   return (
     <div className="min-h-dvh" inert={entering || undefined} style={{ '--nav-w': navWidth } as React.CSSProperties}>
-      <DesktopSidebar />
-      <SidebarDrawer />
-      <MenuButton />
+      {CONCEPT.menuAndAccount && (
+        <>
+          <DesktopSidebar />
+          <SidebarDrawer />
+          <MenuButton />
+        </>
+      )}
       <div
         inert={state.drawerOpen || undefined}
         className="origin-top transition-transform duration-[1100ms] ease-[cubic-bezier(.2,.7,.2,1)] motion-reduce:transition-none lg:pl-[var(--nav-w)]"
         style={{ transform: entering ? 'scale(.97)' : undefined }}
       >
+        {CONCEPT.simple && <SimpleHeader />}
         <main className="pb-16">
           <Screen />
         </main>
-        <SiteFooter />
+        {CONCEPT.simple ? <SimpleFooter /> : <SiteFooter />}
       </div>
       {!state.selected && (
         <>
-          {state.statsAsked && <ContactBanner />}
+          {state.statsAsked && !CONCEPT.simple && <ContactBanner />}
           <TabBar />
         </>
       )}
@@ -158,7 +168,7 @@ export default function App({ initialTab }: { initialTab?: Tab }) {
   return (
     <MotionConfig reducedMotion="user">
       <VisitorProvider initialTab={initialTab} skipEntry={!!initialTab}>
-        <DoodleBackground />
+        {CONCEPT.doodles && <DoodleBackground />}
         <Shell />
         <ScrollRail />
         <EntryFlow />

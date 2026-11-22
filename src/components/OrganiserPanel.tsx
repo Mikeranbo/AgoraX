@@ -39,6 +39,10 @@ const Breakdown = ({ event }: { event: Event }) => {
           This one is free for everyone, so there's nothing to earn and nothing to pay. You run it because you'd
           like it to exist.
         </p>
+      ) : e.perHost <= 0 ? (
+        <p className="text-[15px] text-slate-300">
+          The price only covers the materials, so there's nothing to earn. You run it because you'd like it to exist.
+        </p>
       ) : (
         <div className="rounded-sheet bg-brand-dark px-4 py-2">
           <Row label={`${min} people × ${eur(event.price)}`} value={money(e.gross)} />
