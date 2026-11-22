@@ -10,7 +10,7 @@ export const PILOT_CITY = 'Groningen';
 export const PILOT_TIME_ZONE = 'Europe/Amsterdam';
 
 /** Version of the privacy notice that consents are given under (stored with each consent). */
-export const NOTICE_VERSION = '1.1-2026-11-21';
+export const NOTICE_VERSION = '1.2-2026-11-22';
 
 /** Privacy notice 1.1 (docs/PRIVACY_NOTICE_FINAL.md) is approved; Vercel sets VITE_PRIVACY_NOTICE_FINAL=true. */
 export const PRIVACY_NOTICE_FINAL = import.meta.env.VITE_PRIVACY_NOTICE_FINAL === 'true';

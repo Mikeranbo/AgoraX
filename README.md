@@ -145,7 +145,7 @@ aggregate counters — `impressions`, `opens`, `joins`, `organiserInterest` (and
 
 ## Privacy
 
-- The privacy notice is version 1.1, `docs/PRIVACY_NOTICE_FINAL.md`. The app shows it from
+- The privacy notice is version 1.2 (22 Nov 2026, adds the A/B page version), `docs/PRIVACY_NOTICE_FINAL.md`. The app shows it from
   `src/data/privacyNotice.ts`, and a unit test fails if the two ever differ by a word.
 - Nothing is stored on the device and no ID is created before the visitor's first action
   (Telecommunicatiewet 11.7a). Page loads only add one to `visits/{src}`. `e2e/storage.spec.ts` checks it.

@@ -18,8 +18,8 @@ describe('privacy notice', () => {
     expect(text).toContain(CONTACT_EMAIL);
     expect(text).not.toMatch(/sondarev|Nikita/i);
     expect(text).not.toContain('[To be confirmed');
-    expect(NOTICE_DATE_LINE).toContain('1.1');
-    expect(NOTICE_VERSION).toBe('1.1-2026-11-21');
+    expect(NOTICE_DATE_LINE).toContain('1.2');
+    expect(NOTICE_VERSION).toBe('1.2-2026-11-22');
   });
 
   it('never claims certification or approval', () => {
