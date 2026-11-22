@@ -12,6 +12,7 @@ import { useWideScreen } from '../state/useWideScreen';
 import { CONCEPT } from '../config/concept';
 import { isShortlisted } from '../data/simpleEvents';
 import { SimpleIntro } from '../components/simple/SimpleParts';
+import { Logo } from '../components/Logo';
 
 const CHIPS: Filter[] = ['All', ...PUBLIC_CATEGORIES];
 
@@ -237,6 +238,13 @@ export const EventsScreen = () => {
   return (
     <div>
       {CONCEPT.simple ? <SimpleIntro /> : <h1 className="sr-only">AgoraX proposals</h1>}
+      {/* Page B (current): the opening hero is gone; this slim bar carries the logo. It leaves room
+          for the menu button; on a laptop with the sidebar open, the sidebar shows the logo instead. */}
+      {!CONCEPT.simple && !CONCEPT.openingHero && (
+        <div className={`mx-auto flex h-[52px] max-w-6xl items-center px-4 pl-[60px] sm:px-6 sm:pl-[60px] lg:h-16 ${state.sidebarOpen ? 'lg:hidden' : 'lg:pl-[72px]'}`}>
+          <Logo size={20} />
+        </div>
+      )}
 
       <div id={LIST_ID} className="mx-auto max-w-6xl scroll-mt-0 px-4 sm:px-6 lg:pt-3">
         {!wide && <FilterBar query={query} setQuery={setQuery} wide={false} chips={chips} />}

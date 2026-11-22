@@ -22,8 +22,8 @@ export async function openSite(page: Page, { answerStats = true, path = '/' }: {
   // Retried as a whole: a cold dev server can reload the page once while it optimises dependencies.
   await expect(async () => {
     // A retry after the notice did close: already on the events page.
-    // (concept-simple has no opening screens at all: the cards are there straight away.)
-    if (!(await notice.isVisible()) && !(await intro.isVisible()) && ((await page.getByRole('radio', { name: 'Proposals' }).isVisible()) || (await page.locator('article').first().isVisible()))) return;
+    // (Page A has no opening screens at all: the cards, or a shared event, are there straight away.)
+    if (!(await notice.isVisible()) && !(await intro.isVisible()) && ((await page.getByRole('radio', { name: 'Proposals' }).isVisible()) || (await page.locator('article').first().isVisible()) || (await page.getByRole('button', { name: 'Back to all proposals' }).isVisible()))) return;
     if (!(await notice.isVisible())) {
       await expect(intro).toBeVisible({ timeout: 5_000 });
       await leaveIntro(page);

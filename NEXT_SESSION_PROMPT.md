@@ -3,6 +3,35 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07` (Blaze, europe-west4), Vercel deploys `main` to https://agora-x.vercel.app.
 
+## A/B test (branch ab-test, 22 Nov 2026): built and tested, NOT merged or deployed
+
+Waiting for Mike's approval of privacy notice 1.2 (notice 1.1 does not mention saving the page
+version). On "yes": put the 1.2 wording into docs/PRIVACY_NOTICE_FINAL.md and src/data/privacyNotice.ts
+(the word-for-word test must pass; NOTICE_VERSION '1.2-…'), run
+`npx.cmd firebase deploy --only firestore:rules --project agorax-a8d07`, merge ab-test into main, push,
+then check live in a fresh browser: both pages across reloads, nothing stored before a click,
+?v=simple and ?v=current.
+
+- One link, two pages: `src/config/concept.ts` picks page A (`simple`) or B (`current`) when the page
+  loads. `?v=` forces a page (stamped `simple-test` / `current-test`, never counted); a saved
+  `agorax_variant` keeps a returning browser on its page; otherwise a 50/50 coin flip in memory.
+- At the first action the variant is saved with the ID (`users/{uid}.variant`, set once, and
+  localStorage `agorax_variant`) and stamped on every join (with the price shown), helper offer,
+  message and analytics event. An ID from before the test gets its variant with its first contact.
+- Page loads add +1 to `visits/{src}.count` and to `.simple` or `.current` (the rules allow one of
+  them, by exactly 1). Test visits are not counted at all.
+- /admin → "A/B test" (top): A and B side by side: visits, picked at least one (count, % of visits),
+  left a contact (count, %), average picks per picker, help-run offers, messages, and picks per
+  event for the 12 events on both pages. Picks from test visits are listed apart.
+- Mike should use https://agora-x.vercel.app/?v=simple and ?v=current himself, so his own taps
+  don't count. Progress bars stay shared across both pages.
+- Tests (22 Nov, fresh emulators): lint, build, `npm test` 116 passed, `npm run test:rules` 272 checks
+  plus 16 client flows, e2e 89 passed (4 device skips) for page A and page B at 390 and 1280 px and
+  for the real coin flip (`e2e/ab.spec.ts`: both pages across reloads with nothing stored, ?v=
+  override not counted, full path ?src=test → pick → contact → /admin under the right page).
+- e2e servers: :5179 page B, :5181 page A, :5180 page B default build, :5183 real coin flip
+  (`VITE_AB_VARIANT` replaces the flip, tests only).
+
 ## How Mike works
 
 Mike (legal name Michael Aleinikov) is a Hanze IBS student building AgoraX alone; not a developer,
@@ -126,7 +155,7 @@ All except tote-bag painting have no real cost, so they show as Free on concept-
 5. Browser tests without Playwright's own browser: set `PW_CHROMIUM_PATH` to
    `C:\Program Files\Google\Chrome\Application\chrome.exe`.
 
-## This branch: concept-simple (22 Nov 2026)
+## Branch concept-simple as built (22 Nov 2026)
 
 - Branched from main after the privacy work. Flags in `src/config/concept.ts` (switched off, not
   deleted): menu and account, coming-soon items and votes, place and date filters, the Scheduled
@@ -146,3 +175,16 @@ All except tote-bag painting have no real cost, so they show as Free on concept-
   no dates or videos, full path ?src=test → I'd go → contact → price question → /admin) and
   `storage.spec.ts`, 18 passed at 390 and 1280 px. The menu/account/filter specs are skipped on this
   branch in `e2e/playwright.config.ts` because those parts are hidden here.
+
+## Branch concept-current as built (22 Nov 2026)
+
+- Branched from main after the privacy work. Flags in `src/config/concept.ts`: `openingHero` off (a
+  first visit starts at the pilot notice; a slim bar with the logo sits above the list, hidden on a
+  laptop while the sidebar shows the logo), `placeAndDateFilters` off (city, "Use my location",
+  All / Near / Other, Today / Tomorrow, "How near works"), `videos` off (photos only). Search,
+  category chips and the Proposals / Scheduled switch stay.
+- Also here: the "Help run this" form creates the ID on submit (on main it silently does nothing
+  for a visitor without an ID yet; fix waiting for Mike's OK), and /admin → Contact data lists every
+  person with a number or email, their picks and source (CSV export).
+- Tests: lint, build, `npm test` 110 passed; e2e 59 passed, 4 device skips, including
+  `e2e/full-path.spec.ts` (?src=test → pick → contact → /admin shows it) at 390 and 1280 px.

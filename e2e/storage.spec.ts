@@ -86,7 +86,8 @@ test('Delete everything removes the ID and what this browser kept', async ({ pag
 
 test('"Help run this" works as the very first action: the offer creates the ID', async ({ page }) => {
   await openSite(page, { path: '/?e=chess' });
-  await page.getByRole('button', { name: /^Organize/ }).click();
+  // Page B: "Organize" in the sign-up card. Page A: "Help run this" below the details.
+  await page.getByRole('button', { name: /^(Organize|Help run this)/ }).first().click();
   const panel = page.getByRole('dialog', { name: 'Organize this event' });
   await panel.getByRole('button', { name: "I'd help run this" }).click();
   await panel.getByLabel('First name').fill('Robin');

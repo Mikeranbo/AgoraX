@@ -1,6 +1,7 @@
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ensureAnonymousAuth, getSource } from './identity';
+import { VARIANT_STAMP } from '../config/concept';
 
 export type AnalyticsName =
   | 'page_view'
@@ -75,6 +76,7 @@ export function track(name: AnalyticsName, payload: Record<string, unknown> = {}
         payload,
         source: getSource(),
         ts: serverTimestamp(),
+        variant: VARIANT_STAMP,
       });
     } catch (err) {
       console.warn('analytics failed', name, err);

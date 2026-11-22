@@ -117,6 +117,7 @@ export const COOKIES: LegalDoc = {
         ['Your settings', 'Your city and whether the menu is open, once you change them (localStorage, agorax_city and agorax_sidebar).'],
         ['Notices you closed', 'That you closed the pilot notice or the contact banner (localStorage, agorax.pilotNotice.hidden and agorax_banner_dismissed), and that this tab already showed the opening screen (sessionStorage, agorax.entry.done, gone when you close the tab).'],
         ['Your statistics answer', 'Your yes or no to the statistics question, once you tap one (localStorage, agorax_stats_consent).'],
+        ['Which version of the page you got', 'We are comparing two versions of this page. From your first action, the browser remembers which one you got, so it stays the same (localStorage, agorax_variant).'],
       ],
     },
     {

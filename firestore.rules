@@ -88,6 +88,16 @@ service cloud.firestore {
       return !(f in ch) || !(f in incoming());
     }
 
+    // A/B test (src/config/concept.ts): the page a record was made on. "-test" marks ?v= visits.
+    function okVariant(v) {
+      return v in ['simple', 'current', 'simple-test', 'current-test'];
+    }
+
+    // Optional on a record; when present, one of the four.
+    function okVariantOn(data) {
+      return !('variant' in data) || okVariant(data.variant);
+    }
+
     // --- Schemas ---
     function isValidEvent(data) {
       return data.keys().hasAll(['title', 'description', 'category', 'status']) &&
@@ -120,7 +130,7 @@ service cloud.firestore {
     }
 
     function isValidParticipant(data) {
-      return data.keys().hasOnly(['joinedAt', 'priceSeen', 'source']) &&
+      return data.keys().hasOnly(['joinedAt', 'priceSeen', 'source', 'variant']) && okVariantOn(data) &&
              data.keys().hasAll(['joinedAt', 'priceSeen', 'source']) &&
              data.joinedAt == request.time &&
              data.priceSeen is number && data.priceSeen >= 0 && data.priceSeen <= 1000 &&
@@ -128,7 +138,7 @@ service cloud.firestore {
     }
 
     function isValidHelper(data) {
-      return data.keys().hasOnly(['ranBefore', 'ts']) &&
+      return data.keys().hasOnly(['ranBefore', 'ts', 'variant']) && okVariantOn(data) &&
              data.ranBefore in ['yes', 'no', 'sort-of'] &&
              data.ts == request.time;
     }
@@ -271,8 +281,10 @@ service cloud.firestore {
                'uid', 'createdAt', 'lastSeenAt', 'source', 'shareCode', 'referredBy',
                'hasContact', 'name', 'email', 'phone', 'wantsToOrganise', 'hasSpace',
                'consents', 'consent', 'consentAt', 'joinedEvents', 'organiserEvents', 'priceAnswers',
-               'lastPriceAnswer', 'displayName', 'mode', 'savedEvents', 'preferredTiming', 'publicId'
+               'lastPriceAnswer', 'displayName', 'mode', 'savedEvents', 'preferredTiming', 'publicId', 'variant'
              ]) &&
+             // The A/B page is set once (when the ID is made, or with the first contact of an older ID).
+             (!('variant' in ch) || (!('variant' in before()) && okVariant(d.variant))) &&
              d.get('uid', userId) == userId &&
              okString(ch, 'name', 80) && okString(ch, 'email', 254) && okString(ch, 'phone', 32) &&
              okString(ch, 'displayName', 40) && okString(ch, 'source', 40) && okString(ch, 'lastPriceAnswer', 200) &&
@@ -410,12 +422,25 @@ service cloud.firestore {
 
     // Visits per poster or link (?src=), counted on page load with no ID and nothing stored on
     // the device: anyone may add exactly 1, nobody may set or lower a count. Admins read totals.
+    // A/B test: the same +1 also goes to the page shown ("simple" or "current"), never to both.
+    function visitStep(f) {
+      return incoming().get(f, 0) == before().get(f, 0) + 1;
+    }
+
+    function visitWrite() {
+      let ch = changedKeys();
+      return incoming().keys().hasOnly(['count', 'simple', 'current']) &&
+             visitStep('count') && (
+               ch.hasOnly(['count']) ||
+               (ch.hasOnly(['count', 'simple']) && visitStep('simple')) ||
+               (ch.hasOnly(['count', 'current']) && visitStep('current'))
+             );
+    }
+
     match /visits/{src} {
       allow read: if isAdmin();
-      allow create: if src.matches('^[a-z0-9_-]{1,40}$') &&
-                       incoming().keys().hasOnly(['count']) && incoming().count == 1;
-      allow update: if incoming().keys().hasOnly(['count']) &&
-                       existing().count is int && incoming().count == existing().count + 1;
+      allow create: if src.matches('^[a-z0-9_-]{1,40}$') && visitWrite();
+      allow update: if existing().count is int && visitWrite();
     }
 
     match /events/{eventId} {
@@ -623,7 +648,7 @@ service cloud.firestore {
 
     function isValidAnalytics(data) {
       let p = data.payload;
-      return data.keys().hasOnly(['uid', 'name', 'payload', 'source', 'ts']) &&
+      return data.keys().hasOnly(['uid', 'name', 'payload', 'source', 'ts', 'variant']) && okVariantOn(data) &&
              data.name in ['page_view', 'card_impression', 'card_open', 'join_click', 'leave_click',
                            'organiser_panel_open', 'organiser_interest_click', 'venue_offer_submit',
                            'contact_submit', 'suggestion_submit', 'price_ladder_answer', 'proposal_submit',
@@ -650,7 +675,7 @@ service cloud.firestore {
     // Anonymous on purpose: no contact field means no personal data and no consent needed.
     match /suggestions/{docId} {
       allow create: if isOwnRecord(incoming()) &&
-                       incoming().keys().hasOnly(['uid', 'text', 'source', 'ts']) &&
+                       incoming().keys().hasOnly(['uid', 'text', 'source', 'ts', 'variant']) && okVariantOn(incoming()) &&
                        incoming().text is string &&
                        incoming().text.size() > 0 && incoming().text.size() <= 1000 &&
                        incoming().source is string && incoming().source.size() <= 40 &&

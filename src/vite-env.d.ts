@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_PRIVACY_NOTICE_FINAL?: string;
   /** "true" (tests only, for now): public profiles and launch/invitation emails, which notice 1.1 does not cover. */
   readonly VITE_EXTRA_DATA_FEATURES?: string;
+  /** "simple" or "current" (browser tests only): replaces the A/B coin flip. */
+  readonly VITE_AB_VARIANT?: string;
   /** "1" to point the app at the local Firebase emulators (tests only). */
   readonly VITE_FIREBASE_EMULATORS?: string;
 }

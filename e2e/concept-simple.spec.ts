@@ -66,6 +66,13 @@ test('full path: ?src=test, I\'d go, contact, price question once, and /admin sh
   const row = contacts.locator('tr', { hasText: 'Film Club' });
   await expect(row).toContainText('Chess Challenge');
   await expect(row).toContainText('test');
+
+  // …and the A/B numbers file it under page A (this test server always shows page A).
+  const ab = page.locator('section', { has: page.getByRole('heading', { name: 'A/B test' }) });
+  const picked = ab.locator('tr', { hasText: 'Picked at least one event' }).locator('td');
+  await expect(picked.nth(1)).toHaveText(/^1 · /);
+  await expect(picked.nth(2)).toHaveText(/^0 · /);
+  await expect(ab.locator('tr', { hasText: 'Left a contact' }).locator('td').nth(1)).toHaveText(/^1 · /);
 });
 
 test('"Tell us" in the footer: one short form for running, hosting or an idea', async ({ page }) => {
