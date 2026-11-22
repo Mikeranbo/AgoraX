@@ -7,6 +7,8 @@ import { doc, setDoc } from 'firebase/firestore';
 const HOUR = 60 * 60 * 1000;
 
 export const event = (extra) => ({
+  // Shown on concept-simple, where only shortlisted events are listed; other builds ignore it.
+  visible: true,
   description: 'A test proposal for the browser tests.',
   category: 'Games',
   price: 5,

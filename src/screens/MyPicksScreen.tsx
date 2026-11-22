@@ -1,4 +1,5 @@
 import React from 'react';
+import { CONCEPT } from '../config/concept';
 import { Event, PreferredTiming } from '../types';
 import { useVisitor } from '../state/VisitorProvider';
 import { EventCard } from '../components/EventCard';
@@ -104,12 +105,15 @@ const Title = ({ children }: { children: React.ReactNode }) => <h1 className="mb
 /** The proposals this person said they're interested in. Private: nobody else sees this list. */
 export const MyPicksScreen = () => {
   const { state, actions, meta } = useVisitor();
+  const simple = CONCEPT.simple;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-16 sm:px-6">
-      <Title>My interests</Title>
+    <div className={`mx-auto max-w-2xl px-4 sm:px-6 ${simple ? "pt-4" : "pt-16"}`}>
+      <Title>{simple ? "My picks" : "My interests"}</Title>
       <p className="mb-5 max-w-[60ch] text-[15px] text-slate-300">
-        Only you see this list. Being interested isn't a booking, and you can withdraw any time.
+        {simple
+          ? "Only you see this list. Picking isn't a booking, and you can undo it any time."
+          : "Only you see this list. Being interested isn't a booking, and you can withdraw any time."}
       </p>
 
       {!state.eventsLoaded ? (
@@ -117,15 +121,17 @@ export const MyPicksScreen = () => {
       ) : meta.picks.length === 0 ? (
         <div className="sheet rounded-sheet p-5 text-center">
           <p className="font-display text-[20px] font-bold text-white">Nothing here yet</p>
-          <p className="mt-1 mb-5 text-[15px] text-slate-300">Tap "I'm interested" on anything you'd really go to. It costs nothing.</p>
+          <p className="mt-1 mb-5 text-[15px] text-slate-300">
+            {simple ? "Tap I'd go on anything you'd really go to. It costs nothing." : "Tap \"I'm interested\" on anything you'd really go to. It costs nothing."}
+          </p>
           <button onClick={() => actions.setTab('events')} className={primaryButtonClass}>
-            See the proposals
+            {simple ? "See the events" : "See the proposals"}
           </button>
         </div>
       ) : (
         <div className="space-y-4">
           <ContactStatus />
-          <TimingPreference />
+          {!simple && <TimingPreference />}
           {meta.picks.map((event) => (
             <div key={event.id}>
               <EventCard event={event} />

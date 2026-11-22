@@ -9,6 +9,9 @@ import { filterEvents, hasActiveFilters } from '../data/eventFilters';
 import { CITIES, NEAR_KM } from '../data/location';
 import { PILOT_CITY } from '../config/pilot';
 import { useWideScreen } from '../state/useWideScreen';
+import { CONCEPT } from '../config/concept';
+import { isShortlisted } from '../data/simpleEvents';
+import { SimpleIntro } from '../components/simple/SimpleParts';
 
 const CHIPS: Filter[] = ['All', ...PUBLIC_CATEGORIES];
 
@@ -45,7 +48,7 @@ const ViewSwitch = () => {
  * strip across the top with the menu button at its left, so cards scroll under it instead of
  * having controls float over their picture or title.
  */
-const FilterBar = ({ query, setQuery, wide }: { query: string; setQuery: (q: string) => void; wide: boolean }) => {
+const FilterBar = ({ query, setQuery, wide, chips = CHIPS }: { query: string; setQuery: (q: string) => void; wide: boolean; chips?: Filter[] }) => {
   const { state, actions } = useVisitor();
   const [searching, setSearching] = useState(false);
   const closeSearch = () => {
@@ -58,7 +61,7 @@ const FilterBar = ({ query, setQuery, wide }: { query: string; setQuery: (q: str
       className={
         wide
           ? 'sheet sticky top-2 z-30 mx-12 rounded-sheet p-1.5'
-          : 'sticky top-0 z-[35] -mx-4 border-b border-white/10 bg-[#171c36]/95 py-[9px] pr-4 pl-[60px] backdrop-blur-md sm:-mx-6 sm:pr-6'
+          : `sticky top-0 z-[35] -mx-4 border-b border-white/10 bg-[#171c36]/95 py-[9px] pr-4 backdrop-blur-md sm:-mx-6 sm:pr-6 ${CONCEPT.menuAndAccount ? 'pl-[60px]' : 'pl-4 sm:pl-6'}`
       }
     >
       {searching ? (
@@ -87,7 +90,7 @@ const FilterBar = ({ query, setQuery, wide }: { query: string; setQuery: (q: str
             <Search size={20} />
           </button>
           <div className="no-scrollbar flex gap-2 overflow-x-auto" role="group" aria-label="Categories">
-            {CHIPS.map((c) => (
+            {chips.map((c) => (
               <button key={c} onClick={() => actions.setFilter(c)} aria-pressed={state.filter === c} className={chipClass(state.filter === c)}>
                 {c}
               </button>
@@ -179,9 +182,16 @@ export const EventsScreen = () => {
   const filters = { view: state.view, category: state.filter, date: state.dateFilter, place: state.place, search: query };
   const active = hasActiveFilters(filters);
 
+  // concept-simple: only the shortlist (the default 12, or what /admin marked as shown).
+  const listed = useMemo(() => (CONCEPT.simple ? state.events.filter(isShortlisted) : state.events), [state.events]);
   const shown = useMemo(
-    () => filterEvents(state.events, filters, new Date()),
-    [state.events, state.view, state.filter, state.dateFilter, state.place, query],
+    () => filterEvents(listed, filters, new Date()),
+    [listed, state.view, state.filter, state.dateFilter, state.place, query],
+  );
+  // Only the categories something is listed under, so no chip leads to an empty page.
+  const chips = useMemo<Filter[]>(
+    () => (CONCEPT.simple ? ['All', ...PUBLIC_CATEGORIES.filter((c) => listed.some((e) => e.category === c))] : CHIPS),
+    [listed],
   );
 
   // Proposals are split into category sections, each with its own big heading; scheduled
@@ -189,6 +199,7 @@ export const EventsScreen = () => {
   const groups = useMemo(() => {
     const q = query.trim();
     if (q) return [{ title: `Results for "${q}"`, events: shown }];
+    if (CONCEPT.simple) return [{ title: '', events: shown }];
     if (state.view === 'scheduled') return [{ title: 'Scheduled', events: shown }];
     return [...PUBLIC_CATEGORIES, ...LEGACY_CATEGORIES]
       .map((cat) => ({ title: cat as string, events: shown.filter((e) => e.category === cat) }))
@@ -225,20 +236,22 @@ export const EventsScreen = () => {
 
   return (
     <div>
-      <h1 className="sr-only">AgoraX proposals</h1>
+      {CONCEPT.simple ? <SimpleIntro /> : <h1 className="sr-only">AgoraX proposals</h1>}
 
       <div id={LIST_ID} className="mx-auto max-w-6xl scroll-mt-0 px-4 sm:px-6 lg:pt-3">
-        {!wide && <FilterBar query={query} setQuery={setQuery} wide={false} />}
-        <div className={wide ? 'mx-12 mb-3 max-w-md' : 'mt-3 max-w-md'}>
-          <ViewSwitch />
-        </div>
-        {wide && <FilterBar query={query} setQuery={setQuery} wide />}
-        <MoreFilters active={active} />
+        {!wide && <FilterBar query={query} setQuery={setQuery} wide={false} chips={chips} />}
+        {CONCEPT.scheduledTab && (
+          <div className={wide ? 'mx-12 mb-3 max-w-md' : 'mt-3 max-w-md'}>
+            <ViewSwitch />
+          </div>
+        )}
+        {wide && <FilterBar query={query} setQuery={setQuery} wide chips={chips} />}
+        {CONCEPT.placeAndDateFilters && <MoreFilters active={active} />}
 
         {groups.map((g) =>
           g.events.length === 0 ? null : (
-            <section key={g.title} className="mt-10 first-of-type:mt-6">
-              <div className="mb-4 flex items-baseline justify-between gap-4">
+            <section key={g.title || 'all'} className="mt-10 first-of-type:mt-6">
+              {g.title && <div className="mb-4 flex items-baseline justify-between gap-4">
                 <h2
                   className="font-display leading-none font-bold tracking-[-0.02em] text-white"
                   style={{ fontSize: query.trim() ? 'clamp(24px, 4vw, 32px)' : 'clamp(32px, 6.5vw, 56px)' }}
@@ -248,7 +261,7 @@ export const EventsScreen = () => {
                 <span className="shrink-0 text-[13px] font-semibold text-white tabular-nums">
                   {g.events.length} {state.view === 'scheduled' ? (g.events.length === 1 ? 'event' : 'events') : g.events.length === 1 ? 'proposal' : 'proposals'}
                 </span>
-              </div>
+              </div>}
               <div className="grid grid-cols-1 items-start gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
                 {g.events.map((event) => (
                   <EventCard key={event.id} event={event} />
@@ -260,9 +273,11 @@ export const EventsScreen = () => {
 
         {shown.length === 0 && <Empty>{emptyMessage()}</Empty>}
 
-        <div className="mt-10 sm:max-w-xl">
-          <SuggestionBox />
-        </div>
+        {!CONCEPT.simple && (
+          <div className="mt-10 sm:max-w-xl">
+            <SuggestionBox />
+          </div>
+        )}
 
       </div>
     </div>

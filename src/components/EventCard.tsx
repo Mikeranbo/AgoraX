@@ -17,8 +17,14 @@ import { quietLinkClass } from './ui';
 const cardLinkClass = quietLinkClass.replace('min-h-11', 'min-h-9').replace('text-[15px]', 'text-[14px]');
 import { colourFor } from './Avatar';
 import { OrganiserBadge } from './OrganiserBadge';
+import { CONCEPT } from '../config/concept';
+import { EventAnswers } from './simple/SimpleParts';
 
 const DEFAULT_ACCENT = '#818cf8';
+
+/** concept-simple wording for the main button and its picked state. */
+const GO = CONCEPT.simple ? "I'd go" : "I'm interested";
+const PICKED = CONCEPT.simple ? 'Picked' : 'Interested';
 
 /**
  * One impression per card per session: an IntersectionObserver fires when the card is
@@ -140,14 +146,16 @@ export const PhotoBadges = ({ event, save = true }: { event: Event; save?: boole
 /** The card's header: photo, badges, and the date (or "Date to be confirmed") bottom right. */
 export const EventPhoto = ({ event, className = '' }: { event: Event; className?: string }) => (
   <PhotoBackdrop event={event} className={className}>
-    <PhotoBadges event={event} />
-    <span className="absolute right-2.5 bottom-2.5">
-      <Chip>
-        <span className="inline-flex items-center gap-1.5">
-          <CalendarClock size={13} aria-hidden="true" /> {dateLabel(event)}
-        </span>
-      </Chip>
-    </span>
+    <PhotoBadges event={event} save={!CONCEPT.simple} />
+    {!CONCEPT.simple && (
+      <span className="absolute right-2.5 bottom-2.5">
+        <Chip>
+          <span className="inline-flex items-center gap-1.5">
+            <CalendarClock size={13} aria-hidden="true" /> {dateLabel(event)}
+          </span>
+        </Chip>
+      </span>
+    )}
   </PhotoBackdrop>
 );
 
@@ -250,14 +258,14 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
         >
           {priceLabel(event)}
         </span>
-        {event.price > 0 && <span className="mt-0.5 text-[11px] text-slate-400">indicative price</span>}
+        {event.price > 0 && !CONCEPT.simple && <span className="mt-0.5 text-[11px] text-slate-400">indicative price</span>}
       </p>
       {event.status === 'Cancelled' ? (
         <p className="text-[15px] text-slate-300">Cancelled</p>
       ) : meta.joined.has(event.id) ? (
         <div className="flex items-center gap-1">
           <p className="flex min-h-10 items-center gap-1.5 rounded-xl border border-brand-primary/60 bg-brand-action/20 px-3 font-display text-[15px] font-bold text-white">
-            <Check size={16} strokeWidth={3} aria-hidden="true" /> Interested
+            <Check size={16} strokeWidth={3} aria-hidden="true" /> {PICKED}
           </p>
           <button
             onClick={(e) => {
@@ -268,7 +276,7 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
             aria-label={`Withdraw interest in ${event.title}`}
             className="min-h-10 px-2 text-[14px] font-semibold text-slate-300 underline underline-offset-4 hover:text-white disabled:opacity-50"
           >
-            {busy ? 'Saving…' : 'Withdraw'}
+            {busy ? 'Saving…' : CONCEPT.simple ? 'Undo' : 'Withdraw'}
           </button>
         </div>
       ) : (
@@ -280,7 +288,7 @@ export const PriceAndAction = ({ event, size = 'card' }: { event: Event; size?: 
           disabled={busy}
           className="gradient-brand min-h-10 shrink-0 rounded-xl px-4 font-display text-[15px] font-bold whitespace-nowrap text-white transition-transform active:translate-y-px disabled:opacity-60"
         >
-          {busy ? 'Saving…' : "I'm interested"}
+          {busy ? 'Saving…' : GO}
         </button>
       )}
     </div>
@@ -365,11 +373,18 @@ export const EventCard = ({ event }: { event: Event }) => {
               {event.title}
             </button>
           </h3>
-          <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-slate-300">{hookOf(event.description)}</p>
+          {CONCEPT.simple ? (
+            <div className="mt-2">
+              <EventAnswers event={event} />
+            </div>
+          ) : (
+            <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-slate-300">{hookOf(event.description)}</p>
+          )}
         </div>
         <PeopleLine event={event} />
         <PriceAndAction event={event} />
-        <QuietLinks event={event} />
+        {/* concept-simple: "Help run this" lives on the event page only. */}
+        {!CONCEPT.simple && <QuietLinks event={event} />}
       </div>
     </article>
   );

@@ -5,7 +5,9 @@ import { Bar, Section, Table, Td, pct } from '../ui';
 import { downloadCsv } from '../../../lib/csv';
 import { seedEvents } from '../../../services/firebaseService';
 import { SEED_EVENTS } from '../../../data/seedEvents';
-import { applyCounterFixes, deleteEvent, purgeNonSeedEvents, setEventStatus } from '../../../services/adminService';
+import { applyCounterFixes, deleteEvent, purgeNonSeedEvents, setEventStatus, setEventVisible } from '../../../services/adminService';
+import { isShortlisted } from '../../../data/simpleEvents';
+import { CONCEPT } from '../../../config/concept';
 import { Event, EventStatus } from '../../../types';
 
 const STATUS_OPTIONS: EventStatus[] = ['Pending', 'Confirmed', 'Cancelled'];
@@ -93,7 +95,7 @@ export function EventsTable() {
       }
     >
       <Table
-        head={['Event', 'Category', '€', 'Min', 'Joins', 'Progress', 'Impr.', 'Opens', 'Open→join', 'Host int.', 'Status', ...(canEdit ? ['Actions'] : [])]}
+        head={[...(CONCEPT.simple ? ['Shown'] : []), 'Event', 'Category', '€', 'Min', 'Joins', 'Progress', 'Impr.', 'Opens', 'Open→join', 'Host int.', 'Status', ...(canEdit ? ['Actions'] : [])]}
         empty={`No events yet — use “Seed the events” to add the ${SEED_EVENTS.length}.`}
       >
         {eventRows.map(({ event: e, joins, impressions, opens, conversion, interest }) => (
@@ -102,6 +104,19 @@ export function EventsTable() {
             onClick={canEdit ? () => edit(e) : undefined}
             className={`${e.status === 'Cancelled' ? 'opacity-50' : ''} ${canEdit ? 'cursor-pointer hover:bg-white/[0.04]' : ''}`}
           >
+            {CONCEPT.simple && (
+              <Td>
+                <input
+                  type="checkbox"
+                  checked={isShortlisted(e)}
+                  disabled={!canEdit}
+                  onClick={(ev) => ev.stopPropagation()}
+                  onChange={(ev) => void run('Show or hide', () => setEventVisible(e.id, ev.target.checked))}
+                  aria-label={`Show ${e.title} in the list`}
+                  className="size-4 accent-brand-action"
+                />
+              </Td>
+            )}
             <Td className="min-w-[12rem] text-white font-bold">
               <span className="mr-1.5">{e.emoji ?? '💡'}</span>
               {e.title}

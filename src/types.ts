@@ -48,6 +48,8 @@ export type EventStatus = 'Pending' | 'Confirmed' | 'Cancelled';
 
 export interface Event {
   id: string;
+  /** concept-simple: shown in the list (set on /admin). Missing: the default shortlist decides. */
+  visible?: boolean;
   title: string;
   description: string;
   category: EventCategory;
