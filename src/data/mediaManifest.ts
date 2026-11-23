@@ -1449,6 +1449,34 @@ export const MEDIA_MANIFEST: Record<string, SeedMedia[]> = {
       "link": "https://unsplash.com/photos/a-group-of-students-in-a-classroom-RHqKnRACsqs"
     }
   ],
+  "topsim-competition": [
+    {
+      "kind": "image",
+      "base": "/media/topsim-competition/1",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1280,
+      "credit": "Photo: Jud Mackrill / Unsplash",
+      "link": "https://unsplash.com/photos/four-coworkers-smiling-around-laptop-at-table-Of_m3hMsoAA"
+    },
+    {
+      "kind": "image",
+      "base": "/media/topsim-competition/2",
+      "widths": [
+        640,
+        1280,
+        1920
+      ],
+      "width": 1920,
+      "height": 1152,
+      "credit": "Photo: Van Tay Media / Unsplash",
+      "link": "https://unsplash.com/photos/six-people-sitting-at-table-using-laptop-computer-8knRydRaWww"
+    }
+  ],
   "machine-learning-jam": [
     {
       "kind": "video",

@@ -1078,6 +1078,28 @@
         "licence": "Unsplash License"
       }
     ],
+    "topsim-competition": [
+      {
+        "type": "image",
+        "source": "unsplash",
+        "id": "1572021335469-31706a17aaef",
+        "page": "https://unsplash.com/photos/four-coworkers-smiling-around-laptop-at-table-Of_m3hMsoAA",
+        "author": "Jud Mackrill",
+        "profile": "https://unsplash.com/@judmackrill",
+        "licence": "Unsplash License",
+        "checked": "2026-11-23"
+      },
+      {
+        "type": "image",
+        "source": "unsplash",
+        "id": "1565688280018-b7893e3c9175",
+        "page": "https://unsplash.com/photos/six-people-sitting-at-table-using-laptop-computer-8knRydRaWww",
+        "author": "Van Tay Media",
+        "profile": "https://unsplash.com/@vantaymedia",
+        "licence": "Unsplash License",
+        "checked": "2026-11-23"
+      }
+    ],
     "machine-learning-jam": [
       {
         "type": "video",

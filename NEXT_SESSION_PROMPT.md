@@ -3,6 +3,26 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07` (Blaze, europe-west4), Vercel deploys `main` to https://agora-x.vercel.app.
 
+## Fairer prices, mock exam for any subject, TOPSIM (23 Nov 2026)
+
+Mike's decisions of 23 Nov, from branch `fairer-prices`, same prices on page A and page B:
+
+- Price rule (comment at the top of `src/data/seedEvents.ts`): free when there is nothing to pay for
+  and little to prepare (15 events, e.g. Walk & Talk, Trading Strategy Meetup, Coffee Roulette,
+  Potluck, Chess, Karaoke, Film Club, Hiking); €2–3 when someone prepares and runs it (€3 for
+  tournaments, workshops and full days); real costs per person plus about €2 when there are
+  materials, an instructor, a rental or a campsite (Clay €17, Candles €10, Tote €7, Salsa €6,
+  Cooking €10, Kayak €17, Camping €10, Surf €22). `simpleEvents.test.ts` checks no price is more than
+  costs per person + €3.
+- Padel and tennis: ACLO provides the courts, so no court cost; €3 each, like ping-pong, which only
+  pays the host who organises the tournament (~€45 at 16 people).
+- "Mock Exam Session" was never deleted; it is now "Mock Exam (any subject)" (slug kept, so its
+  sign-ups stay), €3.
+- New: "TOPSIM Competition (management game)", Study, €3, min 16 (teams of four), 3 h. No licence
+  cost included: running real TOPSIM needs a licence from its maker (or through Hanze). Photos in
+  `public/media/topsim-competition`.
+- 44 events now. Descriptions that name a price were updated with it (test checks "the €N").
+
 ## Page A shows all events, real prices, tournaments (22 Nov 2026, evening)
 
 Mike's decisions of 22 Nov (evening), merged into main from branch `page-a-all-events`:

@@ -4,8 +4,8 @@ import { SEED_EVENTS } from './seedEvents';
 import { seedAsEvent } from '../test/seedEvent';
 
 describe('price ladder', () => {
-  it('asks chess players about €4, as in APP_CHANGES §7', () => {
-    expect(nextPriceFor(seedAsEvent('chess-challenge'))).toBe(4);
+  it('asks ping-pong players (€3) about €4', () => {
+    expect(nextPriceFor(seedAsEvent('ping-pong-tournament'))).toBe(4);
   });
 
   it('asks about €2 for a free event', () => {

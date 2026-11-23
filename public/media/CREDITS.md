@@ -108,6 +108,8 @@ Photos are from [Unsplash](https://unsplash.com) (Unsplash License; each checked
 | `media/mock-exam-session` | video | [RDNE Stock project](https://www.pexels.com/@rdne) | [source](https://www.pexels.com/video/students-cheating-during-an-exam-7092083/) | Pexels License |
 | `media/mock-exam-session` | image | [Billy Albert](https://unsplash.com/@kobilly) | [source](https://unsplash.com/photos/a-person-writing-on-a-piece-of-paper-5lNKe_pE3oA) | Unsplash License |
 | `media/mock-exam-session` | image | [Timur Shakerzianov](https://unsplash.com/@shaker_jpg) | [source](https://unsplash.com/photos/a-group-of-students-in-a-classroom-RHqKnRACsqs) | Unsplash License |
+| `media/topsim-competition` | image | [Jud Mackrill](https://unsplash.com/@judmackrill) | [source](https://unsplash.com/photos/four-coworkers-smiling-around-laptop-at-table-Of_m3hMsoAA) | Unsplash License |
+| `media/topsim-competition` | image | [Van Tay Media](https://unsplash.com/@vantaymedia) | [source](https://unsplash.com/photos/six-people-sitting-at-table-using-laptop-computer-8knRydRaWww) | Unsplash License |
 | `media/machine-learning-jam` | video | [Mikhail Nilov](https://www.pexels.com/@mikhail-nilov) | [source](https://www.pexels.com/video/computer-programmers-working-7989833/) | Pexels License |
 | `media/machine-learning-jam` | image | [Nik](https://unsplash.com/@helloimnik) | [source](https://unsplash.com/photos/man-sitting-on-blue-bean-bag-usinglaptop-73_kRzs9sqo) | Unsplash License |
 | `media/machine-learning-jam` | image | [algoleague](https://unsplash.com/@algoleague) | [source](https://unsplash.com/photos/a-group-of-people-sitting-at-desks-working-on-laptops-yYWOYeX-jLY) | Unsplash License |
