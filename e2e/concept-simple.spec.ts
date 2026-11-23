@@ -3,7 +3,7 @@ import { card, visitorUid } from './helpers';
 import { makeOwner, seedRealEvents } from './seed-real';
 
 /**
- * Page A (concept-simple), with the 43 real events: the page explains itself, lists every event
+ * Page A (concept-simple), with the 44 real events: the page explains itself, lists every event
  * page B lists at the same prices, and the full path works: ?src=test → I'd go → contact → price
  * question → /admin.
  */
@@ -17,7 +17,7 @@ test('the page explains itself and lists every event at its real price, with pla
   await expect(page.getByText('Nothing is paid now.')).toBeVisible();
   for (const step of ['Pick', 'We count', 'It happens']) await expect(page.getByText(step, { exact: true })).toBeVisible();
   await expect(page.getByText('Pilot', { exact: true }).first()).toBeVisible();
-  await expect(page.locator('article')).toHaveCount(43);
+  await expect(page.locator('article')).toHaveCount(44);
   // The same category chips as page B, Sports included, and the three tournaments.
   await expect(page.getByRole('group', { name: 'Categories' }).getByRole('button')).toHaveText([
     'All', 'Networking', 'Games', 'Sports', 'Creative', 'Social', 'Study', 'Tech & Ideas', 'Outdoor',
@@ -26,18 +26,21 @@ test('the page explains itself and lists every event at its real price, with pla
   await page.getByRole('group', { name: 'Categories' }).getByRole('button', { name: 'Sports' }).click();
   await expect(page.locator('article')).toHaveCount(3);
   await page.getByRole('group', { name: 'Categories' }).getByRole('button', { name: 'All' }).click();
-  await expect(page.locator('article')).toHaveCount(43);
+  await expect(page.locator('article')).toHaveCount(44);
+  await expect(card(page, 'Mock Exam (any subject)')).toBeAttached();
+  await expect(card(page, 'TOPSIM Competition (management game)')).toBeAttached();
   // Hidden by the concept flags: menu, account, location and date filters, the Scheduled switch.
   await expect(page.getByRole('button', { name: 'Open menu' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'City' })).toHaveCount(0);
   await expect(page.getByRole('radio', { name: 'Scheduled' })).toHaveCount(0);
   await expect(page.getByText('Date to be confirmed')).toHaveCount(0);
   const tote = card(page, 'Tote-Bag Painting');
-  await expect(tote.getByText('€10: €5 for your bag and the fabric paint, the rest for the host who runs it.')).toBeVisible();
-  await expect(tote.getByText('€10', { exact: true })).toBeVisible();
+  await expect(tote.getByText('€7: €5 for your bag and the fabric paint, the rest for the host who runs it.')).toBeVisible();
+  await expect(tote.getByText('€7', { exact: true })).toBeVisible();
   await expect(tote.getByText('What you bring:')).toBeVisible();
-  // Real prices: the seed price, as on page B. Only the free event says Free.
-  await expect(card(page, 'Chess Challenge').getByText('€3', { exact: true })).toBeVisible();
+  // Real prices: the seed price, as on page B. Free events say Free.
+  await expect(card(page, 'Board-Game Discovery').getByText('€2', { exact: true })).toBeVisible();
+  await expect(card(page, 'Walk & Talk Groningen').getByText('Free', { exact: true })).toBeVisible();
   await expect(card(page, 'Reading Meetup').getByText('Free', { exact: true })).toBeVisible();
   // "Help run this" is not on the cards.
   await expect(page.locator('article').getByText(/Organize|Help run this/)).toHaveCount(0);
@@ -59,10 +62,10 @@ test('full path: ?src=test, I\'d go, contact, price question once, and /admin sh
   await contact.getByRole('checkbox', { name: /goes ahead, is cancelled/ }).check();
   await contact.getByRole('button', { name: 'Save' }).click();
 
-  // Then the price question, a step up from the price as shown (€3 → €4).
+  // Then the price question, a step up from the price as shown (Free → €2).
   const ladder = page.getByRole('dialog', { name: 'One quick question' });
   await expect(ladder).toBeVisible();
-  await expect(ladder.getByText('€4')).toBeVisible();
+  await expect(ladder.getByText('€2')).toBeVisible();
   await ladder.getByRole('button', { name: 'Yes' }).click();
 
   // A second pick asks nothing more.
@@ -107,10 +110,10 @@ test('"Help run this" sits next to "I\'d go" on the opened event, with what a ho
   await page.getByRole('region', { name: 'Visit statistics' }).getByRole('button', { name: 'No thanks' }).click();
   const signUp = page.getByRole('region', { name: 'Sign up' });
   const go = signUp.getByRole('button', { name: "I'd go" });
-  const help = signUp.getByRole('button', { name: 'Help run this · keep ~€59' });
+  const help = signUp.getByRole('button', { name: 'Help run this · keep ~€45' });
   await expect(go).toBeVisible();
   await expect(help).toBeVisible();
-  await expect(signUp.getByText('The host keeps the ticket money after costs: an estimated €59 if 16 people come.')).toBeVisible();
+  await expect(signUp.getByText('The host keeps the ticket money after costs: an estimated €45 if 16 people come.')).toBeVisible();
   // Side by side: the two buttons share a row.
   const goBox = (await go.boundingBox())!;
   const helpBox = (await help.boundingBox())!;

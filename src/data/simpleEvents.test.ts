@@ -41,6 +41,35 @@ describe('page A plain answers', () => {
   });
 });
 
+describe('prices (Mike, 23 Nov 2026)', () => {
+  const byId = (slug: string) => SEED_EVENTS.find((e) => e.slug === slug)!;
+
+  it('the meetups with nothing to pay for are free', () => {
+    for (const slug of ['walk-and-talk-groningen', 'trading-strategy-meetup', 'coffee-roulette', 'reading-meetup', 'hiking-trip']) {
+      expect(byId(slug).price, slug).toBe(0);
+    }
+  });
+
+  it('nothing costs more than its real costs per person plus €3', () => {
+    for (const e of SEED_EVENTS) {
+      const costs = e.fixedCost / e.minParticipants + e.perPersonCost;
+      expect(e.price - costs, e.slug).toBeLessThanOrEqual(3);
+      if (costs === 0) expect(e.price, e.slug).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('a description that names its price names the current one', () => {
+    for (const e of SEED_EVENTS) {
+      for (const m of e.description.matchAll(/the €(\d+)/gi)) expect(Number(m[1]), e.slug).toBe(e.price);
+    }
+  });
+
+  it('the mock exam is for any subject, and TOPSIM is on the list', () => {
+    expect(byId('mock-exam-session').title).toBe('Mock Exam (any subject)');
+    expect(byId('topsim-competition')).toMatchObject({ title: 'TOPSIM Competition (management game)', category: 'Study' });
+  });
+});
+
 describe('isOnPageA', () => {
   it('shows every event unless /admin took it off page A', () => {
     expect(isOnPageA({})).toBe(true);
@@ -61,10 +90,10 @@ describe('the tournaments', () => {
     }
   });
 
-  it('keep the old Ping-Pong Challenge and Padel Cup numbers', () => {
+  it('only pay for the organisation: ACLO provides the padel and tennis courts', () => {
     expect(t('ping-pong-tournament')).toMatchObject({ price: 3, minParticipants: 12, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0 });
-    expect(t('padel-tournament')).toMatchObject({ price: 12, minParticipants: 16, hostsNeeded: 1, fixedCost: 120, perPersonCost: 0 });
-    expect(t('tennis-tournament')).toMatchObject({ price: 12, minParticipants: 16, hostsNeeded: 1, fixedCost: 140, perPersonCost: 0 });
+    expect(t('padel-tournament')).toMatchObject({ price: 3, minParticipants: 16, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0, venueNote: 'ACLO padel courts' });
+    expect(t('tennis-tournament')).toMatchObject({ price: 3, minParticipants: 16, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0, venueNote: 'ACLO tennis courts' });
   });
 
   it('pay a host something at the minimum', () => {
