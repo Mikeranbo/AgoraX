@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { card, visitorUid } from './helpers';
+import { card, openSite, visitorUid } from './helpers';
 import { makeOwner, seedRealEvents } from './seed-real';
 
 /**
@@ -13,6 +13,16 @@ test.beforeEach(async () => {
 
 test('the page explains itself and lists every event at its real price, with plain answers and no dates or videos', async ({ page }) => {
   await page.goto('/?src=test');
+  // Like page B, page A opens with the pilot notice and its disclaimer; the organise line points to "Help run this".
+  const notice = page.getByRole('dialog', { name: 'A quick note: this is a pilot' });
+  await expect(notice).toBeVisible({ timeout: 20_000 });
+  await expect(notice.getByText('Events are not confirmed. Prices and potential earnings are hypothetical—not promises.')).toBeVisible();
+  await expect(notice.getByText('Showing interest is not a booking, and you won’t be charged.')).toBeVisible();
+  await expect(notice.getByText('Want to run one? Tap “Help run this” on any event and we’ll contact you.')).toBeVisible();
+  await expect(notice.getByText('Clicking the button alone does not make you the organiser or commit you to running that event.')).toBeVisible();
+  await expect(notice.getByText(/Organize/)).toHaveCount(0);
+  await notice.getByRole('button', { name: 'Got it — explore' }).click();
+  await expect(notice).toBeHidden();
   await expect(page.getByRole('heading', { name: "Pick the events you'd actually go to." })).toBeVisible();
   await expect(page.getByText('Nothing is paid now.')).toBeVisible();
   for (const step of ['Pick', 'We count', 'It happens']) await expect(page.getByText(step, { exact: true })).toBeVisible();
@@ -52,8 +62,7 @@ test('the page explains itself and lists every event at its real price, with pla
 });
 
 test('full path: ?src=test, I\'d go, contact, price question once, and /admin shows the person', async ({ page }) => {
-  await page.goto('/?src=test');
-  await page.getByRole('region', { name: 'Visit statistics' }).getByRole('button', { name: 'No thanks' }).click();
+  await openSite(page, { path: '/?src=test' });
   await card(page, 'Film Club (watch + talk)').getByRole('button', { name: "I'd go" }).click();
 
   const contact = page.getByRole('dialog', { name: 'Hear whether it goes ahead' });
@@ -93,8 +102,7 @@ test('full path: ?src=test, I\'d go, contact, price question once, and /admin sh
 });
 
 test('"Tell us" in the footer: one short form for running, hosting or an idea', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('region', { name: 'Visit statistics' }).getByRole('button', { name: 'No thanks' }).click();
+  await openSite(page);
   await page.getByRole('contentinfo').getByRole('button', { name: 'Tell us' }).click();
   const form = page.getByRole('dialog', { name: 'Want to run or host something?' });
   await form.getByText('Host one at my place').click();
@@ -107,8 +115,7 @@ test('"Tell us" in the footer: one short form for running, hosting or an idea', 
 });
 
 test('"Help run this" sits next to "I\'d go" on the opened event, with what a host keeps', async ({ page }) => {
-  await page.goto('/?e=padel-tournament');
-  await page.getByRole('region', { name: 'Visit statistics' }).getByRole('button', { name: 'No thanks' }).click();
+  await openSite(page, { path: '/?e=padel-tournament' });
   const signUp = page.getByRole('region', { name: 'Sign up' });
   const go = signUp.getByRole('button', { name: "I'd go" });
   const help = signUp.getByRole('button', { name: 'Help run this · keep ~€45' });
@@ -131,8 +138,7 @@ test('"Help run this" sits next to "I\'d go" on the opened event, with what a ho
 });
 
 test('a free event: only "Help run this", no money line', async ({ page }) => {
-  await page.goto('/?e=reading-meetup');
-  await page.getByRole('region', { name: 'Visit statistics' }).getByRole('button', { name: 'No thanks' }).click();
+  await openSite(page, { path: '/?e=reading-meetup' });
   const signUp = page.getByRole('region', { name: 'Sign up' });
   await expect(signUp.getByRole('button', { name: 'Help run this', exact: true })).toBeVisible();
   await expect(signUp.getByText(/keeps the ticket money/)).toHaveCount(0);

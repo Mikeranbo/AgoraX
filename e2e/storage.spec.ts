@@ -37,17 +37,16 @@ test('a shared event link with no clicks stores nothing either', async ({ page, 
   expect(await context.cookies()).toEqual([]);
 });
 
-test('page B writes agorax.entry.done only when the pilot notice is closed with a tap', async ({ page }) => {
+test('the pilot notice shows on arrival; "Got it — explore" keeps only agorax.entry.done (both pages)', async ({ page }) => {
   await page.goto('/?src=test');
   const notice = page.getByRole('dialog', { name: 'A quick note: this is a pilot' });
-  const pageA = page.getByRole('heading', { name: "Pick the events you'd actually go to." });
-  await expect(notice.or(pageA).first()).toBeVisible({ timeout: 20_000 });
-  test.skip(!(await notice.isVisible()), 'page A has no pilot notice');
+  await expect(notice).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(2000);
-  expect((await deviceStorage(page)).session).toEqual([]);
+  expect(await deviceStorage(page)).toEqual({ local: [], session: [], idb: [], cookie: '' });
   await notice.getByRole('button', { name: 'Got it — explore' }).click();
   await expect(notice).toBeHidden();
-  expect((await deviceStorage(page)).session).toEqual(['agorax.entry.done']);
+  // No ID, no saved page version, no pick: only that this tab saw the notice.
+  expect(await deviceStorage(page)).toEqual({ local: [], session: ['agorax.entry.done'], idb: [], cookie: '' });
   // A reload in the same tab doesn't show the notice again.
   await page.reload();
   await expect(page.locator('article').first()).toBeVisible({ timeout: 20_000 });

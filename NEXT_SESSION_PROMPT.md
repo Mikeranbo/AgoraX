@@ -12,6 +12,11 @@ Still paid: organiser-run events (Mafia €2, Brain Battle €3, tournaments €
 and events with real costs. TOPSIM was only a label: the event is now "Management Game Competition
 (TOPSIM-style)", our own game, €2 (slug topsim-competition kept).
 
+## Pilot notice on page A too: live 24 Nov 2026, 13:32 UTC (14:32 Amsterdam time)
+
+A/B numbers before this moment: only page B showed the pilot notice on arrival; from then on both pages
+show it (page A says "Tap “Help run this”" instead of "Press “Organize”"), so only the design differs.
+
 ## Fairer prices, mock exam for any subject, TOPSIM (23 Nov 2026)
 
 Mike's decisions of 23 Nov, from branch `fairer-prices`, same prices on page A and page B:
