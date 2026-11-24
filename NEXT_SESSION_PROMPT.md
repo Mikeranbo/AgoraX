@@ -3,6 +3,15 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07` (Blaze, europe-west4), Vercel deploys `main` to https://agora-x.vercel.app.
 
+## Free when the people make it happen (23 Nov 2026, evening)
+
+Mike: an event that depends on the people who come, not on an organiser, is free (rooms mostly come
+free from Hanze). Branch `free-people-events`. Now 25 of 44 free: every Networking event, plus Board
+Games, Short Film, Thrift Swap, ML Jam, Build an App (bring your own snacks) and Friendly Debate.
+Still paid: organiser-run events (Mafia €2, Brain Battle €3, tournaments €3, Improv €3, Mock Exam €3)
+and events with real costs. TOPSIM was only a label: the event is now "Management Game Competition
+(TOPSIM-style)", our own game, €2 (slug topsim-competition kept).
+
 ## Fairer prices, mock exam for any subject, TOPSIM (23 Nov 2026)
 
 Mike's decisions of 23 Nov, from branch `fairer-prices`, same prices on page A and page B:

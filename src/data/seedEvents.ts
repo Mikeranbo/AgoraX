@@ -4,9 +4,11 @@
  * These are the 44 events shown on the validation landing page, on page A and page B alike.
  * ACLO already runs sports training, so the sports here are fun tournaments (ping-pong, padel,
  * tennis): you train at ACLO, you compete with us.
- * Prices (Mike, 23 Nov 2026): free when there is nothing to pay for and little to prepare; €2–3 when
- * someone prepares and runs it (€3 for tournaments, workshops and full days); real costs per person
- * plus about €2 when there are materials, an instructor, a rental or a campsite.
+ * Prices (Mike, 23 Nov 2026): free when the event depends on the people who come rather than on an
+ * organiser (every Networking event, meetups, swaps, jams, games people bring); €2–3 when an organiser
+ * really runs it (a moderator, prepared puzzles, a tournament, a workshop, a mock exam, our management
+ * game); real costs per person plus about €2 when there are materials, an instructor, a rental or a
+ * campsite. Rooms mostly come free from Hanze.
  *
  * Earnings shown to a potential organiser are calculated, never stored:
  *   gross      = price * minParticipants
@@ -98,7 +100,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       "It's for anyone who finds the first sentence the hardest part. The tag gives people something to ask, so you never need an opener. First-years, master's students and PhDs end up in the same conversations.",
       "You'll probably leave with a few new names in your phone and one or two conversations you want to continue over coffee.",
     ),
-    price: 2, minParticipants: 20, durationHours: 2, hostsNeeded: 1, fixedCost: 5, perPersonCost: 0,
+    price: 0, minParticipants: 20, durationHours: 2, hostsNeeded: 1, fixedCost: 5, perPersonCost: 0,
     venueNote: 'Uni room free · name tags', emoji: '🏷️', accent: '#6B3FD6',
     steps: [
       { icon: 'tag', title: 'Fill in your tag', text: 'Write what people can ask you about.' },
@@ -118,7 +120,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       'At the end you open the app and tag each other for the most interesting conversation, the funniest moment and the best listener. Nobody wins anything. It is simply a nice way to hear what you were like to talk to.',
       'Good for people who like a bit of structure, and for anyone new to Groningen who wants to meet a lot of people in one evening.',
     ),
-    price: 3, minParticipants: 20, durationHours: 2.5, hostsNeeded: 2, fixedCost: 10, perPersonCost: 0,
+    price: 0, minParticipants: 20, durationHours: 2.5, hostsNeeded: 2, fixedCost: 10, perPersonCost: 0,
     venueNote: 'Uni room free · challenge cards', emoji: '🃏', accent: '#D64F8B',
     steps: [
       { icon: 'cards', title: 'Pick up your cards', text: 'Each card is one small challenge, like swapping Instagrams with five people.' },
@@ -234,7 +236,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       "You don't need an idea to come. Plenty of people come to find something worth working on, whether that's a startup or a small weekend project.",
       'At the end every pitcher sees who wants to join, so teams can start talking that same evening.',
     ),
-    price: 2, minParticipants: 15, durationHours: 2.5, hostsNeeded: 2, fixedCost: 0, perPersonCost: 0,
+    price: 0, minParticipants: 15, durationHours: 2.5, hostsNeeded: 2, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Uni room + projector free', emoji: '🎯', accent: '#C2413B',
     steps: [
       { icon: 'pitch', title: 'Pitch in two minutes', text: 'Ideas go on the projector, one after another.' },
@@ -272,7 +274,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       "It's useful in your second or third year, when everyone around you seems to be applying somewhere and you're not sure where to start.",
       'You hear honest stories from people a year or two ahead of you, which is often more useful than a careers fair.',
     ),
-    price: 2, minParticipants: 12, durationHours: 2, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
+    price: 0, minParticipants: 12, durationHours: 2, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Uni room free', emoji: '💼', accent: '#5A5A6E',
     steps: [
       { icon: 'mic', title: 'Short stories', text: 'Students share how they found their internship.' },
@@ -352,7 +354,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       "Three hours gives you time for one long game or a handful of short ones. It's an easy evening if you're shy, since the game does a lot of the talking.",
       "You'll leave with a few new favourites and people to play them with again.",
     ),
-    price: 2, minParticipants: 12, durationHours: 3, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
+    price: 0, minParticipants: 12, durationHours: 3, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Uni room free · bring your own games', bringYourOwn: 'A game you like, if you have one', emoji: '🎲', accent: '#D64F8B',
     steps: [
       { icon: 'dice', title: 'Pick a table', text: 'Each table has a game and someone who knows it.' },
@@ -586,7 +588,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       "You don't need film experience. Teams mix people who like writing, acting, filming or editing, and roles get sorted out on the day.",
       'At the end we watch all the films together. Seeing what the other teams made from the same theme is the best part.',
     ),
-    price: 3, minParticipants: 12, durationHours: 6, hostsNeeded: 2, fixedCost: 0, perPersonCost: 0,
+    price: 0, minParticipants: 12, durationHours: 6, hostsNeeded: 2, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Uni rooms free · own phones', bringYourOwn: 'A phone that can film', emoji: '🎬', accent: '#C2413B',
     steps: [
       { icon: 'idea', title: 'Get the theme', text: 'Every team receives the same theme and rules.' },
@@ -644,7 +646,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       "It's free new clothes and less waste, and it's fun to see someone else wear the jacket you never did.",
       'Clothes left at the end go to a charity shop.',
     ),
-    price: 3, minParticipants: 15, durationHours: 2, hostsNeeded: 2, fixedCost: 15, perPersonCost: 0,
+    price: 0, minParticipants: 15, durationHours: 2, hostsNeeded: 2, fixedCost: 15, perPersonCost: 0,
     venueNote: 'Uni room free · rails', emoji: '👕', accent: '#D64F8B',
     steps: [
       { icon: 'shirt', title: 'Bring clothes', text: "Clean, wearable pieces you're done with." },
@@ -773,15 +775,15 @@ export const SEED_EVENTS: SeedEvent[] = [
   {
     ...base,
     slug: 'topsim-competition',
-    title: 'TOPSIM Competition (management game)',
+    title: 'Management Game Competition (TOPSIM-style)',
     category: 'Study',
     description: text(
-      'Run a company against other student teams in TOPSIM, the management simulation game.',
-      'Teams of four each run the same kind of company. Every round you decide on prices, production, marketing and investment, then the simulation shows how your company did against the others.',
-      "After the last round, the team with the strongest company wins. You don't need to have played TOPSIM before: the first round is a practice round.",
+      'Run a company against other student teams in our own management game, in the style of TOPSIM.',
+      'Teams of four each run the same kind of company. Every round you decide on prices, production, marketing and investment, then the game shows how your company did against the others.',
+      "After the last round, the team with the strongest company wins. You don't need to have played a management game before: the first round is a practice round.",
       'Good for business students who want to try what they learned, and for anyone who likes strategy games.',
     ),
-    price: 3, minParticipants: 16, durationHours: 3, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
+    price: 2, minParticipants: 16, durationHours: 3, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Uni room free · one laptop per team', bringYourOwn: 'A laptop, one per team', emoji: '📊', accent: '#2E7FD6',
     steps: [
       { icon: 'users', title: 'Form a team', text: 'Four people per company. Come alone and we put you in a team.' },
@@ -802,7 +804,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       "Beginners pair with people who have done it before, so it's a good place to learn. If you already know your way around, it's an excuse to try something new.",
       "At the end teams show what they built, including what didn't work.",
     ),
-    price: 2, minParticipants: 12, durationHours: 4, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
+    price: 0, minParticipants: 12, durationHours: 4, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Uni room free', emoji: '🤖', accent: '#6B3FD6',
     steps: [
       { icon: 'data', title: 'Pick a dataset', text: 'Choose from a short list of problems.' },
@@ -817,12 +819,12 @@ export const SEED_EVENTS: SeedEvent[] = [
     category: 'Tech & Ideas',
     description: text(
       'Spend an afternoon turning an idea into a working app with a small team.',
-      'Teams form at the start around ideas people bring. You build until the deadline, with snacks to keep you going. No-code tools are allowed.',
+      'Teams form at the start around ideas people bring. You build until the deadline, so bring snacks to keep you going. No-code tools are allowed.',
       "Teams need designers as much as coders, and you learn a lot in a few hours by watching how others work.",
       'Every team demos its app at the end. Some keep working on theirs afterwards.',
     ),
-    price: 4, minParticipants: 15, durationHours: 5, hostsNeeded: 2, fixedCost: 0, perPersonCost: 2,
-    venueNote: 'Uni room free · snacks', emoji: '💻', accent: '#2F9E6B',
+    price: 0, minParticipants: 15, durationHours: 5, hostsNeeded: 2, fixedCost: 0, perPersonCost: 0,
+    venueNote: 'Uni room free', bringYourOwn: 'A laptop and snacks', emoji: '💻', accent: '#2F9E6B',
     steps: [
       { icon: 'idea', title: 'Pick an idea', text: 'Join a team around an idea you like.' },
       { icon: 'code', title: 'Build it', text: "Code, design or test, whatever you're good at." },
@@ -840,7 +842,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       'Arguing the side you disagree with is harder than it sounds, and good practice for thinking on your feet.',
       'After each round the audience asks questions, and anyone can join the next debate.',
     ),
-    price: 2, minParticipants: 12, durationHours: 2, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
+    price: 0, minParticipants: 12, durationHours: 2, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Uni room free', emoji: '⚖️', accent: '#5A5A6E',
     steps: [
       { icon: 'scale', title: 'Get a side', text: 'Topics and sides are drawn at random.' },

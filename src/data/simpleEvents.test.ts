@@ -44,9 +44,18 @@ describe('page A plain answers', () => {
 describe('prices (Mike, 23 Nov 2026)', () => {
   const byId = (slug: string) => SEED_EVENTS.find((e) => e.slug === slug)!;
 
-  it('the meetups with nothing to pay for are free', () => {
-    for (const slug of ['walk-and-talk-groningen', 'trading-strategy-meetup', 'coffee-roulette', 'reading-meetup', 'hiking-trip']) {
+  it('events that depend on the people who come are free, and so is every Networking event', () => {
+    for (const slug of ['walk-and-talk-groningen', 'trading-strategy-meetup', 'coffee-roulette', 'reading-meetup', 'hiking-trip',
+      'board-game-discovery', 'thrift-and-style-swap', 'machine-learning-jam', 'build-an-app-challenge', 'friendly-debate', 'short-film-challenge']) {
       expect(byId(slug).price, slug).toBe(0);
+    }
+    for (const e of SEED_EVENTS.filter((x) => x.category === 'Networking')) expect(e.price, e.slug).toBe(0);
+  });
+
+  it('a free event says Free and never asks a host to pay its small costs', () => {
+    for (const e of SEED_EVENTS.filter((x) => x.price === 0)) {
+      expect(SIMPLE_EVENTS[e.slug].pays, e.slug).toMatch(/^Free/);
+      expect(e.fixedCost / e.minParticipants + e.perPersonCost, e.slug).toBeLessThan(1.5);
     }
   });
 
@@ -64,9 +73,10 @@ describe('prices (Mike, 23 Nov 2026)', () => {
     }
   });
 
-  it('the mock exam is for any subject, and TOPSIM is on the list', () => {
+  it('the mock exam is for any subject, and the management game is our own, TOPSIM-style, for €2', () => {
     expect(byId('mock-exam-session').title).toBe('Mock Exam (any subject)');
-    expect(byId('topsim-competition')).toMatchObject({ title: 'TOPSIM Competition (management game)', category: 'Study' });
+    expect(byId('topsim-competition')).toMatchObject({ title: 'Management Game Competition (TOPSIM-style)', category: 'Study', price: 2 });
+    expect(byId('topsim-competition').description).toContain('our own management game');
   });
 });
 

@@ -28,7 +28,7 @@ test('the page explains itself and lists every event at its real price, with pla
   await page.getByRole('group', { name: 'Categories' }).getByRole('button', { name: 'All' }).click();
   await expect(page.locator('article')).toHaveCount(44);
   await expect(card(page, 'Mock Exam (any subject)')).toBeAttached();
-  await expect(card(page, 'TOPSIM Competition (management game)')).toBeAttached();
+  await expect(card(page, 'Management Game Competition (TOPSIM-style)')).toBeAttached();
   // Hidden by the concept flags: menu, account, location and date filters, the Scheduled switch.
   await expect(page.getByRole('button', { name: 'Open menu' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'City' })).toHaveCount(0);
@@ -39,7 +39,8 @@ test('the page explains itself and lists every event at its real price, with pla
   await expect(tote.getByText('€7', { exact: true })).toBeVisible();
   await expect(tote.getByText('What you bring:')).toBeVisible();
   // Real prices: the seed price, as on page B. Free events say Free.
-  await expect(card(page, 'Board-Game Discovery').getByText('€2', { exact: true })).toBeVisible();
+  await expect(card(page, 'Mafia / Werewolf Night').getByText('€2', { exact: true })).toBeVisible();
+  await expect(card(page, 'Pure Networking Night').getByText('Free', { exact: true })).toBeVisible();
   await expect(card(page, 'Walk & Talk Groningen').getByText('Free', { exact: true })).toBeVisible();
   await expect(card(page, 'Reading Meetup').getByText('Free', { exact: true })).toBeVisible();
   // "Help run this" is not on the cards.
