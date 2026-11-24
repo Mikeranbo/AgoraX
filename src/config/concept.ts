@@ -36,11 +36,14 @@ interface ConceptFlags {
   videos: boolean;
   /** The opening screen with the cut-out figures (off on both pages; it stays on the tag cutout-hero-original). */
   openingHero: boolean;
-  /** The pilot notice dialog on the first visit. */
+  /**
+   * The pilot notice dialog on arrival ("Events are not confirmed. Prices and potential earnings are
+   * hypothetical…"). On both pages since 24 Nov 2026, so the A/B test compares only the design.
+   */
   pilotNoticeOnEntry: boolean;
 }
 
-const PAGES: Record<Variant, ConceptFlags> = {
+export const PAGES: Record<Variant, ConceptFlags> = {
   // Page A, as on branch concept-simple.
   simple: {
     simple: true,
@@ -51,7 +54,7 @@ const PAGES: Record<Variant, ConceptFlags> = {
     doodles: false,
     videos: false,
     openingHero: false,
-    pilotNoticeOnEntry: false,
+    pilotNoticeOnEntry: true,
   },
   // Page B, as on branch concept-current.
   current: {
