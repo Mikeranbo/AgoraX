@@ -15,12 +15,22 @@ test.beforeEach(async () => {
 const PAGE_A_HEADING = "Pick the events you'd actually go to.";
 const NOTICE = 'A quick note: this is a pilot';
 
-/** Which page this load shows: A has the explainer heading, B opens with the pilot notice. */
+/**
+ * Which page this load shows: A has the explainer heading, B its own page title. Both open with the
+ * pilot notice, so this reads the page behind it without clicking anything.
+ */
 async function whichPage(page: Page): Promise<'A' | 'B'> {
-  const a = page.getByRole('heading', { name: PAGE_A_HEADING });
-  const b = page.getByRole('dialog', { name: NOTICE });
-  await expect(a.or(b).first()).toBeVisible({ timeout: 20_000 });
-  return (await a.isVisible()) ? 'A' : 'B';
+  const a = page.locator('h1', { hasText: PAGE_A_HEADING });
+  const b = page.locator('h1', { hasText: 'AgoraX proposals' });
+  await expect(a.or(b).first()).toBeAttached({ timeout: 20_000 });
+  return (await a.count()) > 0 ? 'A' : 'B';
+}
+
+/** "Got it — explore" on the pilot notice, which both pages show on arrival. */
+async function closeNotice(page: Page) {
+  const notice = page.getByRole('dialog', { name: NOTICE });
+  await notice.getByRole('button', { name: 'Got it — explore' }).click({ timeout: 20_000 });
+  await expect(notice).toBeHidden();
 }
 
 async function deviceStorage(page: Page) {
@@ -34,12 +44,13 @@ async function deviceStorage(page: Page) {
 
 const EMPTY = { local: [], session: [], idb: [], cookie: '' };
 
-test('one link shows both pages across reloads, and nothing is stored before a click on either', async ({ page, context }) => {
+test('one link shows both pages across reloads, both open with the pilot notice, and nothing is stored before a click', async ({ page, context }) => {
   const seen = new Set<string>();
   await page.goto('/?src=test');
   for (let i = 0; i < 16 && seen.size < 2; i++) {
     if (i > 0) await page.reload();
     seen.add(await whichPage(page));
+    await expect(page.getByRole('dialog', { name: NOTICE })).toBeVisible({ timeout: 20_000 });
     await page.waitForTimeout(1500);
     expect(await deviceStorage(page)).toEqual(EMPTY);
   }
@@ -62,6 +73,7 @@ test('?v=simple and ?v=current force a page, are not counted, and mark what they
 
   // A pick on a forced page is saved as a test, and the browser keeps that page.
   await page.goto('/?v=simple&src=abcheck');
+  await closeNotice(page);
   await page.getByRole('region', { name: 'Visit statistics' }).getByRole('button', { name: 'No thanks' }).click();
   await card(page, 'Chess Challenge').getByRole('button', { name: "I'd go" }).click();
   await expect(page.getByRole('dialog', { name: 'Hear whether it goes ahead' })).toBeVisible();
@@ -84,7 +96,7 @@ async function fullPath(page: Page, side: 'A' | 'B') {
   }, side === 'A' ? 0.1 : 0.9);
   await page.goto('/?src=test');
   expect(await whichPage(page)).toBe(side);
-  if (side === 'B') await page.getByRole('dialog', { name: NOTICE }).getByRole('button', { name: 'Got it — explore' }).click();
+  await closeNotice(page);
   await page.getByRole('region', { name: 'Visit statistics' }).getByRole('button', { name: 'No thanks' }).click();
 
   const event = card(page, 'Film Club (watch + talk)');

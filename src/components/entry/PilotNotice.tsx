@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { CircleAlert } from 'lucide-react';
+import { CONCEPT } from '../../config/concept';
 
 const SLIDE = { duration: 1.05, ease: [0.7, 0, 0.2, 1] as const };
 
@@ -98,7 +99,10 @@ export const PilotNotice = ({ open, onClose, reduced }: { open: boolean; onClose
               <Highlight>Events are not confirmed. Prices and potential earnings are hypothetical—not promises.</Highlight>
               <Highlight>Showing interest is not a booking, and you won’t be charged.</Highlight>
               <p>
-                Want to organise an event? Press “Organize” and we’ll contact you about a possible collaboration.{' '}
+                {/* Page A has no "Organize" button: its event pages have "Help run this". */}
+                {CONCEPT.simple
+                  ? 'Want to run one? Tap “Help run this” on any event and we’ll contact you.'
+                  : 'Want to organise an event? Press “Organize” and we’ll contact you about a possible collaboration.'}{' '}
                 <strong className="rounded px-1 font-bold text-white" style={{ background: 'rgba(255,107,129,.16)' }}>
                   Clicking the button alone does not make you the organiser or commit you to running that event.
                 </strong>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseVariant } from './concept';
+import { PAGES, chooseVariant } from './concept';
 
 const flip = (value: number) => () => value;
 
@@ -25,6 +25,11 @@ describe('A/B variant choice', () => {
 
   it('ignores unknown values', () => {
     expect(chooseVariant({ query: '?v=other', saved: 'nonsense', random: flip(0.9) })).toEqual({ page: 'current', stamp: 'current', counts: true });
+  });
+
+  it('both pages show the pilot notice on arrival, so only the design differs', () => {
+    expect(PAGES.simple.pilotNoticeOnEntry).toBe(true);
+    expect(PAGES.current.pilotNoticeOnEntry).toBe(true);
   });
 
   it('the browser tests can replace the coin flip', () => {
