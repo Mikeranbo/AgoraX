@@ -3,6 +3,22 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07` (Blaze, europe-west4), Vercel deploys `main` to https://agora-x.vercel.app.
 
+## Poster events locked (25 Nov 2026)
+
+Seven events keep the numbers our posters print (price, minimum, hosts and costs from commit b3f1191), so
+the host keeps exactly: Ping-Pong €33, Padel €59 (books two courts, €120), Karaoke €42 (€3, not free),
+Cooking €36, Music Jam €31, Mock Exam €30, Salsa €74. Same on both pages. Mike: never change these seven
+without asking him; `simpleEvents.test.ts` ("the seven poster events") checks the amounts.
+
+## Free when the people make it happen (23 Nov 2026, evening)
+
+Mike: an event that depends on the people who come, not on an organiser, is free (rooms mostly come
+free from Hanze). Branch `free-people-events`. Now 25 of 44 free: every Networking event, plus Board
+Games, Short Film, Thrift Swap, ML Jam, Build an App (bring your own snacks) and Friendly Debate.
+Still paid: organiser-run events (Mafia €2, Brain Battle €3, tournaments €3, Improv €3, Mock Exam €3)
+and events with real costs. TOPSIM was only a label: the event is now "Management Game Competition
+(TOPSIM-style)", our own game, €2 (slug topsim-competition kept).
+
 ## Pilot notice on page A too: live 24 Nov 2026, 13:32 UTC (14:32 Amsterdam time)
 
 A/B numbers before this moment: only page B showed the pilot notice on arrival; from then on both pages

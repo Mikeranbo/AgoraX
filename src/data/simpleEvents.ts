@@ -25,13 +25,13 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: 'Walk around a room full of students and talk. Your name tag says what people can ask you about.',
     included: 'A uni room and a name tag.',
     bring: '',
-    pays: '€2 pays for the name tags and the host who runs it. The room is free.',
+    pays: 'Free. Hanze gives the room and the name tags cost next to nothing.',
   },
   'social-challenge-night': {
     does: 'Pick up a few small challenge cards, like swapping Instagrams with five people, and do them at your own pace.',
     included: 'A uni room, the challenge cards and two hosts.',
     bring: 'Your phone.',
-    pays: '€3 pays for the cards and the two hosts. The room is free.',
+    pays: 'Free. Hanze gives the room and the cards cost next to nothing.',
   },
   'coffee-roulette': {
     does: 'We pair you with a student from another programme. You meet at a café and talk for about an hour and a half.',
@@ -69,7 +69,7 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: 'Pitch an idea in two minutes, or tap "I\'d join" on the projects you like. Teams start talking the same evening.',
     included: 'A uni room with a projector, and two hosts.',
     bring: 'An idea if you have one. You can come without.',
-    pays: '€2 pays the two hosts. The room and projector are free.',
+    pays: 'Free. The room and projector cost nothing.',
   },
   'trading-strategy-meetup': {
     does: 'Students show their own charts and explain how they trade, including what went wrong. It is not financial advice.',
@@ -81,7 +81,7 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: 'A few students tell you how they found their internship and what the work was like. Then you ask them anything.',
     included: 'A uni room and students a year or two ahead of you.',
     bring: 'Your questions.',
-    pays: '€2 pays the host who finds the speakers and runs it. The room is free.',
+    pays: 'Free. The speakers are students, and the room costs nothing.',
   },
 
   // ---------------------------------------------------------------- Games
@@ -109,14 +109,14 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: "Learn and play board games you haven't tried, from quick card games to longer ones.",
     included: 'Tables, a room, and someone at each table who explains the rules.',
     bring: 'A game you like, if you have one.',
-    pays: '€2 pays the host who runs it. The room is free.',
+    pays: 'Free. People bring the games.',
     why: 'Game nights are what students already organise for friends (survey); people bring the games.',
   },
   'karaoke-night': {
     does: "Sing in a bar's back room, or just cheer for the people who do.",
     included: 'The back room and the song list.',
     bring: 'Money for your own drinks.',
-    pays: 'Free. The bar lends the room as long as we buy our drinks there.',
+    pays: '€3 pays the host who runs it. The bar lends the room as long as we buy our drinks there.',
     why: 'Going out, parties and drinks were the biggest theme in the interviews; the bar provides the room.',
   },
   'park-games': {
@@ -136,9 +136,9 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
   },
   'padel-tournament': {
     does: 'Play doubles with a new partner every match, so you play with everyone. It ends with a friendly final.',
-    included: 'ACLO padel courts for two and a half hours. Rackets can be shared.',
+    included: 'Two padel courts for two and a half hours. Rackets can be shared.',
     bring: 'Sports shoes.',
-    pays: '€3 pays the host who organises the tournament. ACLO provides the courts.',
+    pays: '€12: about €8 for the courts, the rest for the host who runs it.',
   },
   'tennis-tournament': {
     does: 'Play short doubles matches with partners who keep changing. The best pairs play a final.',
@@ -190,7 +190,7 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: 'Write, shoot and edit a short film in one day with a team, using your phones. At the end everyone watches all the films.',
     included: 'Uni rooms to film and edit in, the theme, and two hosts.',
     bring: 'A phone that can film.',
-    pays: '€3 pays the two hosts for the day. The rooms are free.',
+    pays: 'Free. You film with your own phones, and the rooms cost nothing.',
   },
   'film-club': {
     does: 'Watch one film on a big screen, then stay half an hour to talk about it.',
@@ -209,7 +209,7 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: "Hang up clothes you don't wear anymore and take home something new to you from the rails.",
     included: 'Clothing rails in a uni room. Clothes left at the end go to a charity shop.',
     bring: 'Clean clothes you no longer wear.',
-    pays: '€3: about €1 for the rails, the rest for the two hosts.',
+    pays: 'Free. Everyone brings the clothes.',
   },
   'sketch-and-social': {
     does: 'Draw objects, the room or a volunteer model while you chat. Every half hour you swap seats and look at the others.',
@@ -221,7 +221,7 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: "Play along with people you've never played with. Someone starts a groove and the others join in.",
     included: 'A uni music room with drums, and hired amps.',
     bring: 'Your instrument, or your voice.',
-    pays: '€4: about €2 for the amp hire, the rest for the host who runs it.',
+    pays: '€5: about €2 for the amp hire, the rest for the host who runs it.',
   },
 
   // ---------------------------------------------------------------- Social
@@ -229,13 +229,13 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: 'An instructor teaches you the basic step and a few turns. Then you dance for an hour with partners who keep changing.',
     included: "A uni room and an instructor. You don't need a partner.",
     bring: 'Shoes that turn easily on the floor.',
-    pays: '€6: about €4 for the instructor, the rest for the host who runs it.',
+    pays: '€9: about €4 for the instructor, the rest for the host who runs it.',
   },
   'cooking-challenge': {
     does: 'Your team gets the same basket of ingredients as the others and three hours to cook a meal. Then everyone tastes and votes.',
     included: 'A shared kitchen and the ingredients.',
     bring: '',
-    pays: '€10: €8 for your ingredients, the rest for the two hosts.',
+    pays: '€15: €8 for your ingredients, the rest for the two hosts.',
   },
   'reading-meetup': {
     does: 'Tell the group about the book you are reading for a few minutes, and hear what the others are reading.',
@@ -250,13 +250,13 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: 'Write a mock exam for any subject in a quiet room, on a strict clock. Then go through the answers in small groups.',
     included: 'A quiet room, your printed exam and two hosts who keep time.',
     bring: 'Pens. You send us a past exam for your subject beforehand.',
-    pays: '€3: under €1 for printing, the rest for the two hosts.',
+    pays: '€5: under €1 for printing, the rest for the two hosts.',
   },
   'topsim-competition': {
-    does: 'Run a company with your team in TOPSIM, a management simulation game, and compete with the other teams round by round.',
+    does: 'Run a company with your team in our own management game, in the style of TOPSIM, and compete with the other teams round by round.',
     included: 'A uni room, the game and a host who runs the rounds.',
     bring: 'A laptop, one per team.',
-    pays: '€3 pays the host who runs it. The room is free.',
+    pays: '€2 pays the host who runs the game. The room is free.',
   },
 
   // ---------------------------------------------------------- Tech & Ideas
@@ -264,19 +264,19 @@ export const SIMPLE_EVENTS: Record<string, SimpleCopy> = {
     does: 'Join a small team, pick a public dataset and try to get a working model in four hours.',
     included: 'A uni room, a short list of datasets, and people who have done it before.',
     bring: 'A laptop.',
-    pays: '€2 pays the host who runs it. The room is free.',
+    pays: 'Free. The room costs nothing.',
   },
   'build-an-app-challenge': {
     does: 'Build a working app with a small team in one afternoon. No-code tools are allowed.',
-    included: 'A uni room and snacks to keep you going.',
-    bring: 'A laptop.',
-    pays: '€4: €2 for snacks, the rest for the two hosts.',
+    included: 'A uni room and a team to build with.',
+    bring: 'A laptop, and snacks to keep you going.',
+    pays: 'Free. The room costs nothing.',
   },
   'friendly-debate': {
     does: 'Get a side at random, prepare for a few minutes with your team, then debate on a timer.',
     included: 'A uni room, the topics and a host with the timer.',
     bring: '',
-    pays: '€2 pays the host who runs it. The room is free.',
+    pays: 'Free. The room costs nothing.',
   },
   'language-exchange-games': {
     does: "Play word games at a table for the language you're learning, then switch and help others with yours.",
