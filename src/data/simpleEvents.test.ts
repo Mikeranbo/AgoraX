@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SEED_EVENTS } from './seedEvents';
 import { SIMPLE_EVENTS, isOnPageA } from './simpleEvents';
-import { earningsFor } from './earnings';
+import { earningsFor, keepPerHost } from './earnings';
 import type { Event } from '../types';
 
 describe('page A plain answers', () => {
@@ -41,6 +41,27 @@ describe('page A plain answers', () => {
   });
 });
 
+/** Mike, 25 Nov 2026: what the host keeps on our posters. Don't change without asking Mike. */
+const POSTER_KEEP: Record<string, number> = {
+  'ping-pong-tournament': 33,
+  'padel-tournament': 59,
+  'karaoke-night': 42,
+  'cooking-challenge': 36,
+  'music-jam-night': 31,
+  'mock-exam-session': 30,
+  'beginner-salsa-social': 74,
+};
+
+describe('the seven poster events', () => {
+  it('keep exactly what our posters print for the host', () => {
+    for (const [slug, keep] of Object.entries(POSTER_KEEP)) {
+      const e = SEED_EVENTS.find((x) => x.slug === slug)!;
+      expect(keepPerHost(e as unknown as Event), slug).toBe(keep);
+      expect(e.price, slug).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('prices (Mike, 23 Nov 2026)', () => {
   const byId = (slug: string) => SEED_EVENTS.find((e) => e.slug === slug)!;
 
@@ -59,8 +80,8 @@ describe('prices (Mike, 23 Nov 2026)', () => {
     }
   });
 
-  it('nothing costs more than its real costs per person plus €3', () => {
-    for (const e of SEED_EVENTS) {
+  it('nothing costs more than its real costs per person plus €3 (except the poster events)', () => {
+    for (const e of SEED_EVENTS.filter((x) => !(x.slug in POSTER_KEEP))) {
       const costs = e.fixedCost / e.minParticipants + e.perPersonCost;
       expect(e.price - costs, e.slug).toBeLessThanOrEqual(3);
       if (costs === 0) expect(e.price, e.slug).toBeLessThanOrEqual(3);
@@ -100,9 +121,9 @@ describe('the tournaments', () => {
     }
   });
 
-  it('only pay for the organisation: ACLO provides the padel and tennis courts', () => {
+  it('ping-pong and padel keep their poster numbers; tennis plays on ACLO courts', () => {
     expect(t('ping-pong-tournament')).toMatchObject({ price: 3, minParticipants: 12, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0 });
-    expect(t('padel-tournament')).toMatchObject({ price: 3, minParticipants: 16, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0, venueNote: 'ACLO padel courts' });
+    expect(t('padel-tournament')).toMatchObject({ price: 12, minParticipants: 16, hostsNeeded: 1, fixedCost: 120, perPersonCost: 0, venueNote: 'Two padel courts for 2.5 hours' });
     expect(t('tennis-tournament')).toMatchObject({ price: 3, minParticipants: 16, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0, venueNote: 'ACLO tennis courts' });
   });
 

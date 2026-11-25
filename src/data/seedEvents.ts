@@ -9,6 +9,9 @@
  * really runs it (a moderator, prepared puzzles, a tournament, a workshop, a mock exam, our management
  * game); real costs per person plus about €2 when there are materials, an instructor, a rental or a
  * campsite. Rooms mostly come free from Hanze.
+ * Seven events keep the numbers our posters print (Mike, 25 Nov 2026), so the host keeps exactly
+ * what the poster says: ping-pong €33, padel €59, karaoke €42, cooking €36, music jam €31, mock exam
+ * €30, salsa €74. Don't change them without asking Mike (simpleEvents.test.ts checks them).
  *
  * Earnings shown to a potential organiser are calculated, never stored:
  *   gross      = price * minParticipants
@@ -373,7 +376,8 @@ export const SEED_EVENTS: SeedEvent[] = [
       'Nobody comes for a perfect voice. The best moments are usually the songs the whole room knows the words to.',
       "If you don't want to sing, come and cheer. Plenty of people only pick up the mic after watching for a while.",
     ),
-    price: 0, minParticipants: 15, durationHours: 2.5, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
+    // Poster numbers: the host keeps €42. Don't change without asking Mike.
+    price: 3, minParticipants: 15, durationHours: 2.5, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Bar back room free with drinks', emoji: '🎤', accent: '#C2413B',
     steps: [
       { icon: 'songs', title: 'Choose a song', text: 'Pick from the list and add your name.' },
@@ -402,8 +406,8 @@ export const SEED_EVENTS: SeedEvent[] = [
   },
 
   // ---------------------------------------------------------------- Sports
-  // You train at ACLO; with us you play fun tournaments. ACLO provides the padel and tennis courts,
-  // so the price only pays for the organisation.
+  // You train at ACLO; with us you play fun tournaments. Ping-pong and padel keep their poster
+  // numbers (padel books two courts); tennis plays on ACLO's courts, so its price only pays the host.
   {
     ...base,
     slug: 'ping-pong-tournament',
@@ -415,6 +419,7 @@ export const SEED_EVENTS: SeedEvent[] = [
       'The evening ends with a quick knockout between the players with the most wins. The other tables keep playing for fun.',
       "If you train at ACLO, you get to play people outside your usual group. If you only play once a year, you'll still find someone at your level.",
     ),
+    // Poster numbers: the host keeps €33. Don't change without asking Mike.
     price: 3, minParticipants: 12, durationHours: 2, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
     venueNote: 'Uni tables free · bats and balls', emoji: '🏓', accent: '#2E7FD6',
     steps: [
@@ -430,12 +435,13 @@ export const SEED_EVENTS: SeedEvent[] = [
     category: 'Sports',
     description: text(
       'Train at ACLO, play for fun with us: a padel tournament where you play with everyone.',
-      "We play on ACLO's courts for two and a half hours. Matches are short doubles, and partners change after every match, so by the end you've played with most of the group.",
+      "We book two courts for two and a half hours. Matches are short doubles, and partners change after every match, so by the end you've played with most of the group.",
       'Rackets can be shared, so you can come without one. Bring sports shoes. Beginners are welcome, since padel is quick to pick up.',
       'The pairs with the most wins play a friendly final while the others watch and cheer.',
     ),
-    price: 3, minParticipants: 16, durationHours: 2.5, hostsNeeded: 1, fixedCost: 0, perPersonCost: 0,
-    venueNote: 'ACLO padel courts', bringYourOwn: 'Sports shoes', emoji: '🎾', accent: '#2F9E6B',
+    // Poster numbers: the host keeps €59. Don't change without asking Mike.
+    price: 12, minParticipants: 16, durationHours: 2.5, hostsNeeded: 1, fixedCost: 120, perPersonCost: 0,
+    venueNote: 'Two padel courts for 2.5 hours', bringYourOwn: 'Sports shoes', emoji: '🎾', accent: '#2F9E6B',
     steps: [
       { icon: 'users', title: 'Get a partner', text: 'A new partner every match, so you play with everyone.' },
       { icon: 'repeat', title: 'Rotate courts', text: 'Short doubles matches on two courts, then swap.' },
@@ -684,7 +690,8 @@ export const SEED_EVENTS: SeedEvent[] = [
       "You don't need to be in a band. Simple chords are enough to join, and the more experienced players are happy to keep things easy.",
       'It is a good way to find people to start a band with, or just to play loud for an evening.',
     ),
-    price: 4, minParticipants: 12, durationHours: 2.5, hostsNeeded: 1, fixedCost: 25, perPersonCost: 0,
+    // Poster numbers: the host keeps €31. Don't change without asking Mike.
+    price: 5, minParticipants: 12, durationHours: 2.5, hostsNeeded: 1, fixedCost: 25, perPersonCost: 0,
     venueNote: 'Uni music room free · amp hire', emoji: '🎸', accent: '#E0702F',
     steps: [
       { icon: 'guitar', title: 'Bring your instrument', text: 'The room has drums, and we hire the amps.' },
@@ -703,9 +710,10 @@ export const SEED_EVENTS: SeedEvent[] = [
       'Learn your first salsa steps with an instructor, then dance.',
       'A teacher takes the first hour through the basic step and a few simple turns. The second hour is social dancing: the music goes on, partners change, and you practise what you just learned.',
       "You don't need a partner or any experience. Everyone dances with everyone, so you'll meet most of the room.",
-      'The €6 pays the instructor and the host. Wear shoes that turn easily on the floor.',
+      'The €9 pays the instructor and the host. Wear shoes that turn easily on the floor.',
     ),
-    price: 6, minParticipants: 16, durationHours: 2, hostsNeeded: 1, fixedCost: 60, perPersonCost: 0,
+    // Poster numbers: the host keeps €74. Don't change without asking Mike.
+    price: 9, minParticipants: 16, durationHours: 2, hostsNeeded: 1, fixedCost: 60, perPersonCost: 0,
     venueNote: 'Uni room free · instructor', emoji: '💃', accent: '#D64F8B',
     steps: [
       { icon: 'walk', title: 'Learn the basics', text: 'An instructor teaches the first steps.' },
@@ -724,7 +732,8 @@ export const SEED_EVENTS: SeedEvent[] = [
       'At the end everyone tastes everything and votes. Expect at least one disaster and some surprisingly good food.',
       "You don't have to be a good cook. A team needs people who chop and taste as much as it needs a chef.",
     ),
-    price: 10, minParticipants: 12, durationHours: 3, hostsNeeded: 2, fixedCost: 0, perPersonCost: 8,
+    // Poster numbers: the host keeps €36. Don't change without asking Mike.
+    price: 15, minParticipants: 12, durationHours: 3, hostsNeeded: 2, fixedCost: 0, perPersonCost: 8,
     venueNote: 'Shared kitchen free · ingredients', emoji: '🍳', accent: '#E0A33A',
     steps: [
       { icon: 'basket', title: 'Get your basket', text: 'Every team gets the same ingredients.' },
@@ -764,7 +773,8 @@ export const SEED_EVENTS: SeedEvent[] = [
       'It shows you where you actually stand, and doing the hard parts once under time pressure makes exam day less stressful.',
       'Good for the weeks before exams. Everyone works on their own paper, so the room can mix every subject and year.',
     ),
-    price: 3, minParticipants: 15, durationHours: 3, hostsNeeded: 2, fixedCost: 10, perPersonCost: 0,
+    // Poster numbers: the host keeps €30. Don't change without asking Mike.
+    price: 5, minParticipants: 15, durationHours: 3, hostsNeeded: 2, fixedCost: 10, perPersonCost: 0,
     venueNote: 'Uni room free · printing', emoji: '📝', accent: '#2E7FD6',
     steps: [
       { icon: 'printer', title: 'Print your exam', text: 'Send us a past paper for any subject.' },

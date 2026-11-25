@@ -3,6 +3,13 @@
 Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Firebase project
 `agorax-a8d07` (Blaze, europe-west4), Vercel deploys `main` to https://agora-x.vercel.app.
 
+## Poster events locked (25 Nov 2026)
+
+Seven events keep the numbers our posters print (price, minimum, hosts and costs from commit b3f1191), so
+the host keeps exactly: Ping-Pong €33, Padel €59 (books two courts, €120), Karaoke €42 (€3, not free),
+Cooking €36, Music Jam €31, Mock Exam €30, Salsa €74. Same on both pages. Mike: never change these seven
+without asking him; `simpleEvents.test.ts` ("the seven poster events") checks the amounts.
+
 ## Free when the people make it happen (23 Nov 2026, evening)
 
 Mike: an event that depends on the people who come, not on an organiser, is free (rooms mostly come
