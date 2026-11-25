@@ -5,6 +5,9 @@ Project: `D:\proects\work\agora x\code\code 3` (github.com/Mikeranbo/AgoraX). Fi
 
 ## Poster events locked (25 Nov 2026)
 
+Live 25 Nov 2026, 12:27 UTC (13:27 Amsterdam time), together with the free events below (code 12:26,
+event data seeded 12:27); A/B numbers before this moment had the older prices.
+
 Seven events keep the numbers our posters print (price, minimum, hosts and costs from commit b3f1191), so
 the host keeps exactly: Ping-Pong €33, Padel €59 (books two courts, €120), Karaoke €42 (€3, not free),
 Cooking €36, Music Jam €31, Mock Exam €30, Salsa €74. Same on both pages. Mike: never change these seven
@@ -13,7 +16,7 @@ without asking him; `simpleEvents.test.ts` ("the seven poster events") checks th
 ## Free when the people make it happen (23 Nov 2026, evening)
 
 Mike: an event that depends on the people who come, not on an organiser, is free (rooms mostly come
-free from Hanze). Branch `free-people-events`. Now 25 of 44 free: every Networking event, plus Board
+free from Hanze). Branch `free-people-events`, live 25 Nov 12:27 UTC. Now 24 of 44 free (Karaoke went back to €3): every Networking event, plus Board
 Games, Short Film, Thrift Swap, ML Jam, Build an App (bring your own snacks) and Friendly Debate.
 Still paid: organiser-run events (Mafia €2, Brain Battle €3, tournaments €3, Improv €3, Mock Exam €3)
 and events with real costs. TOPSIM was only a label: the event is now "Management Game Competition
